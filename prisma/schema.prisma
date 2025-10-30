@@ -25,4 +25,26 @@ model File {
   recordId  String
 }
 
+model Product {
+  id        String   @id @default(cuid())
+  sku       String   @unique
+  name      String
+  brand     String?
+  group     String?
+  createdAt DateTime @default(now())
+  stocks    Stock[]
+  @@index([name])
+}
+
+model Stock {
+  id         String   @id @default(cuid())
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String
+  location   String   @default("TOTAL")
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+  @@index([productId])
+  @@unique([productId, location])
+}
+
 

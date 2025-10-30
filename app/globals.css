@@ -8,9 +8,13 @@ input,button,select,textarea { font: inherit; }
 .row { display:flex; gap:12px; flex-wrap: wrap; align-items: center; }
 .btn { background: var(--primary); color: #fff; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; }
 .btn.secondary { background: transparent; color: var(--text); border:1px solid var(--border); }
+.btn:hover { filter: brightness(1.05); }
+.btn.secondary:hover { background: rgba(255,255,255,0.04); }
 .table { width:100%; border-collapse: collapse; }
 .table th, .table td { border-bottom:1px solid var(--border); padding:10px; text-align:left; }
 .muted { color: var(--muted); }
+input::placeholder { color: #7e88ad; }
+label { display:block; font-size:12px; color: var(--muted); margin-bottom: 6px; }
 
 
 
