@@ -24,9 +24,11 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
             <tr key={r.id}>
               <td>{r.name}</td>
               <td>
+                {r.files.length === 0 && <span className="badge warn">No files</span>}
                 {r.files.map(f => (
-                  <div key={f.id} className="muted" style={{ fontSize: 12 }}>
-                    {f.filename} ({f.mimetype})
+                  <div key={f.id} className="row" style={{ gap: 6, alignItems: 'center' }}>
+                    <span className="badge info" title={f.mimetype}>{f.mimetype.includes('pdf') ? 'PDF' : 'Excel'}</span>
+                    <span className="muted" style={{ fontSize: 12 }}>{f.filename}</span>
                   </div>
                 ))}
               </td>

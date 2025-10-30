@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <header style={{ borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, backdropFilter: 'blur(6px)' }}>
           <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, paddingBottom: 12 }}>
-            <a href="/" style={{ fontWeight: 700 }}>Bhavish CRM</a>
+            <a href="/" style={{ fontWeight: 800, letterSpacing: 0.3 }}>Bhavish CRM</a>
             <nav className="row" style={{ gap: 8 }}>
               <a className="btn secondary" href="/records">Records</a>
               <a className="btn secondary" href="/products">Products</a>

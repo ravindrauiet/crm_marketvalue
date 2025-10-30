@@ -29,12 +29,12 @@ export default function UploadForm() {
   return (
     <form onSubmit={onSubmit} className="row" style={{ alignItems: 'flex-end' }}>
       <div style={{ flex: 1, minWidth: 220 }}>
-        <label>Name</label>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Record name" style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
+        <label>Record name</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. PO 1234 - March" style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
       </div>
       <div style={{ flex: 2, minWidth: 280 }}>
-        <label>Files</label>
-        <input type="file" multiple accept=".pdf,.xls,.xlsx" onChange={e => setFiles(e.target.files)} style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
+        <label>Attach files</label>
+        <input type="file" multiple accept=".pdf,.xls,.xlsx" onChange={e => setFiles(e.target.files)} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Allowed: PDF, XLS, XLSX</div>
       </div>
       <button className="btn" disabled={loading} type="submit">{loading ? 'Uploading...' : 'Upload'}</button>

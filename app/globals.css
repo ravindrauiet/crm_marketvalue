@@ -11,10 +11,21 @@ input,button,select,textarea { font: inherit; }
 .btn:hover { filter: brightness(1.05); }
 .btn.secondary:hover { background: rgba(255,255,255,0.04); }
 .table { width:100%; border-collapse: collapse; }
-.table th, .table td { border-bottom:1px solid var(--border); padding:10px; text-align:left; }
+.table th, .table td { border-bottom:1px solid var(--border); padding:12px; text-align:left; }
+.table tbody tr:hover { background: rgba(255,255,255,0.03); }
 .muted { color: var(--muted); }
 input::placeholder { color: #7e88ad; }
 label { display:block; font-size:12px; color: var(--muted); margin-bottom: 6px; }
+
+/* Badges and chips */
+.badge { display:inline-block; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid var(--border); background: rgba(255,255,255,0.04); }
+.badge.success { border-color: rgba(66, 212, 151, 0.35); color:#8fe9c2; }
+.badge.info { border-color: rgba(91, 140, 255, 0.35); color:#9fbafc; }
+.badge.warn { border-color: rgba(255, 190, 70, 0.35); color:#ffd48a; }
+
+/* Headings spacing */
+h1,h2,h3,h4 { letter-spacing: 0.2px; }
+
 
 
 

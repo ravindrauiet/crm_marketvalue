@@ -15,10 +15,10 @@ export default function ProductTable({ products }: { products: ProductListItem[]
       <tbody>
         {products.map(p => (
           <tr key={p.id}>
-            <td className="muted">{p.sku}</td>
+            <td><span className="badge">{p.sku}</span></td>
             <td>{p.name}</td>
-            <td>{p.brand || '-'}</td>
-            <td>{p.group || '-'}</td>
+            <td>{p.brand || <span className="muted">-</span>}</td>
+            <td>{p.group || <span className="muted">-</span>}</td>
             <td style={{ textAlign: 'right' }}>{p.quantity}</td>
           </tr>
         ))}
