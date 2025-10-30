@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Record {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  files     File[]
+}
+
+model File {
+  id        String   @id @default(cuid())
+  filename  String
+  mimetype  String
+  sizeBytes Int
+  path      String
+  createdAt DateTime @default(now())
+  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  recordId  String
+}
+
+
