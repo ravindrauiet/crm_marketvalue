@@ -11,44 +11,56 @@ export default async function ProductsPage({ searchParams }: { searchParams: { q
   const stats = await getStockStatistics();
 
   return (
-    <div className="container">
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 12 }}>
+    <div className="container fade-in">
+      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 24, alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <h2 style={{ margin: 0 }}>Products</h2>
-        <div className="row" style={{ gap: 8 }}>
-          <form style={{ display: 'flex', gap: 8 }}>
-            <input name="q" defaultValue={q} placeholder="Search SKU, name, brand, group" style={{ width: 280, padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
-            <select name="status" defaultValue={statusFilter || ''} style={{ padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}>
-              <option value="">All Status</option>
-              <option value="IN_STOCK">In Stock</option>
-              <option value="LOW_STOCK">Low Stock</option>
-              <option value="OUT_OF_STOCK">Out of Stock</option>
-            </select>
-            <button type="submit" className="btn secondary">Filter</button>
-          </form>
+        <form style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <input 
+            name="q" 
+            defaultValue={q} 
+            placeholder="Search SKU, name, brand, group..." 
+            style={{ width: 300, minWidth: 200 }}
+          />
+          <select 
+            name="status" 
+            defaultValue={statusFilter || ''}
+            style={{ minWidth: 150 }}
+          >
+            <option value="">All Status</option>
+            <option value="IN_STOCK">In Stock</option>
+            <option value="LOW_STOCK">Low Stock</option>
+            <option value="OUT_OF_STOCK">Out of Stock</option>
+          </select>
+          <button type="submit" className="btn secondary">Filter</button>
+        </form>
+      </div>
+
+      <div className="row" style={{ gap: 16, marginBottom: 24 }}>
+        <div className="card" style={{ flex: 1, minWidth: 200, padding: 20 }}>
+          <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Products</div>
+          <div style={{ fontSize: 32, fontWeight: 700 }}>{stats.total}</div>
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: 200, padding: 20 }}>
+          <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>In Stock</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--success)' }}>{stats.inStock}</div>
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: 200, padding: 20 }}>
+          <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Low Stock</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--warning)' }}>{stats.lowStock}</div>
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: 200, padding: 20 }}>
+          <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Out of Stock</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--warning)' }}>{stats.outOfStock}</div>
         </div>
       </div>
 
-      <div className="row" style={{ gap: 12, marginBottom: 16 }}>
-        <div className="card" style={{ flex: 1 }}>
-          <div className="muted">Total Products</div>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>{stats.total}</div>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: 24, borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ margin: 0, fontSize: '18px' }}>Product List</h3>
         </div>
-        <div className="card" style={{ flex: 1 }}>
-          <div className="muted">In Stock</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#8fe9c2' }}>{stats.inStock}</div>
+        <div style={{ overflowX: 'auto' }}>
+          <ProductTable products={products} />
         </div>
-        <div className="card" style={{ flex: 1 }}>
-          <div className="muted">Low Stock</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#ffd48a' }}>{stats.lowStock}</div>
-        </div>
-        <div className="card" style={{ flex: 1 }}>
-          <div className="muted">Out of Stock</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#ffd48a' }}>{stats.outOfStock}</div>
-        </div>
-      </div>
-
-      <div className="card">
-        <ProductTable products={products} />
       </div>
     </div>
   );

@@ -28,15 +28,54 @@ export default function StockImportForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="row" style={{ alignItems: 'flex-end' }}>
-      <div style={{ flex: 1, minWidth: 280 }}>
-        <label>Excel file</label>
-        <input type="file" accept=".xls,.xlsx" onChange={e => setFile(e.target.files?.[0] || null)} style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
-        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Columns detected automatically: SKU, Name, Brand, Group, Quantity</div>
+    <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 300 }}>
+          <label>Excel file</label>
+          <input 
+            type="file" 
+            accept=".xls,.xlsx" 
+            onChange={e => setFile(e.target.files?.[0] || null)} 
+          />
+          <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>
+            Columns detected automatically: SKU, Name, Brand, Group, Quantity
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <button className="btn" type="submit" disabled={loading || !file} style={{ minWidth: 140 }}>
+            {loading ? (
+              <>
+                <span className="spinner" style={{ marginRight: 8 }}></span>
+                Importing...
+              </>
+            ) : 'Import Stock'}
+          </button>
+        </div>
       </div>
-      <button className="btn" type="submit" disabled={loading || !file}>{loading ? 'Importing...' : 'Import Stock'}</button>
-      {result && <div className="muted">{result}</div>}
-      {error && <div className="muted" style={{ color: '#ff7a7a' }}>{error}</div>}
+      {result && (
+        <div style={{ 
+          padding: 12, 
+          borderRadius: 8, 
+          background: 'var(--success-bg)', 
+          border: '1px solid rgba(63, 185, 80, 0.3)',
+          color: 'var(--success)',
+          fontSize: 14
+        }}>
+          {result}
+        </div>
+      )}
+      {error && (
+        <div style={{ 
+          padding: 12, 
+          borderRadius: 8, 
+          background: 'var(--error-bg)', 
+          border: '1px solid rgba(248, 81, 73, 0.3)',
+          color: 'var(--error)',
+          fontSize: 14
+        }}>
+          {error}
+        </div>
+      )}
     </form>
   );
 }

@@ -27,18 +27,51 @@ export default function UploadForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="row" style={{ alignItems: 'flex-end' }}>
-      <div style={{ flex: 1, minWidth: 220 }}>
-        <label>Record name</label>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. PO 1234 - March" style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
+    <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 250 }}>
+          <label>Record name</label>
+          <input 
+            value={name} 
+            onChange={e => setName(e.target.value)} 
+            placeholder="e.g. PO 1234 - March" 
+          />
+        </div>
+        <div style={{ flex: 2, minWidth: 300 }}>
+          <label>Attach files</label>
+          <input 
+            type="file" 
+            multiple 
+            accept=".pdf,.xls,.xlsx,.doc,.docx" 
+            onChange={e => setFiles(e.target.files)} 
+          />
+          <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>
+            Allowed: PDF, XLS, XLSX, DOC, DOCX (AI will extract product data automatically)
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <button className="btn" disabled={loading} type="submit" style={{ minWidth: 120 }}>
+            {loading ? (
+              <>
+                <span className="spinner" style={{ marginRight: 8 }}></span>
+                Uploading...
+              </>
+            ) : 'Upload'}
+          </button>
+        </div>
       </div>
-      <div style={{ flex: 2, minWidth: 280 }}>
-        <label>Attach files</label>
-        <input type="file" multiple accept=".pdf,.xls,.xlsx,.doc,.docx" onChange={e => setFiles(e.target.files)} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
-        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Allowed: PDF, XLS, XLSX, DOC, DOCX (AI will extract product data automatically)</div>
-      </div>
-      <button className="btn" disabled={loading} type="submit">{loading ? 'Uploading...' : 'Upload'}</button>
-      {error && <div className="muted" style={{ color: '#ff7a7a' }}>{error}</div>}
+      {error && (
+        <div style={{ 
+          padding: 12, 
+          borderRadius: 8, 
+          background: 'var(--error-bg)', 
+          border: '1px solid rgba(248, 81, 73, 0.3)',
+          color: 'var(--error)',
+          fontSize: 14
+        }}>
+          {error}
+        </div>
+      )}
     </form>
   );
 }

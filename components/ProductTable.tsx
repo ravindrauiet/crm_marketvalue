@@ -3,9 +3,9 @@ import type { ProductListItem } from '@/lib/products';
 function getStatusBadge(status: string) {
   switch (status) {
     case 'OUT_OF_STOCK':
-      return <span className="badge warn">Out of Stock</span>;
+      return <span className="badge error">Out of Stock</span>;
     case 'LOW_STOCK':
-      return <span className="badge" style={{ borderColor: 'rgba(255, 190, 70, 0.35)', color: '#ffd48a' }}>Low Stock</span>;
+      return <span className="badge warn">Low Stock</span>;
     case 'IN_STOCK':
       return <span className="badge success">In Stock</span>;
     default:

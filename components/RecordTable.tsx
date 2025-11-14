@@ -11,13 +11,13 @@ function getExtractionStatusBadge(status?: string) {
   if (!status) return null;
   switch (status) {
     case 'COMPLETED':
-      return <span className="badge success" style={{ fontSize: 10 }}>Extracted</span>;
+      return <span className="badge success">Extracted</span>;
     case 'PROCESSING':
-      return <span className="badge info" style={{ fontSize: 10 }}>Processing</span>;
+      return <span className="badge info">Processing</span>;
     case 'FAILED':
-      return <span className="badge warn" style={{ fontSize: 10 }}>Failed</span>;
+      return <span className="badge error">Failed</span>;
     case 'PENDING':
-      return <span className="badge" style={{ fontSize: 10 }}>Pending</span>;
+      return <span className="badge">Pending</span>;
     default:
       return null;
   }
@@ -41,11 +41,11 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
             <tr key={r.id}>
               <td>{r.name}</td>
               <td>
-                {r.files.length === 0 && <span className="badge warn">No files</span>}
+                {r.files.length === 0 && <span className="badge">No files</span>}
                 {r.files.map(f => (
-                  <div key={f.id} className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                  <div key={f.id} className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 8 }}>
                     <span className="badge info" title={f.mimetype}>{f.mimetype.includes('pdf') ? 'PDF' : f.mimetype.includes('word') || f.mimetype.includes('document') ? 'DOC' : 'Excel'}</span>
-                    <span className="muted" style={{ fontSize: 12 }}>{f.filename}</span>
+                    <span className="muted" style={{ fontSize: 13 }}>{f.filename}</span>
                   </div>
                 ))}
               </td>
@@ -66,7 +66,11 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
           ))}
         </tbody>
       </table>
-      {records.length === 0 && <div className="muted">No records yet. Upload files to create one.</div>}
+      {records.length === 0 && (
+        <div style={{ padding: 48, textAlign: 'center' }}>
+          <div className="muted" style={{ fontSize: 14 }}>No records yet. Upload files to create one.</div>
+        </div>
+      )}
     </div>
   );
 }
