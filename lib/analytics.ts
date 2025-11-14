@@ -62,12 +62,7 @@ export async function getSalesAnalytics(startDate?: Date, endDate?: Date) {
 export async function getStockAnalytics() {
   const products = await prisma.product.findMany({
     include: {
-      stocks: true,
-      orderItems: {
-        include: {
-          order: true
-        }
-      }
+      stocks: true
     }
   });
 
