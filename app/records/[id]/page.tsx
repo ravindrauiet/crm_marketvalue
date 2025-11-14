@@ -22,3 +22,4 @@ export default async function RecordDetail({ params }: { params: { id: string } 
 
 
 
+
