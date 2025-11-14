@@ -34,10 +34,18 @@ model Product {
   name      String
   brand     String?
   group     String?
+  description String? @db.Text
+  price     Float?   // Selling price
+  cost      Float?    // Cost price
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   stocks    Stock[]
+  orderItems OrderItem[]
+  stockTransactions StockTransaction[]
   minStockThreshold Int @default(10) // Default minimum stock threshold
   @@index([name])
+  @@index([brand])
+  @@index([group])
 }
 
 model Stock {
@@ -50,6 +58,89 @@ model Stock {
   updatedAt  DateTime @updatedAt
   @@index([productId])
   @@unique([productId, location])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  company     String?
+  email       String?
+  phone       String?
+  address     String?  @db.Text
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String?
+  taxId       String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+  @@index([name])
+  @@index([email])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  orderNumber String   @unique
+  type        String   // "PURCHASE" | "SALE"
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerId  String?
+  status      String   @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  orderDate   DateTime @default(now())
+  deliveryDate DateTime?
+  totalAmount Float    @default(0)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       OrderItem[]
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId   String
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  createdAt   DateTime @default(now())
+  @@index([orderId])
+  @@index([productId])
+}
+
+model StockTransaction {
+  id          String   @id @default(cuid())
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+  type        String   // "IN" | "OUT" | "ADJUSTMENT"
+  quantity    Int
+  previousQty Int
+  newQty      Int
+  reason      String?  // "PURCHASE", "SALE", "RETURN", "ADJUSTMENT", etc.
+  reference   String?  // Order ID or other reference
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String   // "LOW_STOCK", "ORDER", "SYSTEM"
+  title       String
+  message     String   @db.Text
+  read        Boolean  @default(false)
+  link        String?  // URL to related page
+  createdAt   DateTime @default(now())
+  @@index([read])
+  @@index([createdAt])
 }
 
 

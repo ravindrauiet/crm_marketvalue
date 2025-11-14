@@ -37,6 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="row" style={{ gap: 12 }}>
               <a className="btn secondary" href="/records">Records</a>
               <a className="btn secondary" href="/products">Products</a>
+              <a className="btn secondary" href="/customers">Customers</a>
+              <a className="btn secondary" href="/orders">Orders</a>
+              <a className="btn secondary" href="/analytics">Analytics</a>
               <a className="btn" href="/products/import">Import Stock</a>
             </nav>
           </div>
