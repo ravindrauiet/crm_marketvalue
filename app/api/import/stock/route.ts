@@ -49,13 +49,21 @@ export async function POST(req: NextRequest) {
     if (existing) {
       await prisma.stock.update({ where: { id: existing.id }, data: { quantity } });
     } else {
-      await prisma.stock.create({ data: { productId: product.id, location: 'TOTAL', quantity } });
+      await prisma.stock.create({ 
+        data: { 
+          productId: product.id, 
+          location: 'TOTAL', 
+          quantity,
+          minStock: product.minStockThreshold || 0
+        } 
+      });
     }
     upserted++;
   }
 
   return NextResponse.json({ ok: true, upserted });
 }
+
 
 
 

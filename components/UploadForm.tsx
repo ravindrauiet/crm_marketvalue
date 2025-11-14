@@ -34,8 +34,8 @@ export default function UploadForm() {
       </div>
       <div style={{ flex: 2, minWidth: 280 }}>
         <label>Attach files</label>
-        <input type="file" multiple accept=".pdf,.xls,.xlsx" onChange={e => setFiles(e.target.files)} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
-        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Allowed: PDF, XLS, XLSX</div>
+        <input type="file" multiple accept=".pdf,.xls,.xlsx,.doc,.docx" onChange={e => setFiles(e.target.files)} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
+        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Allowed: PDF, XLS, XLSX, DOC, DOCX (AI will extract product data automatically)</div>
       </div>
       <button className="btn" disabled={loading} type="submit">{loading ? 'Uploading...' : 'Upload'}</button>
       {error && <div className="muted" style={{ color: '#ff7a7a' }}>{error}</div>}

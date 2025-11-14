@@ -9,7 +9,12 @@ export async function listRecords() {
     id: r.id,
     name: r.name,
     createdAt: r.createdAt.toISOString(),
-    files: r.files.map(f => ({ id: f.id, filename: f.filename, mimetype: f.mimetype }))
+    files: r.files.map(f => ({ 
+      id: f.id, 
+      filename: f.filename, 
+      mimetype: f.mimetype,
+      extractionStatus: f.extractionStatus
+    }))
   }));
 }
 
@@ -20,9 +25,17 @@ export async function getRecord(id: string) {
     id: r.id,
     name: r.name,
     createdAt: r.createdAt.toISOString(),
-    files: r.files.map(f => ({ id: f.id, filename: f.filename, mimetype: f.mimetype }))
+    files: r.files.map(f => ({ 
+      id: f.id, 
+      filename: f.filename, 
+      mimetype: f.mimetype,
+      extractionStatus: f.extractionStatus,
+      extractedData: f.extractedData,
+      extractionError: f.extractionError
+    }))
   };
 }
+
 
 
 

@@ -15,14 +15,17 @@ model Record {
 }
 
 model File {
-  id        String   @id @default(cuid())
-  filename  String
-  mimetype  String
-  sizeBytes Int
-  path      String
-  createdAt DateTime @default(now())
-  record    Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
-  recordId  String
+  id              String   @id @default(cuid())
+  filename        String
+  mimetype        String
+  sizeBytes       Int
+  path            String
+  createdAt       DateTime @default(now())
+  record          Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  recordId        String
+  extractionStatus String  @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  extractedData   String?  @db.Text // JSON string of extracted data
+  extractionError String?  @db.Text
 }
 
 model Product {
@@ -33,6 +36,7 @@ model Product {
   group     String?
   createdAt DateTime @default(now())
   stocks    Stock[]
+  minStockThreshold Int @default(10) // Default minimum stock threshold
   @@index([name])
 }
 
@@ -42,6 +46,7 @@ model Stock {
   productId  String
   location   String   @default("TOTAL")
   quantity   Int      @default(0)
+  minStock   Int      @default(0) // Minimum stock threshold
   updatedAt  DateTime @updatedAt
   @@index([productId])
   @@unique([productId, location])

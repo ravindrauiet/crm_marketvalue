@@ -33,6 +33,10 @@ export default async function HomePage() {
               <div className="muted">Total Stock</div>
               <div style={{ fontSize: 28, fontWeight: 700 }}>{stats.totalStock}</div>
             </div>
+            <div className="card" style={{ minWidth: 160 }}>
+              <div className="muted">Out of Stock</div>
+              <div style={{ fontSize: 28, fontWeight: 700, color: '#ffd48a' }}>{stats.outOfStock || 0}</div>
+            </div>
           </div>
         </div>
       </div>

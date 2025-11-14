@@ -1,5 +1,18 @@
 import type { ProductListItem } from '@/lib/products';
 
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'OUT_OF_STOCK':
+      return <span className="badge warn">Out of Stock</span>;
+    case 'LOW_STOCK':
+      return <span className="badge" style={{ borderColor: 'rgba(255, 190, 70, 0.35)', color: '#ffd48a' }}>Low Stock</span>;
+    case 'IN_STOCK':
+      return <span className="badge success">In Stock</span>;
+    default:
+      return <span className="badge">{status}</span>;
+  }
+}
+
 export default function ProductTable({ products }: { products: ProductListItem[] }) {
   return (
     <table className="table">
@@ -10,6 +23,8 @@ export default function ProductTable({ products }: { products: ProductListItem[]
           <th>Brand</th>
           <th>Group</th>
           <th style={{ textAlign: 'right' }}>Quantity</th>
+          <th style={{ textAlign: 'right' }}>Min Stock</th>
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
@@ -19,7 +34,11 @@ export default function ProductTable({ products }: { products: ProductListItem[]
             <td>{p.name}</td>
             <td>{p.brand || <span className="muted">-</span>}</td>
             <td>{p.group || <span className="muted">-</span>}</td>
-            <td style={{ textAlign: 'right' }}>{p.quantity}</td>
+            <td style={{ textAlign: 'right', fontWeight: p.quantity <= p.minStock ? 600 : 400 }}>
+              {p.quantity}
+            </td>
+            <td style={{ textAlign: 'right' }}>{p.minStock}</td>
+            <td>{getStatusBadge(p.status)}</td>
           </tr>
         ))}
       </tbody>
