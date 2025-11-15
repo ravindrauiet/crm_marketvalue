@@ -47,6 +47,7 @@ export default function CustomersPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 300, minWidth: 200 }}
           />
+          <a href="/api/export/customers" className="btn secondary" download>Export Excel</a>
           <Link className="btn" href="/customers/new">Add Customer</Link>
         </div>
       </div>

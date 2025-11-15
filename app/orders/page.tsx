@@ -77,6 +77,7 @@ export default function OrdersPage() {
             <option value="DELIVERED">Delivered</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
+          <a href="/api/export/orders" className="btn secondary" download>Export Excel</a>
           <Link className="btn" href="/orders/new">New Order</Link>
         </div>
       </div>

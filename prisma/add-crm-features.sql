@@ -118,3 +118,4 @@ CREATE TABLE IF NOT EXISTS `Notification` (
 -- Verify the changes
 SELECT 'Database schema updated successfully!' AS Status;
 
+

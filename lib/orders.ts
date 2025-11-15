@@ -168,3 +168,4 @@ export async function generateOrderNumber(type: 'PURCHASE' | 'SALE'): Promise<st
   return `${prefix}-${year}-${String(nextNum).padStart(5, '0')}`;
 }
 
+
