@@ -35,8 +35,16 @@ export async function POST(req: NextRequest) {
   // Process files with AI in the background (don't wait for completion)
   // This allows the API to return quickly while processing happens async
   if (process.env.OPENAI_API_KEY) {
+    // Get processing options from form data (optional)
+    // Default: Create new products if they don't exist, and ADD to stock
+    const matchExistingOnly = form.get('matchExistingOnly') === 'true'; // Default: false
+    const addToStock = form.get('addToStock') !== 'false'; // Default: true
+    
     fileIds.forEach(fileId => {
-      processFileWithAI(fileId).catch(err => {
+      processFileWithAI(fileId, {
+        matchExistingOnly,
+        addToStock
+      }).catch(err => {
         console.error(`Error processing file ${fileId}:`, err);
       });
     });
