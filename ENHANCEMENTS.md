@@ -252,3 +252,5 @@ Every stock movement is recorded in `StockTransaction`:
 **Author**: BhavishCRM Development Team
 
 
+
+
