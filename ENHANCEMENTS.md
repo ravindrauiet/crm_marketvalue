@@ -254,3 +254,4 @@ Every stock movement is recorded in `StockTransaction`:
 
 
 
+
