@@ -1,6 +1,7 @@
 import { listProducts } from '@/lib/products';
 import ProductTable from '@/components/ProductTable';
 import { getStockStatistics } from '@/lib/stockStatus';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,11 +13,21 @@ export default async function ProductsPage({ searchParams }: { searchParams: { q
 
   return (
     <div className="container fade-in">
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ marginBottom: 8 }}>Product Inventory</h1>
-        <p className="muted" style={{ fontSize: 16, maxWidth: 600 }}>
-          Track stock levels, manage detailed product information, and view inventory distribution.
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1 style={{ marginBottom: 8 }}>Product Inventory</h1>
+          <p className="muted" style={{ fontSize: 16, maxWidth: 600 }}>
+            Track stock levels, manage detailed product information, and view inventory distribution.
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Link href="/products/import" className="btn secondary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>📄</span> Import
+          </Link>
+          <Link href="/products/new" className="btn primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>+</span> Add Product
+          </Link>
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, marginBottom: 32 }}>

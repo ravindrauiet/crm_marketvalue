@@ -8,7 +8,7 @@ export async function listOrders(filters?: {
   endDate?: Date;
 }) {
   const where: any = {};
-  
+
   if (filters?.type) where.type = filters.type;
   if (filters?.status) where.status = filters.status;
   if (filters?.customerId) where.customerId = filters.customerId;
@@ -64,7 +64,24 @@ export async function createOrder(data: {
   }[];
 }) {
   const totalAmount = data.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  
+
+  // VALIDATION: Check stock availability for SALES before proceeding
+  if (data.type === 'SALE') {
+    for (const item of data.items) {
+      const product = await prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { stocks: true }
+      });
+
+      if (!product) throw new Error(`Product not found: ${item.productId}`);
+
+      const currentStock = product.stocks.find(s => s.location === 'TOTAL')?.quantity || 0;
+      if (currentStock < item.quantity) {
+        throw new Error(`Insufficient stock for product "${product.name}". Available: ${currentStock}, Requested: ${item.quantity}`);
+      }
+    }
+  }
+
   const order = await prisma.order.create({
     data: {
       orderNumber: data.orderNumber,
@@ -101,7 +118,7 @@ export async function createOrder(data: {
     });
 
     if (product) {
-      const stock = product.stocks.find(s => s.location === 'TOTAL') || 
+      const stock = product.stocks.find(s => s.location === 'TOTAL') ||
         await prisma.stock.create({
           data: {
             productId: item.productId,
@@ -147,7 +164,7 @@ export async function updateOrderStatus(id: string, status: string) {
 export async function generateOrderNumber(type: 'PURCHASE' | 'SALE'): Promise<string> {
   const prefix = type === 'PURCHASE' ? 'PO' : 'SO';
   const year = new Date().getFullYear();
-  
+
   const lastOrder = await prisma.order.findFirst({
     where: {
       orderNumber: {

@@ -1,16 +1,16 @@
 import { prisma } from './prisma';
 
 export async function listCustomers(query?: string) {
-  const where = query
-    ? {
-        OR: [
-          { name: { contains: query } },
-          { company: { contains: query } },
-          { email: { contains: query } },
-          { phone: { contains: query } }
-        ]
-      }
-    : {};
+  const where: any = {};
+
+  if (query) {
+    where.OR = [
+      { name: { contains: query, mode: 'insensitive' } },
+      { company: { contains: query, mode: 'insensitive' } },
+      { email: { contains: query, mode: 'insensitive' } },
+      { phone: { contains: query } }
+    ];
+  }
 
   return await prisma.customer.findMany({
     where,

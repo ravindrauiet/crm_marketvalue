@@ -63,6 +63,7 @@ model Stock {
 model Customer {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
+  type      String   @default("CUSTOMER") @map("type") // CUSTOMER, VENDOR
   company   String?
   email     String?
   phone     String?

@@ -47,7 +47,7 @@ export default function NewCustomerPage() {
       <div className="card">
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="row" style={{ gap: 16 }}>
-            <div style={{ flex: 1, minWidth: 250 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
               <label>Name *</label>
               <input
                 required
@@ -55,7 +55,18 @@ export default function NewCustomerPage() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            <div style={{ flex: 1, minWidth: 250 }}>
+            <div style={{ width: 200 }}>
+              <label>Type</label>
+              <select
+                value={(formData as any).type || 'CUSTOMER'}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value } as any)}
+                style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }}
+              >
+                <option value="CUSTOMER">Customer (Generic)</option>
+                <option value="VENDOR">Vendor (Supplier)</option>
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
               <label>Company</label>
               <input
                 value={formData.company}
