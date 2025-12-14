@@ -110,122 +110,69 @@ EXTRACTION INSTRUCTIONS:
     amazon: `${baseInstructions}
 
 AMAZON-SPECIFIC INSTRUCTIONS (Excel Format):
-The document is an Excel sheet with the following specific columns. Map them EXACTLY as follows:
-
-1. SKU / Product Code:
-   - SOURCE COLUMN: "ASIN" (Column D)
-   - Extract the value from the 'ASIN' column.
-   - Example values: B08G5QLVJ4, B08G5NGZVY
-
-2. Product Name:
-   - SOURCE COLUMN: "Title" (Column E)
-   - Extract the full text from the 'Title' column.
-   - Example: "Mother's Recipe Rice Papad Jeera Pouch, 75 Gram"
-
-3. Quantity:
-   - SOURCE COLUMN: "Quantity Outstanding" (Column G)
-   - Extract the numeric value.
-
-4. Price / Cost:
-   - SOURCE COLUMN: "Unit Cost" (Column H)
-   - Extract the numeric value.
-   - Ignore "INR" or currency symbols.
-   - Example: If cell is "18.57 INR", extract 18.57.
-
-5. Description / Other:
-   - Include the "PO" number (Column A) in the description or metadata if possible.
-   - Brand Key: "Mother's Recipe" (often starts the Title)
-
-CRITICAL:
-- Row 1 is the header row. Start extracting from Row 2.
-- Ignore rows where 'Quantity Outstanding' is 0 or empty.
-- Proceed row by row ensuring data alignment.`,
+The text provided is a JSON extraction of an Excel file.
+1. ROW STRUCTURE: Look for arrays where index 3 (Column D) is an alphanumeric code valid as ASIN (e.g., B08G5QLVJ4).
+2. COLUMNS TO EXTRACT:
+   - SKU/ASIN: Index 3 (Column D)
+   - Name: Index 4 (Column E) - Extract full title.
+   - Quantity: Index 6 (Column G) - This is "Quantity Outstanding". Only extract if > 0.
+   - Cost: Index 7 (Column H) - "Unit Cost".
+3. IGNORE: Rows where "Quantity Outstanding" is 0 or missing.
+4. BRAND: Usually the first 1-2 words of the Name (e.g., "Mother's Recipe").`,
 
     blinkit: `${baseInstructions}
 
-BLINKIT-SPECIFIC INSTRUCTIONS:
-- Extract product codes and variants
-- Pay attention to weight/size variations in product names
-- Check for multiple quantity columns
-(More specific instructions will be added based on Blinkit document format)`,
+BLINKIT-SPECIFIC INSTRUCTIONS (PDF Format):
+The text often has messy vertical formatting.
+1. ITEM CODE PATTERN: Look for lines starting with a 6-8 digit number (e.g., "1101128") or where that number appears just before a product name.
+2. UPC/EAN: Often a separate 13-digit number starting with '890' (e.g., "8901440013099") appearing near the item code.
+3. NAME PATTERN: Product names often contain the Brand ("Eastern", "Mothers") followed by product type and weight (e.g., "Chicken Masala(Pouch) (100 g)").
+4. QUANTITY: Look for integer values associated with the item row, usually towards the end of the line.
+5. EXTRACTION STRATEGY:
+   - Identify the Item Code (e.g. 1101128).
+   - Identify the Product Name immediately following it or interjected by UPC.
+   - Find the Quantity.
+   - Combine into a record.`,
 
     dmart: `${baseInstructions}
 
-DMART-SPECIFIC INSTRUCTIONS (Purchase Order Format):
-- Document Type: Purchase Order (PO)
-- Look for the table with headers: Sno, EAN No, Article Description, UOM, Qty, Free, etc.
-
-1. SKU / Product Code:
-   - HEADER: "EAN No"
-   - Extract the 13-digit EAN code.
-   - Example: 8906001058151
-
-2. Product Name:
-   - HEADER: "Article Description"
-   - Extract the full name.
-   - CLEANUP: Remove [HSN Code: ...] from the end if present.
-   - Example: "MOTHERS PUNJABI MASALA PAPAD(180G)"
-
-3. Quantity:
-   - HEADER: "Qty"
-   - Extract the numeric quantity.
-   - Example: 88
-
-4. Price / Cost:
-   - HEADER: "L.Price" (Landed Price)
-   - Use "L.Price" as the unit cost.
-   - Example: 39.15
-
-5. Other Info:
-   - Extract "PO #" from the document header (e.g., 4545204014) to use in metadata/description.
-   - Ignore "Free" quantity column unless instructed otherwise (use "Qty" column).`,
+DMART-SPECIFIC INSTRUCTIONS (PDF Format):
+This document is usually a clean table.
+1. RECORD MARKER: Lines starting with a small integer or "EAN No" are the best indicators.
+2. KEY IDENTIFIER (EAN): Look for a 13-digit number starting with '890' (e.g., "8906001051602"). Use this as the SKU.
+3. NAME PATTERN: Text immediately following the EAN (e.g., "MOTHERS PATATO PAPAD-70G").
+4. CLEANUP: Remove "[HSN Code: ...]" from the Name if it's attached.
+5. QUANTITY: Look for the large integer following "EA" or "CS" (e.g., "EA 4800"). This is the most critical extraction.
+6. COST: "L.Price" value usually appears near the end of the line (e.g. "15.30").`,
 
     zepto: `${baseInstructions}
 
-ZEPTO-SPECIFIC INSTRUCTIONS:
-- Extract product IDs and variant information
-- Look for pack size in product name
-- Check delivery quantity columns
-(More specific instructions will be added based on Zepto document format)`,
+ZEPTO-SPECIFIC INSTRUCTIONS (PDF Format):
+The text often runs together (e.g., "1101446Eastern").
+1. SPLITTING REQUIRED: If you see a numeric code immediately followed by text (e.g., "1101446Eastern"), SPLIT IT.
+   - SKU/Material Code: "1101446"
+   - Name: "Eastern Chilli Powder..."
+2. IDENTIFIERS:
+   - Material Code (7 digits) is the primary internal SKU.
+   - EAN (13 digits, starting 890) might be present later in the text block.
+3. QUANTITY: Look for the quantity number. It might be mentioned as "1 pack" in description, but look for the tabular quantity column value (e.g., "160" or "40.00").
+4. EXTRACTION: Prioritize separating the leading ID from the Name.`,
 
     swiggy: `${baseInstructions}
 
-SWIGGY-SPECIFIC INSTRUCTIONS (Purchase Order Format):
-- Document Type: Purchase Order (PO)
-- Look for the table with headers: S.No, Item Code, Item Desc, HSN Code, Qty, MRP, Unit Base Cost, etc.
-
-1. SKU / Product Code:
-   - HEADER: "Item Code"
-   - Extract the code.
-   - Example: 210071
-
-2. Product Name:
-   - HEADER: "Item Desc"
-   - Extract the full description text.
-   - Note: It may contain multiple lines (Name, Colour, Size, Brand). Extract key product name or full description.
-   - Example: "Mother's Recipe Lemon Ginger Squash 750.0 ml"
-
-3. Quantity:
-   - HEADER: "Qty"
-   - Extract the numeric quantity.
-   - Example: 12
-
-4. Price / Cost:
-   - HEADER: "Unit Base Cost (INR)" or "Unit Base Cost"
-   - Extract the numeric value.
-   - Example: 122.373
-
-5. Other Info:
-   - Extract "PO No :" from the document header (e.g., ETPPO03011).
-   - "MRP" column is available if needed, but prefer "Unit Base Cost" for inventory value.`,
+SWIGGY-SPECIFIC INSTRUCTIONS (PDF Format):
+1. ITEM CODE: 5-7 digit number (e.g., "11531" or "217762") usually at the start of a logical row.
+2. NAME PATTERN: Follows the code. (e.g. "Mtr Upma Breakfast Mix 160.0 g").
+3. QUANTITY: Integer value appearing after the name and HSN.
+4. COST: "Unit Base Cost" (e.g. "41.18") usually appears after MRP.
+5. SPECIAL CASE: "Colour: Size: size" - Ignore this generic metadata.`,
 
     eastern: `${baseInstructions}
-
 EASTERN-SPECIFIC INSTRUCTIONS:
-- Extract Eastern product codes
-- Pay attention to product variants and packaging
-- Look for batch or lot information if present
-(More specific instructions will be added based on Eastern document format)`,
+1. Look for Eastern's specific product codes (often 4-6 digits).
+2. Product names usually start with "Eastern".
+3. Extract batch numbers if clearly labeled.
+4. Standard table extraction rules apply: Code -> Name -> Quantity.`,
 
     default: baseInstructions
   };

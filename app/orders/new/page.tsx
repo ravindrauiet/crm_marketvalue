@@ -7,7 +7,7 @@ type Product = {
   sku: string;
   name: string;
   price?: number;
-  stocks: Array<{ quantity: number }>;
+  stocks: Array<{ location: string; quantity: number }>;
 };
 
 type Customer = {
@@ -155,7 +155,7 @@ export default function NewOrderPage() {
         <div className="row" style={{ gap: 24, alignItems: 'flex-start' }}>
           <div className="card" style={{ flex: 2 }}>
             <h3 style={{ marginTop: 0, marginBottom: 16 }}>Order Details</h3>
-            
+
             <div style={{ marginBottom: 16 }}>
               <label>Order Type *</label>
               <select

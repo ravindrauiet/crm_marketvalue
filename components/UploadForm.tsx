@@ -1,10 +1,10 @@
 "use client";
 import { useState } from 'react';
 
-export default function UploadForm() {
+export default function UploadForm({ preselectedVendor }: { preselectedVendor?: string }) {
   const [files, setFiles] = useState<FileList | null>(null);
   const [name, setName] = useState("");
-  const [vendor, setVendor] = useState("default");
+  const [vendor, setVendor] = useState(preselectedVendor || "default");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,25 +39,27 @@ export default function UploadForm() {
             placeholder="e.g. PO 1234 - March"
           />
         </div>
-        <div style={{ flex: 1, minWidth: 200 }}>
-          <label>Document Source</label>
-          <select
-            value={vendor}
-            onChange={e => setVendor(e.target.value)}
-            style={{ width: '100%' }}
-          >
-            <option value="default">Default / Auto-detect</option>
-            <option value="amazon">Amazon</option>
-            <option value="blinkit">Blinkit</option>
-            <option value="dmart">DMart</option>
-            <option value="zepto">Zepto</option>
-            <option value="swiggy">Swiggy</option>
-            <option value="eastern">Eastern</option>
-          </select>
-          <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>
-            Select vendor for better extraction accuracy
+        {!preselectedVendor && (
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label>Document Source</label>
+            <select
+              value={vendor}
+              onChange={e => setVendor(e.target.value)}
+              style={{ width: '100%' }}
+            >
+              <option value="default">Default / Auto-detect</option>
+              <option value="amazon">Amazon</option>
+              <option value="blinkit">Blinkit</option>
+              <option value="dmart">DMart</option>
+              <option value="zepto">Zepto</option>
+              <option value="swiggy">Swiggy</option>
+              <option value="eastern">Eastern</option>
+            </select>
+            <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>
+              Select vendor for better extraction accuracy
+            </div>
           </div>
-        </div>
+        )}
         <div style={{ flex: 2, minWidth: 300 }}>
           <label>Attach files</label>
           <input
