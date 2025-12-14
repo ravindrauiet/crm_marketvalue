@@ -13,9 +13,9 @@ export default async function HomePage() {
       }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 24 }}>
           <div style={{ maxWidth: 600, flex: 1 }}>
-            <h1 style={{ marginTop: 0, marginBottom: 12, fontSize: '36px' }}>Welcome to Bhavish CRM</h1>
+            <h1 style={{ marginTop: 0, marginBottom: 12, fontSize: '36px' }}>Welcome to CRM Marketplace</h1>
             <p className="muted" style={{ marginTop: 0, marginBottom: 24, fontSize: '16px', lineHeight: '1.6' }}>
-              Manage records, import products and track stock quickly from one place. 
+              Manage records, import products and track stock quickly from one place.
               AI-powered document extraction makes data entry effortless.
             </p>
             <div className="row" style={{ gap: 12, marginTop: 24 }}>
@@ -25,8 +25,8 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="row" style={{ gap: 16, flexWrap: 'wrap' }}>
-            <div className="card" style={{ 
-              minWidth: 140, 
+            <div className="card" style={{
+              minWidth: 140,
               padding: 20,
               background: 'var(--bg)',
               border: '1px solid var(--border)'
@@ -34,8 +34,8 @@ export default async function HomePage() {
               <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Records</div>
               <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>{stats.records}</div>
             </div>
-            <div className="card" style={{ 
-              minWidth: 140, 
+            <div className="card" style={{
+              minWidth: 140,
               padding: 20,
               background: 'var(--bg)',
               border: '1px solid var(--border)'
@@ -43,8 +43,8 @@ export default async function HomePage() {
               <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Products</div>
               <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>{stats.products}</div>
             </div>
-            <div className="card" style={{ 
-              minWidth: 140, 
+            <div className="card" style={{
+              minWidth: 140,
               padding: 20,
               background: 'var(--bg)',
               border: '1px solid var(--border)'
@@ -52,8 +52,8 @@ export default async function HomePage() {
               <div className="muted" style={{ fontSize: '12px', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Stock</div>
               <div style={{ fontSize: 32, fontWeight: 700, color: 'var(--text)' }}>{stats.totalStock}</div>
             </div>
-            <div className="card" style={{ 
-              minWidth: 140, 
+            <div className="card" style={{
+              minWidth: 140,
               padding: 20,
               background: 'var(--bg)',
               border: '1px solid var(--border)'

@@ -19,8 +19,35 @@ export type ExtractedProduct = {
   [key: string]: any; // Allow additional fields
 };
 
+// Type for comprehensive document information
+export type RawDocumentInfo = {
+  documentType?: string;           // Invoice, Purchase Order, Stock Report, etc.
+  documentNumber?: string;         // PO number, Invoice number, etc.
+  documentDate?: string;           // Date on the document
+  vendorName?: string;             // Vendor/Supplier name
+  vendorAddress?: string;          // Vendor address
+  vendorContact?: string;          // Phone, email, etc.
+  vendorGST?: string;              // GST/Tax ID
+  buyerName?: string;              // Buyer/Customer name
+  buyerAddress?: string;           // Buyer address
+  buyerContact?: string;           // Buyer phone, email
+  buyerGST?: string;               // Buyer GST/Tax ID
+  shippingAddress?: string;        // Delivery address
+  paymentTerms?: string;           // Payment terms
+  deliveryDate?: string;           // Expected delivery date
+  subtotal?: number;               // Subtotal amount
+  taxAmount?: number;              // Tax amount
+  totalAmount?: number;            // Total amount
+  currency?: string;               // Currency (INR, USD, etc.)
+  notes?: string;                  // Any additional notes
+  terms?: string;                  // Terms and conditions
+  allVisibleText?: string;         // Summary of all other visible text
+  additionalFields?: Record<string, any>; // Any other fields found
+};
+
 export type ExtractionResult = {
-  products: ExtractedProduct[];
+  rawDocumentInfo: RawDocumentInfo; // ALL information visible in the document
+  products: ExtractedProduct[];      // Structured product/order line items
   metadata?: {
     documentType?: string;
     totalItems?: number;
@@ -214,31 +241,71 @@ export async function extractProductsWithAI(
     // Get vendor-specific instructions
     const vendorPromptInstructions = getVendorSpecificPrompt(vendor);
 
-    // Create AI prompt for extraction
-    const prompt = `You are an expert data extraction assistant. Extract product information from the following ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
+    // Create AI prompt for extraction - TWO PARTS: Document Info + Products
+    const prompt = `You are an expert data extraction assistant. Extract ALL information from this ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
 
 ${vendorPromptInstructions}
 
-Extract all products with the following information:
-- SKU/Product Code (REQUIRED) - Extract EXACTLY as written, this is the most important field
+## PART 1: DOCUMENT INFORMATION
+Extract ALL visible information from the document header, footer, and body:
+- Document type (Invoice, Purchase Order, Stock Report, Delivery Note, etc.)
+- Document number (PO number, Invoice number, Reference number, etc.)
+- Document date
+- Vendor/Supplier details (name, address, phone, email, GST/Tax ID)
+- Buyer/Customer details (name, address, phone, email, GST/Tax ID)
+- Shipping address (if different)
+- Payment terms
+- Delivery/Due date
+- Subtotal, Tax, Total amounts
+- Currency
+- Any notes, terms, or additional information visible
+
+## PART 2: PRODUCT/ORDER LINE ITEMS
+Extract all products/items with:
+- SKU/Product Code (REQUIRED) - Extract EXACTLY as written
 - Product Name (REQUIRED) - Extract EXACTLY as written
 - Brand (if available)
 - Group/Category (if available)
-- Quantity/Stock (REQUIRED if available) - Extract the exact number
-- Price (if available)
+- Quantity/Stock (REQUIRED if available)
+- Unit Price (if available)
+- Total Price (if available)
 - Description (if available)
-- Any other relevant product information
 
 Return the data as a JSON object with this structure:
 {
+  "rawDocumentInfo": {
+    "documentType": "string (Invoice/PO/Stock Report/etc.)",
+    "documentNumber": "string (exact document number)",
+    "documentDate": "string (date as shown)",
+    "vendorName": "string",
+    "vendorAddress": "string",
+    "vendorContact": "string (phone/email)",
+    "vendorGST": "string (GST/Tax ID)",
+    "buyerName": "string",
+    "buyerAddress": "string",
+    "buyerContact": "string",
+    "buyerGST": "string",
+    "shippingAddress": "string",
+    "paymentTerms": "string",
+    "deliveryDate": "string",
+    "subtotal": number,
+    "taxAmount": number,
+    "totalAmount": number,
+    "currency": "string (INR/USD/etc.)",
+    "notes": "string (any notes or remarks)",
+    "terms": "string (terms and conditions)",
+    "allVisibleText": "string (summary of any other text not captured above)",
+    "additionalFields": {} // Any other key-value pairs found
+  },
   "products": [
     {
       "sku": "string (required - exact as in document)",
       "name": "string (required - exact as in document)",
       "brand": "string (optional)",
       "group": "string (optional)",
-      "quantity": number (optional - exact number from document),
-      "price": number (optional),
+      "quantity": number (optional),
+      "price": number (optional - unit price),
+      "totalPrice": number (optional - line total),
       "description": "string (optional)"
     }
   ],

@@ -70,15 +70,22 @@ export async function processFileWithAI(
     // Extract products using AI with vendor-specific logic
     const extractionResult = await extractProductsWithAI(file.path, file.mimetype, vendor);
     result.productsExtracted = extractionResult.products.length;
-    result.metadata = extractionResult.metadata;
+    result.metadata = {
+      ...extractionResult.metadata,
+      rawDocumentInfo: extractionResult.rawDocumentInfo  // Include raw document info in result
+    };
 
 
-    // Save extracted data to file record
+    // Save extracted data to file record - BOTH rawDocumentInfo and products
     await prisma.file.update({
       where: { id: fileId },
       data: {
         extractionStatus: 'COMPLETED',
-        extractedData: JSON.stringify(extractionResult),
+        rawDocumentInfo: JSON.stringify(extractionResult.rawDocumentInfo || {}),  // All document info
+        extractedData: JSON.stringify({  // Structured product data
+          products: extractionResult.products,
+          metadata: extractionResult.metadata
+        }),
         extractionError: null
       }
     });

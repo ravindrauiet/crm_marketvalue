@@ -9,11 +9,13 @@ export async function listRecords() {
     id: r.id,
     name: r.name,
     createdAt: r.createdAt.toISOString(),
-    files: r.files.map(f => ({ 
-      id: f.id, 
-      filename: f.filename, 
+    files: r.files.map(f => ({
+      id: f.id,
+      filename: f.filename,
       mimetype: f.mimetype,
-      extractionStatus: f.extractionStatus
+      extractionStatus: f.extractionStatus,
+      rawDocumentInfo: f.rawDocumentInfo,
+      extractedData: f.extractedData
     }))
   }));
 }
@@ -25,12 +27,13 @@ export async function getRecord(id: string) {
     id: r.id,
     name: r.name,
     createdAt: r.createdAt.toISOString(),
-    files: r.files.map(f => ({ 
-      id: f.id, 
-      filename: f.filename, 
+    files: r.files.map(f => ({
+      id: f.id,
+      filename: f.filename,
       mimetype: f.mimetype,
       extractionStatus: f.extractionStatus,
-      extractedData: f.extractedData,
+      rawDocumentInfo: f.rawDocumentInfo,  // ALL document information
+      extractedData: f.extractedData,       // Structured product data
       extractionError: f.extractionError
     }))
   };

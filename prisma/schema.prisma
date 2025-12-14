@@ -24,7 +24,8 @@ model File {
   record           Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
   recordId         String   @db.ObjectId
   extractionStatus String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
-  extractedData    String?  // JSON string of extracted data (removed @db.Text as it's not supported in MongoDB)
+  rawDocumentInfo  String?  // JSON string of ALL information visible in the document
+  extractedData    String?  // JSON string of structured product/order data
   extractionError  String?
 }
 
