@@ -8,6 +8,7 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const name = String(form.get('name') || 'Untitled');
+  const vendor = String(form.get('vendor') || 'default');
   const files = form.getAll('files');
   if (!files || files.length === 0) return NextResponse.json({ error: 'No files' }, { status: 400 });
 
@@ -39,24 +40,26 @@ export async function POST(req: NextRequest) {
     // Default: Create new products if they don't exist, and ADD to stock
     const matchExistingOnly = form.get('matchExistingOnly') === 'true'; // Default: false
     const addToStock = form.get('addToStock') !== 'false'; // Default: true
-    
+
     fileIds.forEach(fileId => {
       processFileWithAI(fileId, {
         matchExistingOnly,
-        addToStock
+        addToStock,
+        vendor
       }).catch(err => {
         console.error(`Error processing file ${fileId}:`, err);
       });
     });
   }
 
-  return NextResponse.json({ 
-    ok: true, 
+  return NextResponse.json({
+    ok: true,
     id: record.id,
     filesProcessed: fileIds.length,
     aiProcessing: !!process.env.OPENAI_API_KEY
   });
 }
+
 
 
 

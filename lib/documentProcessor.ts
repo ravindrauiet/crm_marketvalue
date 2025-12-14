@@ -12,7 +12,13 @@ export type ProcessingOptions = {
    * If false, replace stock quantity with extracted value
    */
   addToStock?: boolean;
+  /**
+   * Vendor/source of the document for specialized extraction
+   * Options: 'default', 'amazon', 'blinkit', 'dmart', 'zepto', 'swiggy', 'eastern'
+   */
+  vendor?: string;
 };
+
 
 export type ProcessingResult = {
   success: boolean;
@@ -36,7 +42,7 @@ export async function processFileWithAI(
   options: ProcessingOptions = {}
 ): Promise<ProcessingResult> {
   // Default: Create new products if they don't exist, and ADD to stock (not replace)
-  const { matchExistingOnly = false, addToStock = true } = options;
+  const { matchExistingOnly = false, addToStock = true, vendor = 'default' } = options;
 
   const file = await prisma.file.findUnique({ where: { id: fileId } });
   if (!file) {
@@ -61,10 +67,11 @@ export async function processFileWithAI(
   };
 
   try {
-    // Extract products using AI
-    const extractionResult = await extractProductsWithAI(file.path, file.mimetype);
+    // Extract products using AI with vendor-specific logic
+    const extractionResult = await extractProductsWithAI(file.path, file.mimetype, vendor);
     result.productsExtracted = extractionResult.products.length;
     result.metadata = extractionResult.metadata;
+
 
     // Save extracted data to file record
     await prisma.file.update({
@@ -91,11 +98,11 @@ export async function processFileWithAI(
 
     console.log('\n=== Aggregating Products ===');
     console.log(`Total products from AI: ${extractionResult.products.length}`);
-    
+
     for (const productData of extractionResult.products) {
       const sku = String(productData.sku || '').trim();
       const name = String(productData.name || '').trim();
-      
+
       // Skip products with invalid SKU or name
       if (!sku || !name) {
         const errorMsg = `Skipping product: Invalid SKU or name (SKU: "${sku}", Name: "${name}")`;
@@ -107,7 +114,7 @@ export async function processFileWithAI(
       // Use SKU + Name as unique key (same SKU with different name = different product)
       const key = `${sku}::${name}`;
       const quantity = productData.quantity ? Number(productData.quantity) : 0;
-      
+
       if (productMap.has(key)) {
         // Product already seen - aggregate quantities
         const existing = productMap.get(key)!;
@@ -135,7 +142,7 @@ export async function processFileWithAI(
 
     const aggregatedProducts = Array.from(productMap.values());
     const duplicateCount = extractionResult.products.length - aggregatedProducts.length;
-    
+
     console.log(`After aggregation: ${aggregatedProducts.length} unique products`);
     if (duplicateCount > 0) {
       console.log(`Aggregated ${duplicateCount} duplicate occurrences`);
@@ -161,7 +168,7 @@ export async function processFileWithAI(
         const existingProduct = await prisma.product.findUnique({
           where: { sku: sku }
         });
-        
+
         if (existingProduct) {
           // Log if name differs but SKU matches
           const nameDiffers = existingProduct.name.toLowerCase().trim() !== name.toLowerCase().trim();
@@ -246,7 +253,7 @@ export async function processFileWithAI(
                       group: productData.group ? String(productData.group).trim() : existingProduct.group,
                     }
                   });
-                  
+
                   // Add stock
                   if (productData.quantity !== undefined && productData.quantity !== null && productData.quantity > 0) {
                     const existingStock = await prisma.stock.findFirst({
@@ -254,7 +261,7 @@ export async function processFileWithAI(
                     });
                     const previousQty = existingStock?.quantity || 0;
                     const newQty = previousQty + Number(productData.quantity);
-                    
+
                     if (existingStock) {
                       await prisma.stock.update({
                         where: { id: existingStock.id },
@@ -270,7 +277,7 @@ export async function processFileWithAI(
                         }
                       });
                     }
-                    
+
                     await prisma.stockTransaction.create({
                       data: {
                         productId: existingProduct.id,
@@ -283,10 +290,10 @@ export async function processFileWithAI(
                         notes: `Stock added from file: ${file.filename}`
                       }
                     });
-                    
+
                     result.stockUpdated++;
                   }
-                  
+
                   result.productsUpdated++;
                   result.productsMatched++;
                 }
@@ -299,10 +306,10 @@ export async function processFileWithAI(
           // Product exists (matched by SKU) - update it
           // Note: We keep existing product name unless extracted name is significantly different
           // This prevents overwriting correct names with variations from PDF
-          const shouldUpdateName = name && 
+          const shouldUpdateName = name &&
             name.toLowerCase().trim() !== existingProduct.name.toLowerCase().trim() &&
             name.length > 3; // Only update if name is meaningful
-          
+
           const updatedProduct = await prisma.product.update({
             where: { id: existingProduct.id },
             data: {
@@ -453,7 +460,7 @@ export async function getFileExtractionStatus(fileId: string) {
 
   let extractedProducts = null;
   let processingSummary = null;
-  
+
   if (file.extractedData) {
     try {
       const data = JSON.parse(file.extractedData);
