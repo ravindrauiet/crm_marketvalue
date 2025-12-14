@@ -123,16 +123,25 @@ The text provided is a JSON extraction of an Excel file.
     blinkit: `${baseInstructions}
 
 BLINKIT-SPECIFIC INSTRUCTIONS (PDF Format):
-The text often has messy vertical formatting.
-1. ITEM CODE PATTERN: Look for lines starting with a 6-8 digit number (e.g., "1101128") or where that number appears just before a product name.
-2. UPC/EAN: Often a separate 13-digit number starting with '890' (e.g., "8901440013099") appearing near the item code.
-3. NAME PATTERN: Product names often contain the Brand ("Eastern", "Mothers") followed by product type and weight (e.g., "Chicken Masala(Pouch) (100 g)").
-4. QUANTITY: Look for integer values associated with the item row, usually towards the end of the line.
+The text often has messy vertical formatting where the Row Number (S.No) gets stuck to the Item Code.
+1. SKU/ITEM CODE CLEANUP (CRITICAL):
+   - You might see "1100028", "2101970", "10101119".
+   - This pattern is [Row Number] + [Item Code].
+   - Row 1: "1100028" -> Split "1" and "100028". SKU is "100028".
+   - Row 2: "2101970" -> Split "2" and "101970". SKU is "101970".
+   - Row 10: "10101119" -> Split "10" and "101119". SKU is "101119".
+   - ALWAYS remove the leading integer if it matches the sequential row count. The separate SKU is usually 6-7 digits.
+2. QUANTITY (CRITICAL):
+   - Do NOT assume quantity is "24" for all items.
+   - Look for the specific integer column usually labelled "O/S Qty", "PO Qty", or appearing after the Product Description.
+   - Ensure each row has its own unique quantity.
+3. NAME PATTERN: "Brand + Product + Weight" (e.g., "Mother's Recipe Appalam Papad (100 g)").
+4. UPC/EAN: Extract '890...' numbers if present as secondary identifiers.
 5. EXTRACTION STRATEGY:
-   - Identify the Item Code (e.g. 1101128).
-   - Identify the Product Name immediately following it or interjected by UPC.
-   - Find the Quantity.
-   - Combine into a record.`,
+   - Identify the Row Start (1, 2, 3...).
+   - Extract the SKU immediately following it.
+   - Extract the Name.
+   - Extract the specific Quantity for THAT row.`,
 
     dmart: `${baseInstructions}
 

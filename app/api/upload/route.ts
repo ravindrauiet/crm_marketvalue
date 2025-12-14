@@ -33,30 +33,37 @@ export async function POST(req: NextRequest) {
     fileIds.push(file.id);
   }
 
-  // Process files with AI in the background (don't wait for completion)
-  // This allows the API to return quickly while processing happens async
+  // Process files with AI synchronously
+  const processingResults = [];
   if (process.env.OPENAI_API_KEY) {
-    // Get processing options from form data (optional)
-    // Default: Create new products if they don't exist, and ADD to stock
-    const matchExistingOnly = form.get('matchExistingOnly') === 'true'; // Default: false
-    const addToStock = form.get('addToStock') !== 'false'; // Default: true
+    const matchExistingOnly = form.get('matchExistingOnly') === 'true';
+    const addToStock = form.get('addToStock') !== 'false';
 
-    fileIds.forEach(fileId => {
-      processFileWithAI(fileId, {
-        matchExistingOnly,
-        addToStock,
-        vendor
-      }).catch(err => {
-        console.error(`Error processing file ${fileId}:`, err);
-      });
-    });
+    try {
+      for (const fileId of fileIds) {
+        console.log(`Processing file ${fileId} with AI...`);
+        const result = await processFileWithAI(fileId, {
+          matchExistingOnly,
+          addToStock,
+          vendor
+        });
+        processingResults.push(result);
+      }
+    } catch (error: any) {
+      console.error('AI Processing Error:', error);
+      return NextResponse.json(
+        { error: `AI Processing Failed: ${error.message}` },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({
     ok: true,
     id: record.id,
     filesProcessed: fileIds.length,
-    aiProcessing: !!process.env.OPENAI_API_KEY
+    aiProcessing: !!process.env.OPENAI_API_KEY,
+    results: processingResults
   });
 }
 

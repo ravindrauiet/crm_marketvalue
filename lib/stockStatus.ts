@@ -32,13 +32,13 @@ export function getStockStatus(quantity: number, minStock: number): StockStatus 
 export async function listProductsWithStockStatus(query?: string, statusFilter?: StockStatus) {
   const where = query
     ? {
-        OR: [
-          { sku: { contains: query, mode: 'insensitive' } },
-          { name: { contains: query, mode: 'insensitive' } },
-          { brand: { contains: query, mode: 'insensitive' } },
-          { group: { contains: query, mode: 'insensitive' } }
-        ]
-      }
+      OR: [
+        { sku: { contains: query } },
+        { name: { contains: query } },
+        { brand: { contains: query } },
+        { group: { contains: query } }
+      ]
+    }
     : {};
 
   const products = await prisma.product.findMany({
@@ -87,7 +87,7 @@ export async function getStockStatistics() {
   products.forEach(p => {
     const totalQuantity = p.stocks.reduce((sum, s) => sum + s.quantity, 0);
     const status = getStockStatus(totalQuantity, p.minStockThreshold);
-    
+
     if (status === 'OUT_OF_STOCK') outOfStock++;
     else if (status === 'LOW_STOCK') lowStock++;
     else inStock++;
