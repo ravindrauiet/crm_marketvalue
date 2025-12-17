@@ -8,6 +8,7 @@ export default function ImportProductsPage() {
     { id: 'dmart', name: 'DMart', color: '#26A541' },
     { id: 'zepto', name: 'Zepto', color: '#5B18AC' },
     { id: 'swiggy', name: 'Swiggy', color: '#FC8019' },
+    { id: 'bigbasket', name: 'BigBasket', color: '#689F38' },
     { id: 'eastern', name: 'Eastern', color: '#E41E26' },
   ];
 

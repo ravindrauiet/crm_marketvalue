@@ -1,495 +1,246 @@
 Starting analysis of sample documents...
 
 --------------------------------------------------
-ANALYZING: Amazon (Amazon po's 29.08.2025.xlsx)
+ANALYZING: BigBasket (27601427_big basket2.xlsx)
 --------------------------------------------------
 --- EXTRACTED EXCEL DATA (First 10 rows) ---
 [
   [
-    "PO",
-    "Vendor",
-    "Ship to location",
-    "ASIN",
-    "Title",
-    "Window end",
-    "Quantity Outstanding",
-    "Unit Cost",
-    "",
-    "Total cost",
-    ""
+    "Kundli-DC"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5QLVJ4",
-    "Mother's Recipe Rice Papad Jeera Pouch,75 Gram",
-    "13/9/2025",
-    32,
-    18.57,
-    "INR",
-    594.24,
-    "INR"
+    "Innovative Retail Concepts Private Limited ,   Khasra No  Kumaspur  88 1 ,  village Kumaspur"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5NGZVY",
-    "Mother's Recipe Udad Papad 5\" Pouch, 180 Grams",
-    "13/9/2025",
-    88,
-    58.5,
-    "INR",
-    5148,
-    "INR"
+    "Tehsil and District Sonipat."
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5NG761",
-    "Mother's Recipe Green Chilli Pickle Bottle,400 G",
-    "13/9/2025",
-    24,
-    97.5,
-    "INR",
-    2340,
-    "INR"
+    "Haryana-131021"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08FRF3NQR",
-    "Mother's Recipe Tamarind Date Chutney Pouch,200 G",
-    "13/9/2025",
-    60,
-    45.27,
-    "INR",
-    2716.2,
-    "INR"
+    "Warehouse Address",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delivery Address"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08DV37GZT",
-    "Mother's Recipe Delhi Chaat Chutney Pouch,200 G",
-    "13/9/2025",
-    60,
-    45.27,
-    "INR",
-    2716.2,
-    "INR"
+    "Delhi-DC",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delhi-DC"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07H3V7LR3",
-    "Mother's Recipe Mixed Pickle (MP/EI) Pouch, 200 g",
-    "13/9/2025",
-    54,
-    41.79,
-    "INR",
-    2256.66,
-    "INR"
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07DCKVH2M",
-    "Mothers Recipe Rice Papad Ajwain Pouch, 75 g",
-    "13/9/2025",
-    32,
-    18.57,
-    "INR",
-    594.24,
-    "INR"
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07CR39GYV",
-    "Mother's Recipe Mixed Pickle (MP/EI) Jar, 1000 g",
-    "13/9/2025",
-    36,
-    188.04,
-    "INR",
-    6769.44,
-    "INR"
+    "Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Haryana-131021"
   ],
   [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B075319JY4",
-    "Mother's RECIPE Potato Chip Papad Pouch, 70 Gm - Potato",
-    "13/9/2025",
-    32,
-    25.26,
-    "INR",
-    808.32,
-    "INR"
+    "GSTIN NO: 06AACCI2053A1ZB",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "GSTIN NO:GST: 06AACCI2053A1ZB"
   ]
 ]
 
 --- END EXCEL SAMPLE ---
 
 --------------------------------------------------
-ANALYZING: Zepto (P2057888_eastern_zepto.pdf)
+ANALYZING: BigBasket (27612449_big basket2.xlsx)
 --------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
+--- EXTRACTED EXCEL DATA (First 10 rows) ---
+[
+  [
+    "Kundli-DC"
+  ],
+  [
+    "Innovative Retail Concepts Private Limited ,   Khasra No  Kumaspur  88 1 ,  village Kumaspur"
+  ],
+  [
+    "Tehsil and District Sonipat."
+  ],
+  [
+    "Haryana-131021"
+  ],
+  [
+    "Warehouse Address",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delivery Address"
+  ],
+  [
+    "Delhi-DC",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delhi-DC"
+  ],
+  [
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,"
+  ],
+  [
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021"
+  ],
+  [
+    "Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Haryana-131021"
+  ],
+  [
+    "GSTIN NO: 06AACCI2053A1ZB",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "GSTIN NO:GST: 06AACCI2053A1ZB"
+  ]
+]
 
-
-Purchase Order
-Vendor DetailsPO Details
-Name:GLOMIN OVERSEAS-DELHI
-Address:KHASRA NO.-184,BUDHPUR,BUAPUR
-Name:GLOMIN OVERSEAS-DELHI
-Postal Code:110036
-GSTIN:07AARFG6393F1ZX
-PAN:NotAvailable
-PO No:P2057888
-PO Date:2025-09-22
-PO Release Date:
-Payment Terms:
-Expected Delivery Date:2025-09-27
-PO Expiry Date:2025-10-13
-Billing AddressShipping Address
-Address:
-Zepto Private Limited (Formerly known as Kiranakart Technologies Private Limited)
-JJR-DRY-MH-LUHARI (JJR001M)
-Mahindra Logistics Ltd., Block B Logos, Luhari Logistics Estate, Village Luhari, Tehsil and District - Jhajjar
-Haryana 124108
-GSTIN:06AAICK4821A1ZZ
-PAN:AAICK4821A
-Address:
-Zepto Private Limited (Formerly known as Kiranakart Technologies Private Limited)
-JJR-DRY-MH-LUHARI (JJR001M)
-Mahindra Logistics Ltd., Block B Logos, Luhari Logistics Estate, Village Luhari, Tehsil and District - Jhajjar
-Haryana 124108
-GSTIN:06AAICK4821A1ZZ
-PAN:AAICK4821A
-Sr.Material CodeItem DescriptionSKU CodeHSN CodeEAN NoQuantityMRP
-Unit Base
-Cost
-Taxable
-Value INR
-CGSTSGSTIGSTCESS
-Additional
-Cess
-Total(INR)
-RateAMTRateAMTRateAMTRateAMT
-1101446Eastern Chilli Powder - 1 pack (100 g)
-1987446e-56f4-46cd-
-a223-c1a955190ba2
-09042211890144002304360040.0026.6716000.000.00%0.000.00%0.005.00%800.000.00%0.000.0016800.00
-2183852Eastern Asafoetida Powder - 1 pc (50 g)
-20b52c12-5b64-4c64-
-ad89-f81fdbf0c54c
-13019013890144020785660080.0053.3332000.000.00%0.000.00%0.005.00%1600.000.00%0.000.0033600.00
-3101470Eastern Turmeric Powder - 1 pack (100 g)
-3939ad63-2
-
---- END TEXT SAMPLE ---
-
---------------------------------------------------
-ANALYZING: Blinkit (5381310034306_20250923_070704_eastern_blinkit.pdf)
---------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
-
-
-Purchase Order
-HANDS ON TRADES PRIVATE LIMITED
-PAN :AADCH7038R
-CIN : U51909DL2015FTC285808
-HOT Farukhnagar F2 - Feeder
-Contact Name: Deepak, Karmveer
-Phone No : 8571816588, 8503937504
-Vendor:SPAR TRADING COMPANY
-PAN:DHXPM3579K
-Registered
-Address
-:H.NO-32 NAHARPUR VILLAGE ROHINI SECTOR-
-7 DELHI-110085 Delhi 110085
-Contact
-Details
-:Mr Pashupati Jha
-91-8527104727
-glominoffice@gmail.com;mayank.dbl01@gmail.
-com;north.kam@dblfood.com
-P.O. Number:5381310034306
-Date:Sept. 23, 2025, 12:36 p.m.
-PO Type:PO
-Vendor No.:21092
-Currency:INR
-Shipping Spoc Details
-Delivered
-By
-:SPAR TRADING COMPANY
-Address:H.NO-32, NAHARPUR VILLAGE, ROHINI SECTOR-
-7, North West Delhi, Delhi, 110085 Delhi
-110085
-SPOC
-Name
-:Mr Pashupati Jha
-SPOC
-Phone
-:8527104727
-SPOC
-Email
-:glominoffice@gmail.com;amar.dbldl@gmail.co
-m
-Payment Terms:21 DAYS
-PO expiry date:Sept. 30, 2025, 11:59 p.m.
-PO delivery date:Sept. 24, 2025, 11:59 p.m.
-GST No.:07DHXPM3579K1ZA
-Delivered
-To
-:HANDS ON TRADES PRIVATE LIMITED 
-New Farrukhnagar, Khasra Nos. 123//16/2 and
-17/1/2 and Khasra Nos. 124//1/1, 1/2, 1/3, 2,
-9/1, 9/2, 10, 11/1, 11/2, 12, 19, 20/1 and 20/2
-totalling 68 Kanal and 16 Marla area located in
-Mubarakpur, Farukhnagar, Gurugram, Haryana
-122506
-GST No.:06AADCH7038R1Z1
-Reference:
-#Item
-Code
-HSN
-Code
-Produc
-t UPC
-Product
-Descripti
-on
-Basic
-Cost
-Price
-IGS
-T %
-CES
-S %
-A
-D
-D
-T
-.
-C
-E
-S
-S
-Tax
-Amt
-Land
-ing
-Rate
-Qty.MRPMarg
-in %
-Total
-Amt
-1101128
-81
-0910
-9100
-890144
-001309
-9
-Eastern
-Chicken
-Masala(Pou
-ch) (100 g)
-42.005.000.000
-.
-0
-0
-2.1
-
---- END TEXT SAMPLE ---
+--- END EXCEL SAMPLE ---
 
 --------------------------------------------------
-ANALYZING: Swiggy (SOTY-1N60000475-ETPPO03012_mothers_swiggy.pdf)
+ANALYZING: BigBasket (27612449_eastern_big basket.xlsx)
 --------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
+--- EXTRACTED EXCEL DATA (First 10 rows) ---
+[
+  [
+    "Kundli-DC"
+  ],
+  [
+    "Innovative Retail Concepts Private Limited ,   Khasra No  Kumaspur  88 1 ,  village Kumaspur"
+  ],
+  [
+    "Tehsil and District Sonipat."
+  ],
+  [
+    "Haryana-131021"
+  ],
+  [
+    "Warehouse Address",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delivery Address"
+  ],
+  [
+    "Delhi-DC",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Delhi-DC"
+  ],
+  [
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Innovative Retail Concepts Private Limited ,    Khasra No  Kumaspur  88 1 ,"
+  ],
+  [
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "village Kumaspur ,Tehsil and  District- Sonipat,Haryana-131021"
+  ],
+  [
+    "Haryana-131021",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "Haryana-131021"
+  ],
+  [
+    "GSTIN NO: 06AACCI2053A1ZB",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    "GSTIN NO:GST: 06AACCI2053A1ZB"
+  ]
+]
 
-
-Purchase Order 
- Vendor Name : 
-PO No :
-ETPPO03012
-PO Date :
-Sep 16, 2025
-PO Release Date :
-Sep 16, 2025
-Payment Terms :
-0 Days
-Expected Delivery Date:
-Sep 26, 2025
-PO Expiry Date: 
-Sep 28, 2025
-Reference PO Code:
- 
-GLOMIN OVERSEAS-GURAGON
-H.NO-33
-Delhi, Delhi
-India-110085
-GSTIN :07AARFG6393F1ZX
-PAN :AARFG6393F
-Contact :8527104727
-Billing AddressShipping Address
-SCOOTSY LOGISTICS PRIVATE LIMITED
-K No -135, 136, 138, 139, 141, 209, 210, 211, 212, 223 and 224 Village Chithara
-Tehsil Dadri, Distt, Gautambudh Nagar, UP
-Gautambudh Nagar, Uttar Pradesh - 203207, India
-manish.raj@scootsy.com
-Contact : 9728675004
-GSTIN :09AAVCS1691R2Z2
-SCOOTSY LOGISTICS PRIVATE LIMITED
-K No -135, 136, 138, 139, 141, 209, 210, 211, 212, 223 and 224 Village Chithara
-Tehsil Dadri, Distt, Gautambudh Nagar, UP
-Gautambudh Nagar, Uttar Pradesh - 203207, India
-manish.raj@scootsy.com
-Contact : 9728675004
-GSTIN :09AAVCS1691R2Z2
-S.
-No
-Item 
-Code
-Item Desc
-HSN 
-Code
-Qty
-MRP
-Unit 
-Base 
-Cost 
-(INR)
-Taxable 
-Value 
-(INR)
-CGSTSGST/UGSTIGST
-CESS
-Additional 
-CESS
-Total (INR)
-RateAmt 
-(INR)
-RateAmt 
-(INR)
-RateAmt 
-(INR)
-RateAmt 
-(INR)
-11531
-Mtr Upma 
-Breakf
-ast Mix 160.0 
-g
-Colour: 
-Size: size
-Brand:Top 
-800-1200
-21069099120
-60.00
-41.1864942.370.000.000.000.0018.00889.63
-0.000.000.00
-5832.00
-217762
-Mtr Masala 
-Rava
- Idli 500.0 g
-Colour: 
-Size: size
-Brand:Top 
-800-1200
-2106909930
-150.00
-102.9663088.980.000.000.000.0018.00556.02
-0.000.000.00
-3645.00
-31829
-Mtr 
-Vermicelli 
-Payasam 
-Mix 180
-.0 g
-Colour: 
-Size: size
-Bran
-
---- END TEXT SAMPLE ---
-
---------------------------------------------------
-ANALYZING: DMart (MOTHERS po_dmart.pdf)
---------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
-
-
-Ship ToAvenue Supermarts Ltd.
-Tughlakabad Metro Stn, N Delhi
-New Delhi 110044
-Phone
-Fax
-Tughlakabad MRTS Station
-Emailgrn.1104@dmartindia.com
-Buyer100
-Vendor FSSAI No13318005000092
-Validity17.02.2024 To 07.03.2029
-CIN
-GSTIN
-:L51900MH2000PLC126473
-:07AACCA8432H1ZS
-Vendor
-Phone
-Email
-Attn
-GSTIN07AARFG6393F1ZX
-GLOMIN OVERSEAS
-NAHARPUR VILLAGE
-DELHI 110085
-8527104727 FAX :0000000000
-GLOMINOVERSEAS@GMAIL.COM
-PURCHASE ORDER
-PO #
-PO Date
-Delivery Dt
-4545471067
-15.09.2025
-15.09.2025
-SnoEAN NoArticle DescriptionUOM  Qty   FreeB.Price Sp.Dis
-%
-Sch.Val   SGST/
-UTGST
-%
-CGST/
-IGST
-%
-Cess L.Price   MRPT.Value
-1  8906001051602 MOTHERS PATATO PAPAD-70G
-[HSN Code:19059030]
-EA   480025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  7,342.08 
-2  8906001051619 MOTHERS SABUDANA PAPAD-70GM
-[HSN Code:19059030]
-EA   480025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  7,342.08 
-3  8906001058151 MOTHERS PUNJABI MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   88066.12   0.0026.97    0.00   0.00  0.00   39.15   87.00  3,445.20 
-4  8906001054306 MOTHERS CHANA MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   100066.30   0.0028.05    0.00   0.00  0.00   38.25   85.00  3,825.00 
-Total114821954.36
-Amount in wordsRUPEES  TWENTY ONE THOUSAND NINE HUNDRED FIFTY FOUR &  THIRTY SIX PAISE ONLY
-Terms and Conditions:
-By supplying goods/services under this Purchase Order (PO), the vendor acknowledges and agrees as below -
-a) GST rates mentioned in PO/Contract are indicative only. Vendor/Contractor need to ensu
-
---- END TEXT SAMPLE ---
+--- END EXCEL SAMPLE ---
 
 Analysis Complete.

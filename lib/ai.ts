@@ -171,6 +171,27 @@ The text often has messy vertical formatting where the Row Number (S.No) gets st
    - Extract the Name.
    - Extract the specific Quantity for THAT row.`,
 
+    bigbasket: `${baseInstructions}
+
+    BIGBASKET-SPECIFIC INSTRUCTIONS (Excel Format):
+    1. HEADER INFO: The document starts with address blocks (Warehouse Address, Delivery Address). Extract these for "rawDocumentInfo".
+    2. KEY FIELDS:
+       - Warehouse Address -> Shipping Address
+       - Delivery Address -> Billing Address / Buyer
+       - GSTIN -> Vendor/Buyer GST
+    3. PRODUCT TABLE:
+       - Look for the main data table starting after row ~8-10.
+       - EAN / UPC / Article Code: This is the product SKU. Often a 13-digit EAN or internal code.
+       - Item Description / Product Name: Product Name.
+       - PO Qty / Quantity: The ordered quantity.
+       - MRP / Rate: Price information.
+       - HSN Code: Tax classification code (extract if available).
+    4. EXTRACTION STRATEGY:
+       - Skip the top header blocks for product extraction.
+       - Identify the main header row containing "Item", "Description", "Qty", "Amount".
+       - Extract every row below that header as a product.
+       - "rawDocumentInfo.vendorName" is likely "Innovative Retail Concepts Private Limited" or similar.`,
+
     dmart: `${baseInstructions}
 
 DMART-SPECIFIC INSTRUCTIONS (PDF Format):

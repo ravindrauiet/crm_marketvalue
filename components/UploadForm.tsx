@@ -77,6 +77,7 @@ export default function UploadForm({ preselectedVendor }: { preselectedVendor?: 
               <option value="dmart">DMart</option>
               <option value="zepto">Zepto</option>
               <option value="swiggy">Swiggy</option>
+              <option value="bigbasket">BigBasket</option>
               <option value="eastern">Eastern</option>
             </select>
             <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>

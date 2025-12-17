@@ -6,14 +6,12 @@ const XLSX = require('xlsx');
 
 // Configuration: Samples to analyze
 const SAMPLES = [
-    { vendor: 'Amazon', file: 'Amazon po\'s 29.08.2025.xlsx' },
-    { vendor: 'Zepto', file: 'P2057888_eastern_zepto.pdf' },
-    { vendor: 'Blinkit', file: '5381310034306_20250923_070704_eastern_blinkit.pdf' },
-    { vendor: 'Swiggy', file: 'SOTY-1N60000475-ETPPO03012_mothers_swiggy.pdf' },
-    { vendor: 'DMart', file: 'MOTHERS po_dmart.pdf' }
+    { vendor: 'BigBasket', file: '27601427_big basket2.xlsx' },
+    { vendor: 'BigBasket', file: '27612449_big basket2.xlsx' },
+    { vendor: 'BigBasket', file: '27612449_eastern_big basket.xlsx' }
 ];
 
-const BASE_DIR = path.join(__dirname, '../../for PO automation');
+const BASE_DIR = path.join(__dirname, '../../PO automation');
 const OUTPUT_FILE = path.join(__dirname, 'analysis_output.txt');
 
 function log(msg) {
