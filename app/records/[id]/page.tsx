@@ -161,6 +161,12 @@ export default async function RecordDetail({ params }: { params: { id: string } 
                     {rawDocInfo.terms && (
                       <div style={{ gridColumn: '1 / -1' }}><strong>Terms:</strong> {rawDocInfo.terms}</div>
                     )}
+                    {rawDocInfo.lineItemsSummary && (
+                      <div style={{ gridColumn: '1 / -1', whiteSpace: 'pre-wrap', background: 'var(--panel)', padding: 12, borderRadius: 8 }}>
+                        <strong>Product Line Items (Text Summary):</strong>
+                        <div style={{ marginTop: 4 }}>{rawDocInfo.lineItemsSummary}</div>
+                      </div>
+                    )}
                     {rawDocInfo.allVisibleText && (
                       <div style={{ gridColumn: '1 / -1' }}><strong>Other Text:</strong> {rawDocInfo.allVisibleText}</div>
                     )}

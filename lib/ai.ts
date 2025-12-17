@@ -41,6 +41,7 @@ export type RawDocumentInfo = {
   currency?: string;               // Currency (INR, USD, etc.)
   notes?: string;                  // Any additional notes
   terms?: string;                  // Terms and conditions
+  lineItemsSummary?: string;       // Summary of product line items
   allVisibleText?: string;         // Summary of all other visible text
   additionalFields?: Record<string, any>; // Any other fields found
 };
@@ -246,8 +247,10 @@ export async function extractProductsWithAI(
 
 ${vendorPromptInstructions}
 
-## PART 1: DOCUMENT INFORMATION
-Extract ALL visible information from the document header, footer, and body:
+## PART 1: DOCUMENT INFORMATION (FULL CONTENT)
+CRITICAL: This section must contain EVERY piece of information visible in the document. Do not skip anything. Even though you extract products in Part 2, you MUST also include them here in summary or text form so this section is a standalone complete record.
+
+Extract:
 - Document type (Invoice, Purchase Order, Stock Report, Delivery Note, etc.)
 - Document number (PO number, Invoice number, Reference number, etc.)
 - Document date
@@ -258,7 +261,9 @@ Extract ALL visible information from the document header, footer, and body:
 - Delivery/Due date
 - Subtotal, Tax, Total amounts
 - Currency
-- Any notes, terms, or additional information visible
+- Any notes, terms, conditions
+- ALL product line items (include them in 'allVisibleText' or 'productSummaryText' if they don't fit specific fields)
+- Any other additional information visible
 
 ## PART 2: PRODUCT/ORDER LINE ITEMS
 Extract all products/items with:
@@ -294,6 +299,7 @@ Return the data as a JSON object with this structure:
     "currency": "string (INR/USD/etc.)",
     "notes": "string (any notes or remarks)",
     "terms": "string (terms and conditions)",
+    "lineItemsSummary": "string (textual list/summary of all products and quantities)",
     "allVisibleText": "string (summary of any other text not captured above)",
     "additionalFields": {} // Any other key-value pairs found
   },
