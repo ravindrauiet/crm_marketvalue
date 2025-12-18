@@ -318,6 +318,50 @@ PDF text often concatenates values. Key patterns:
 ## VALIDATION:
 TotalAmount ≈ Quantity × LandingCost`,
 
+    reliance: `${baseInstructions}
+
+RELIANCE RETAIL / METRO CASH AND CARRY INSTRUCTIONS (PDF Format):
+Extract ALL fields from Reliance or Metro POs.
+
+## HEADER (for rawDocumentInfo):
+- PO No: "PO NO.:" or "PURCHASE ORDER Number :" (e.g., 5110802591, 9201910324)
+- PO Date: "PO Date :" (DD.MM.YYYY)
+- Vendor: Look for "Vendor Code :" and the Name below it (e.g., "GLOMIN OVERSEAS")
+- Shipping Address: "Delivery Address :" block (e.g., "Distribution Center...", "Metro East Jadavpur...")
+- Billing Address: Often "Reliance Retail Limited" or "Metro Cash And Carry" at top left.
+
+## PRODUCT TABLE EXTRACTION:
+The table headers are often run together: "QuantityUOMMRPBase CostIGST (%)".
+Columns are: Sr.No | Article No | HSN | EAN | Desc | Del Date | Site | Qty | UOM | MRP | Base Cost | Taxes...
+
+DATA ROW PATTERN (Vertical Split):
+Row 1: "1 491696481" (Sr + Reliance Article)
+Row 2: "09023020" (HSN)
+Row 3: "8906102210595" (EAN -> PRIMARY SKU)
+...
+Row N: "MARVEL PREMIUM LEAF TEA 1KG PCH" (Description -> Name)
+Row N+1: "23.08.2025" (Delivery Date)
+Row N+2: "1.000" (Case Qty?)
+Row N+3: "25.000" (Total Units? or Units/Case?)
+Row N+4: "CAR" (UOM)
+Row N+5: "15,500.00" (Total Value?)
+Row N+6: "620.00" (Unit MRP/Price?)
+
+## CRITICAL EXTRACTION RULES:
+1. SKU: Use the EAN (13 digits starting with 890). If missing, use Article No (9 digits).
+2. Qty: Look for the larger quantity number if multiple exist.
+   - Example: "1.000" and "25.000" -> Quantity is 25 (if 25 matches the unit price calc).
+   - Example: "2.000" and "96.000" -> Quantity is 96.
+   - Rule: Use the "Total Units" count.
+3. Price: "Unit Base Cost" or derive from "Total Base Value" / Quantity.
+   - Check if a "Unit MRP" exists (e.g. 620.00) and a "Unit Cost" exists.
+   - Prioritize "Base Cost" (before tax).
+4. Name: Full "Material Description".
+
+## VALIDATION:
+Total Base Value ≈ Quantity × Unit Base Cost
+Total Order Value ≈ Total Base Value + Taxes`,
+
     swiggy: `${baseInstructions}
 
 SWIGGY-SPECIFIC INSTRUCTIONS:

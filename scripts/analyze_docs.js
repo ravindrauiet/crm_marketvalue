@@ -6,7 +6,10 @@ const XLSX = require('xlsx');
 
 // Configuration: Samples to analyze
 const SAMPLES = [
-    { vendor: 'Amazon', file: "Amazon po's 29.08.2025.xlsx" }
+    { vendor: 'Reliance', file: 'PO. INTM_ 5110802591 .PDF Reliance Retail Limited_mix.PDF' },
+    { vendor: 'Reliance', file: 'PO. INTM_ 5110804155 .PDF Reliance Retail Limited_marvel and eastern.PDF' },
+    { vendor: 'Reliance', file: 'PO. INTM_ 5111235660 .PDF Metro Cash And Carry Ind_marvel2.PDF' },
+    { vendor: 'Reliance', file: 'PO. INTM_ 9201910324 .PDF Reliance Retail Limited_eastern.PDF' }
 ];
 
 const BASE_DIR = path.join(__dirname, '../../PO automation');
@@ -31,19 +34,20 @@ async function analyze() {
         }
 
         try {
-            if (sample.file.endsWith('.pdf')) {
+            const lowerFile = sample.file.toLowerCase();
+            if (lowerFile.endsWith('.pdf')) {
                 const dataBuffer = fs.readFileSync(filePath);
                 const data = await pdf(dataBuffer);
-                log('--- EXTRACTED PDF TEXT (First 2000 chars) ---');
-                log(data.text.substring(0, 2000));
+                log('--- EXTRACTED PDF TEXT (First 10000 chars) ---');
+                log(data.text.substring(0, 10000));
                 log('\n--- END TEXT SAMPLE ---');
-            } else if (sample.file.endsWith('.csv')) {
+            } else if (lowerFile.endsWith('.csv')) {
                 const csvContent = fs.readFileSync(filePath, 'utf-8');
                 const lines = csvContent.split('\n').slice(0, 15);
                 log('--- EXTRACTED CSV DATA (First 15 rows) ---');
                 log(lines.join('\n'));
                 log('\n--- END CSV SAMPLE ---');
-            } else if (sample.file.endsWith('.xlsx') || sample.file.endsWith('.xls')) {
+            } else if (lowerFile.endsWith('.xlsx') || lowerFile.endsWith('.xls')) {
                 const buf = fs.readFileSync(filePath);
                 const wb = XLSX.read(buf, { type: 'buffer' });
                 const sheetName = wb.SheetNames[0];

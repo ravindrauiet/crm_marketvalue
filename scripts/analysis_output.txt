@@ -1,142 +1,881 @@
 Starting analysis of sample documents...
 
 --------------------------------------------------
-ANALYZING: Amazon (Amazon po's 29.08.2025.xlsx)
+ANALYZING: Reliance (PO. INTM_ 5110802591 .PDF Reliance Retail Limited_mix.PDF)
 --------------------------------------------------
---- EXTRACTED EXCEL DATA (First 10 rows) ---
-[
-  [
-    "PO",
-    "Vendor",
-    "Ship to location",
-    "ASIN",
-    "Title",
-    "Window end",
-    "Quantity Outstanding",
-    "Unit Cost",
-    "",
-    "Total cost",
-    ""
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5QLVJ4",
-    "Mother's Recipe Rice Papad Jeera Pouch,75 Gram",
-    "13/9/2025",
-    32,
-    18.57,
-    "INR",
-    594.24,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5NGZVY",
-    "Mother's Recipe Udad Papad 5\" Pouch, 180 Grams",
-    "13/9/2025",
-    88,
-    58.5,
-    "INR",
-    5148,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08G5NG761",
-    "Mother's Recipe Green Chilli Pickle Bottle,400 G",
-    "13/9/2025",
-    24,
-    97.5,
-    "INR",
-    2340,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08FRF3NQR",
-    "Mother's Recipe Tamarind Date Chutney Pouch,200 G",
-    "13/9/2025",
-    60,
-    45.27,
-    "INR",
-    2716.2,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B08DV37GZT",
-    "Mother's Recipe Delhi Chaat Chutney Pouch,200 G",
-    "13/9/2025",
-    60,
-    45.27,
-    "INR",
-    2716.2,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07H3V7LR3",
-    "Mother's Recipe Mixed Pickle (MP/EI) Pouch, 200 g",
-    "13/9/2025",
-    54,
-    41.79,
-    "INR",
-    2256.66,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07DCKVH2M",
-    "Mothers Recipe Rice Papad Ajwain Pouch, 75 g",
-    "13/9/2025",
-    32,
-    18.57,
-    "INR",
-    594.24,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B07CR39GYV",
-    "Mother's Recipe Mixed Pickle (MP/EI) Jar, 1000 g",
-    "13/9/2025",
-    36,
-    188.04,
-    "INR",
-    6769.44,
-    "INR"
-  ],
-  [
-    "8Q4RMHAU",
-    "GLVSE",
-    "HNR4 - Dadri Toe, HARYANA",
-    "B075319JY4",
-    "Mother's RECIPE Potato Chip Papad Pouch, 70 Gm - Potato",
-    "13/9/2025",
-    32,
-    25.26,
-    "INR",
-    808.32,
-    "INR"
-  ]
-]
+--- EXTRACTED PDF TEXT (First 10000 chars) ---
 
---- END EXCEL SAMPLE ---
+
+   Reliance Retail Limited
+   Eldeco Corporate Chamber 2
+   Plot No TC 58 & 59V,
+   Phase I Vibhut Khand, Gomti Nagar
+   Lucknow- 226010   Uttar Pradesh, INDIA
+SELLERPURCHASE ORDER
+   Vendor Code : 20011895
+   GLOMIN OVERSEAS
+   
+   NAHARPUR, H.NO-33
+   VILLAGE, ROHINI SECTOR-7
+   ROHINI, NORTH WEST DELHI, DELHI, 11
+   NORTH WEST DELHI,    Delhi
+   Pin Code : 110085,   India
+   E-Mail : GLOMINOFFICE@GMAIL.COM
+   Pan No. : AARFG6393F
+   Vendor Status :    01 - REGISTERED
+   GSTN No: 07AARFG6393F1ZX
+   Attention : 
+   
+   PO NO.:    5110802591  Site : SAAH
+   PO Date : 18.08.2025
+   
+RRL VF DC UP - Dadri
+   In accepting this PURCHASE ORDER, SELLER agrees to furnish the GOODS specified in full accordance with all conditions set
+forth    herein  and  /  or  attachments  hereto.  All  drawings,    designs,  specifications  and  other  data  prepared  by  OWNER  and    related
+thereto arethe property of the OWNER and must  be returned to OWNER upon completionby SELLER of the  obligations under this
+PURCHASE ORDER. Theinformation contained herein is not to be released or disclosed for any other use or purpose other than for
+the  execution  of  this  PURCHASE  ORDER.  This  formal  PURCHASE  ORDER  constitutes  the  entire  agreement  and  only    written
+changes by way of an amendment to this PURCHASE ORDER  will be legally binding. It is important that SELLER  signs and returns
+the PURCHASE ORDER copy within three (3) days of  receipt. No other form of acceptance will be accepted.  Failure to return the
+acceptance does not diminish the responsibilities as set forth herein, but may result in a delay to any payments that may be due and
+may be cause for  termination of this PURCHASE ORDER.
+   Delivery Address : Distribution Center
+   Block B Khasra No 791/792
+   Village Bairangpur
+   Nai Basti Dadri
+   
+   Gautam Buddha, Uttar Pradesh - 201314
+   Tel : 
+   GSTN No : 09AABCR1718E1ZN
+   EMAIL : VALUE_DC_UP.GBN_SAAH@zmail.ril.com
+   TOTAL BASIC VALUE   INR24,925.41
+   TOTAL IGST   INR2,614.56
+   Total Order Value :INR27,539.97
+   DELIVERY DATE :   23.08.2025
+    Payment Terms :  See Page Inside
+  Delivery Term :  - 
+.
+   Buyer  : RROPSFNR
+   Email : rrho.replenishment@ril.com
+For RRL VF DC UP - Dadri
+   Reliance Retail Limited
+This is computer generated document not requiring
+any signature
+SELLER'S Acceptence
+Signature      Title        Date
+Registered Office : 3rd Floor, Court House,Lokmanya Tilak Marg,, Dhobi Talao,,Mumbai,400002.
+CIN No. U01100MH1999PLC120563.
+
+PURCHASE ORDER   Number   : 5110802591
+   Po Date    : 18.08.2025
+   Page No  : 1
+Sr.No Article No.
+ HSN Code
+ EAN No.
+ Vendor Article No.
+ Vendor Item No
+ Material Description
+ Delivery Date
+ Site
+QuantityUOMMRPBase CostIGST (%)
+CESS(%)
+CessFxdRt
+IGST
+CESS
+CessFxdVl
+Total Base Value
+ 1 491696481
+ 09023020
+ 
+ 8906102210595
+ 
+ 
+ MARVEL PREMIUM LEAF TEA 1KG PCH
+ 23.08.2025
+ SAAH
+           1.000 
+          25.000 
+CAR
+EA
+      15,500.00 
+         620.00 
+7,085.71           5.00 
+           0.00 
+           0.00 
+354.29
+0.00
+0.00
+7,085.71
+ 2 491696482
+ 09023020
+ 
+ 8906102210588
+ 
+ 
+ MARVEL PREMIUM LEAF TEA 250G PCH
+ 23.08.2025
+ SAAH
+           1.000 
+         100.000 
+BAG
+EA
+      16,000.00 
+         160.00 
+7,314.29           5.00 
+           0.00 
+           0.00 
+365.71
+0.00
+0.00
+7,314.29
+ 3 494503575
+ 21069099
+ 
+ 8901440224297
+ 
+ 
+ EASTERN 5 MINUTE IDLI 200 G POUCH
+ 23.08.2025
+ SAAH
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+ 4 494503576
+ 21069099
+ 
+ 8901440224051
+ 
+ 
+ EASTERN 5 MINUTE DOSA 200 G POUCH
+ 23.08.2025
+ SAAH
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+ 5 494503577
+ 21069099
+ 
+ 8901440224013
+ 
+ 
+ EASTERN 5 MINUTE GHEE UPMAV 200 G
+POUCH
+ 23.08.2025
+ SAAH
+           2.000 
+          96.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+757.83
+0.00
+0.00
+4,210.17
+ 6 494503579
+ 21069099
+ 
+ 8901440223993
+ 
+ 
+ EASTERN 5 MINUTE PUTTU 200 G POUCH
+ 23.08.2025
+ SAAH
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+Grand Total of Qty           7.000 
+ TOTAL BASIC VALUEINR24,925.41
+ TOTAL IGSTINR2,614.56
+ Total Order Value:INR27,539.97
+Terms of payment :
+Pro-rata payment(s) shall be made within 3 days from the date of reciept of GOODS, subject to reciept of correct invoice and despatch documents, whichever is later.
+Note(S) :
+»  It  is  essential  that  the  seller  shall  mention  Item  No  &  Item  code  along  with  corresponding  Material  Description  and  P.O.  No.  as  mentioned  above,  in  the  Delivery  challan(On-Shore  Order)  /
+Packing List (Off-shore Order) and invoice for ease of material Inwarding  and Bill Processing.It is also essential that the Seller attaches a Tag /Sticker with each item indicating item Code & PO
+No. Failure to do so may be the grounds for the rejection(s) or delay in release of payment(s).
+
+PURCHASE ORDER   Number   : 5110802591
+   Po Date    : 18.08.2025
+   Page No  : 2
+» The ordered material should be delivered to QWIK SUPPLY CHAIN PVT.LTD at the Distribution Centre given in the PO Under Delivery Address who are authorized to receive the the material
+on our behalf.
+» Suppliers need to call the destination DC/Store atleast 24 hrs in advance to schedule the delivery time for goods.Vehicles without prior  appointment could be subject to delay.
+» Purchase order is subject to PFA warranty before receipt of goods from Vendor to ensure legal compliance with PFA rules.
+» Vendor should submit one consolidated invoice or consolidated summary statement of tax invoices, at the end of every Billing Cycle Period, which is printed on your P.O.
+» Along with the consolidated invoice or summary statement you are submitting, kindly submit store-wise supply details for the Billing Cycle Period, mentioning Reliance GRN numbers.
+GSTIN Number Details:
+GSTIN No : 09AABCR1718E1ZN
+Pan No      : AABCR1718E
+» As per recent amendment(s) in the Income-Tax Rules ("Rules") made vide the Income-tax (22nd Amendment) Rules, 2015, effective 1 January 2016. Rule 114B of the Rules as substituted,
+mentions transactions in relation to which Permanent Account Number (PAN) is to be quoted on all documents and includes sale or purchase of goods or services of any nature for an amount
+exceeding two lakh rupees per transaction (Sl. No 18 of the Table in Rule 114B).
+» Rule 114C (2) of the Rules as substituted reads as follows: "Any person, being a person raising bills referred to at Sl. No 5 or 6 or 18 of rule 114B, who, in relation to a transaction specified in
+the said Sl. No., has issued any document shall ensure after verification that permanent account number has been correctly furnished and the same shall be mentioned in such document, or as
+the case may be, a declaration in Form 60 has been duly furnished with complete particulars". In case PAN is applied for and / or not available, Form 60 is to be duly filled and signed / verified
+and submitted with identity and address proof (KYC documents) as per the page 3 of form 60.
+» You are therefore requested that your invoice / bill / payment acknowledgement / debit note / credit note, etc. should mention PAN of your entity as well as our PAN.
+DEFINITIONS AND INTERPRETATION
+1.1Definitions:
+The following terms, unless the context requires otherwise, shall have the following meanings:
+(a)ACCEPTANCE OF GOODS means (i) if acceptance criteria are set forth in this CONTRACT, the BUYER#S preliminary determination that the GOODS satisfy all such acceptance criteria,
+including commissioning and performance tests, if applicable; or (ii) if no such criteria are provided, the BUYER#S preliminary determination that the GOODS comply with all requirements set
+forth in this CONTRACT. ACCEPTANCE OF GOODS shall be evidenced by the issuance of an acceptance certificate by the BUYER.
+(b)AFFILIATE means, with respect to any PERSON, any other PERSON, directly or indirectly controlling, controlled by or under direct, indirect or common control with, such PERSON.  For the
+purposes of this definition, #control# means the possession, directly or indirectly, of the power to direct or cause the direction of the management or policies of such PERSON, whether through
+the ownership of voting securities, by agreement with respect to the voting of securities, by other agreement conferring control over management or policy decisions, by virtue of the power to
+control the composition of the board of directors or managers, or otherwise.  The terms #controlling# and #controlled# shall have correlative meanings.
+
+PURCHASE ORDER   Number   : 5110802591
+   Po Date    : 18.08.2025
+   Page No  : 3
+(c)BUYER means Reliance Retail Limited and shall include its successors and assigns. Terms such as Reliance Retail Limited ,Purchaser','Owner',  or 'Customer',as may be used in
+anyCONTRACT DOCUMENTS shall be construed tomean BUYER.
+(d)CHANGE is defined in Section 19.1.
+(e)CHANGE NOTICE is defined in Section 19.1.
+(f)CONFIDENTIAL INFORMATION is defined in Section 12.
+(g)CONTRACT means the totality of the agreement between the BUYER and the SELLER as expressed in the CONTRACT DOCUMENTS.
+(h)CONTRACT DOCUMENTS means the following and in the event of any conflicting provisions within the CONTRACT DOCUMENTS, the order of precedence of the documents shall be as
+provided below:
+PURCHASE ORDER, including any amendments thereto;
+SPECIAL CONDITIONS and annexures thereto;
+GCP; and
+any other document (A) referred to in any of the documents referred to in clauses (i) through (iii) above, or (B) agreed by the PARTIES to constitute a part of the CONTRACT DOCUMENTS and
+incorporated herein by specific reference.
+(i)DEFECT means any defect, deficiency, error, failure, flaw, omission, 
+
+--- END TEXT SAMPLE ---
+
+--------------------------------------------------
+ANALYZING: Reliance (PO. INTM_ 5110804155 .PDF Reliance Retail Limited_marvel and eastern.PDF)
+--------------------------------------------------
+--- EXTRACTED PDF TEXT (First 10000 chars) ---
+
+
+   Reliance Retail Limited
+   Unitech Commercial Tower-1,
+   Sector -45, Gurugram,,
+   Haryana, Gurugram,
+   Gurgaon, Haryana- 122003   Haryana, INDIA
+SELLERPURCHASE ORDER
+   Vendor Code : 20011895
+   GLOMIN OVERSEAS
+   
+   NAHARPUR, H.NO-33
+   VILLAGE, ROHINI SECTOR-7
+   ROHINI, NORTH WEST DELHI, DELHI, 11
+   NORTH WEST DELHI,    Delhi
+   Pin Code : 110085,   India
+   E-Mail : GLOMINOFFICE@GMAIL.COM
+   Pan No. : AARFG6393F
+   Vendor Status :    01 - REGISTERED
+   GSTN No: 07AARFG6393F1ZX
+   Attention : 
+   
+   PO NO.:    5110804155  Site : SLE8
+   PO Date : 18.08.2025
+   
+RRL VF HR Badli IndoSpace Groc
+   In accepting this PURCHASE ORDER, SELLER agrees to furnish the GOODS specified in full accordance with all conditions set
+forth    herein  and  /  or  attachments  hereto.  All  drawings,    designs,  specifications  and  other  data  prepared  by  OWNER  and    related
+thereto arethe property of the OWNER and must  be returned to OWNER upon completionby SELLER of the  obligations under this
+PURCHASE ORDER. Theinformation contained herein is not to be released or disclosed for any other use or purpose other than for
+the  execution  of  this  PURCHASE  ORDER.  This  formal  PURCHASE  ORDER  constitutes  the  entire  agreement  and  only    written
+changes by way of an amendment to this PURCHASE ORDER  will be legally binding. It is important that SELLER  signs and returns
+the PURCHASE ORDER copy within three (3) days of  receipt. No other form of acceptance will be accepted.  Failure to return the
+acceptance does not diminish the responsibilities as set forth herein, but may result in a delay to any payments that may be due and
+may be cause for  termination of this PURCHASE ORDER.
+   Delivery Address : Distribution Center
+   Building No B 1100 Indospace Industrial
+   Park Pvt Ltd badli vlg Pahasour faizabad
+   Po Badli Jhajjar Badli Road
+   
+   BADLI, Haryana - 124105
+   Tel : 
+   GSTN No : 06AABCR1718E1ZT
+   EMAIL : VALUE_DC_HR.GURGAON_SLE8@zmail.ril.com
+   TOTAL BASIC VALUE   INR8,733.97
+   TOTAL IGST   INR984.01
+   Total Order Value :INR9,717.98
+   DELIVERY DATE :   23.08.2025
+    Payment Terms :  See Page Inside
+  Delivery Term :  - 
+.
+   Buyer  : RROPSFNR
+   Email : rrho.replenishment@ril.com
+For RRL VF HR Badli IndoSpace Groc
+   Reliance Retail Limited
+This is computer generated document not requiring
+any signature
+SELLER'S Acceptence
+Signature      Title        Date
+Registered Office : 3rd Floor, Court House,Lokmanya Tilak Marg,, Dhobi Talao,,Mumbai,400002.
+CIN No. U01100MH1999PLC120563.
+
+PURCHASE ORDER   Number   : 5110804155
+   Po Date    : 18.08.2025
+   Page No  : 1
+Sr.No Article No.
+ HSN Code
+ EAN No.
+ Vendor Article No.
+ Vendor Item No
+ Material Description
+ Delivery Date
+ Site
+QuantityUOMMRPBase CostIGST (%)
+CESS(%)
+CessFxdRt
+IGST
+CESS
+CessFxdVl
+Total Base Value
+ 1 494230868
+ 09023020
+ 
+ 8906102211202
+ 
+ 
+ MARVEL TEA NO 1 1KG POUCH
+ 23.08.2025
+ SLE8
+           1.000 
+          25.000 
+CAR
+EA
+       6,250.00 
+         250.00 
+4,523.81           5.00 
+           0.00 
+           0.00 
+226.19
+0.00
+0.00
+4,523.81
+ 2 494503575
+ 21069099
+ 
+ 8901440224297
+ 
+ 
+ EASTERN 5 MINUTE IDLI 200 G POUCH
+ 23.08.2025
+ SLE8
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+ 3 494503576
+ 21069099
+ 
+ 8901440224051
+ 
+ 
+ EASTERN 5 MINUTE DOSA 200 G POUCH
+ 23.08.2025
+ SLE8
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+Grand Total of Qty           3.000 
+ TOTAL BASIC VALUEINR8,733.97
+ TOTAL IGSTINR984.01
+ Total Order Value:INR9,717.98
+Terms of payment :
+Pro-rata payment(s) shall be made within 3 days from the date of reciept of GOODS, subject to reciept of correct invoice and despatch documents, whichever is later.
+Note(S) :
+»  It  is  essential  that  the  seller  shall  mention  Item  No  &  Item  code  along  with  corresponding  Material  Description  and  P.O.  No.  as  mentioned  above,  in  the  Delivery  challan(On-Shore  Order)  /
+Packing List (Off-shore Order) and invoice for ease of material Inwarding  and Bill Processing.It is also essential that the Seller attaches a Tag /Sticker with each item indicating item Code & PO
+No. Failure to do so may be the grounds for the rejection(s) or delay in release of payment(s).
+» The ordered material should be delivered to QWIK SUPPLY CHAIN PVT.LTD at the Distribution Centre given in the PO Under Delivery Address who are authorized to receive the the material
+on our behalf.
+» Suppliers need to call the destination DC/Store atleast 24 hrs in advance to schedule the delivery time for goods.Vehicles without prior  appointment could be subject to delay.
+» Purchase order is subject to PFA warranty before receipt of goods from Vendor to ensure legal compliance with PFA rules.
+» Vendor should submit one consolidated invoice or consolidated summary statement of tax invoices, at the end of every Billing Cycle Period, which is printed on your P.O.
+» Along with the consolidated invoice or summary statement you are submitting, kindly submit store-wise supply details for the Billing Cycle Period, mentioning Reliance GRN numbers.
+GSTIN Number Details:
+GSTIN No : 06AABCR1718E1ZT
+
+PURCHASE ORDER   Number   : 5110804155
+   Po Date    : 18.08.2025
+   Page No  : 2
+Pan No      : AABCR1718E
+» As per recent amendment(s) in the Income-Tax Rules ("Rules") made vide the Income-tax (22nd Amendment) Rules, 2015, effective 1 January 2016. Rule 114B of the Rules as substituted,
+mentions transactions in relation to which Permanent Account Number (PAN) is to be quoted on all documents and includes sale or purchase of goods or services of any nature for an amount
+exceeding two lakh rupees per transaction (Sl. No 18 of the Table in Rule 114B).
+» Rule 114C (2) of the Rules as substituted reads as follows: "Any person, being a person raising bills referred to at Sl. No 5 or 6 or 18 of rule 114B, who, in relation to a transaction specified in
+the said Sl. No., has issued any document shall ensure after verification that permanent account number has been correctly furnished and the same shall be mentioned in such document, or as
+the case may be, a declaration in Form 60 has been duly furnished with complete particulars". In case PAN is applied for and / or not available, Form 60 is to be duly filled and signed / verified
+and submitted with identity and address proof (KYC documents) as per the page 3 of form 60.
+» You are therefore requested that your invoice / bill / payment acknowledgement / debit note / credit note, etc. should mention PAN of your entity as well as our PAN.
+DEFINITIONS AND INTERPRETATION
+1.1Definitions:
+The following terms, unless the context requires otherwise, shall have the following meanings:
+(a)ACCEPTANCE OF GOODS means (i) if acceptance criteria are set forth in this CONTRACT, the BUYER#S preliminary determination that the GOODS satisfy all such acceptance criteria,
+including commissioning and performance tests, if applicable; or (ii) if no such criteria are provided, the BUYER#S preliminary determination that the GOODS comply with all requirements set
+forth in this CONTRACT. ACCEPTANCE OF GOODS shall be evidenced by the issuance of an acceptance certificate by the BUYER.
+(b)AFFILIATE means, with respect to any PERSON, any other PERSON, directly or indirectly controlling, controlled by or under direct, indirect or common control with, such PERSON.  For the
+purposes of this definition, #control# means the possession, directly or indirectly, of the power to direct or cause the direction of the management or policies of such PERSON, whether through
+the ownership of voting securities, by agreement with respect to the voting of securities, by other agreement conferring control over management or policy decisions, by virtue of the power to
+control the composition of the board of directors or managers, or otherwise.  The terms #controlling# and #controlled# shall have correlative meanings.
+(c)BUYER means Reliance Retail Limited and shall include its successors and assigns. Terms such as Reliance Retail Limited ,Purchaser','Owner',  or 'Customer',as may be used in
+anyCONTRACT DOCUMENTS shall be construed tomean BUYER.
+(d)CHANGE is defined in Section 19.1.
+(e)CHANGE NOTICE is defined in Section 19.1.
+(f)CONFIDENTIAL INFORMATION is defined in Section 12.
+(g)CONTRACT means the totality of the agreement between the BUYER and the SELLER as expressed in the CONTRACT DOCUMENTS.
+(h)CONTRACT DOCUMENTS means the following and in the event of any conflicting provisions within the CONTRACT DOCUMENTS, the order of precedence of the documents shall be as
+provided below:
+PURCHASE ORDER, including any amendments thereto;
+
+PURCHASE ORDER   Number   : 5110804155
+   Po Date    : 18.08.2025
+   Page No  : 3
+SPECIAL CONDITIONS and annexures thereto;
+GCP; and
+any other document (A) referred to in any of the documents referred to in clauses (i) through (iii) above, or (B) agreed by the PARTIES to constitute a part of the CONTRACT DOCUMENTS and
+incorporated herein by specific reference.
+(i)DEFECT means any defect, deficiency, error, failure, flaw, omission, damage, fault, inadequacy or discrepancy in the workmanship or in the materials used in the fabrication and
+manufacture of GOODS or any part or component thereof and the word #DEFECTIVE# shall be construed accordingly.
+(j)DELIVERY POINT is defined or described in the SPECIAL CONDITIONS.
+(k)DELIVERY SCHEDULE is defined or described in the SPECIAL CONDITIONS.
+(l)DELIVERY TERMS means the terms for the delivery of the GOODS, including the DELIVERY SCHEDULE, DELIVERY POINTS and locations and shipping terms, as set out in this
+CONTRACT.  Except as otherwise specified in this CONTRACT, terms for the delivery of the GOODS shall incorporate the INCOTERMS.
+(m)DISPUTE is defined in Section 18.
+(n)DRAWINGS and DOCUMENTS mean the design calculations, 
+
+--- END TEXT SAMPLE ---
+
+--------------------------------------------------
+ANALYZING: Reliance (PO. INTM_ 5111235660 .PDF Metro Cash And Carry Ind_marvel2.PDF)
+--------------------------------------------------
+--- EXTRACTED PDF TEXT (First 10000 chars) ---
+
+
+   Metro Cash And Carry India Limited
+   (formerly Metro Cash & Carry India Pvt Ltd)
+   322 BHARAKHOLA,
+   EAST JADHAVPUR,
+   South 24 Parganas,
+   West Bengal- 700099  West Bengal, INDIA
+SELLERPURCHASE ORDER
+   Vendor Code : 25020649
+   GLOMIN OVERSEAS
+   
+   33,NaharpurVillage
+   Rohini,Sector- 7
+   
+   Delhi,    Delhi
+   Pin Code : 110085,   India
+   E-Mail : moderntrade1@marveltea.com
+   Pan No. : AARFG6393F
+   Vendor Status :    01 - REGISTERED
+   GSTN No: 07AARFG6393F1ZX
+   Attention : 
+   
+   PO NO.:    5111235660  Site : T0QS
+   PO Date : 22.09.2025
+   
+Metro East Jadavpur Kolkata
+   In accepting this PURCHASE ORDER, SELLER agrees to furnish the GOODS specified in full accordance with all conditions set
+forth    herein  and  /  or  attachments  hereto.  All  drawings,    designs,  specifications  and  other  data  prepared  by  OWNER  and    related
+thereto arethe property of the OWNER and must  be returned to OWNER upon completionby SELLER of the  obligations under this
+PURCHASE ORDER. Theinformation contained herein is not to be released or disclosed for any other use or purpose other than for
+the  execution  of  this  PURCHASE  ORDER.  This  formal  PURCHASE  ORDER  constitutes  the  entire  agreement  and  only    written
+changes by way of an amendment to this PURCHASE ORDER  will be legally binding. It is important that SELLER  signs and returns
+the PURCHASE ORDER copy within three (3) days of  receipt. No other form of acceptance will be accepted.  Failure to return the
+acceptance does not diminish the responsibilities as set forth herein, but may result in a delay to any payments that may be due and
+may be cause for  termination of this PURCHASE ORDER.
+   Delivery Address : 
+   322 BHARAKHOLA EAST JADHAVPUR EAST
+   JADHAVPUR South Twenty Four Parganas
+   West Bengal
+   
+   SONARPUR, West Bengal - 700099
+   Tel : 
+   GSTN No : 19AACCM4684P1ZO
+   EMAIL : METRO_juni_WB.SONARPUR_T0QS@zmail.ril.com
+   TOTAL BASIC VALUE   INR17,097.14
+   TOTAL IGST   INR854.86
+   Total Order Value :INR17,952.00
+   DELIVERY DATE :   04.10.2025
+    Payment Terms :  See Page Inside
+  Delivery Term :  - 
+.
+   Buyer  : Pacha Hari krishna
+   Email : pacha.hari@ril.com
+For Metro East Jadavpur Kolkata
+   Metro Cash And Carry India Limited
+This is computer generated document not requiring
+any signature
+SELLER'S Acceptence
+Signature      Title        Date
+Registered Office : ,SUBRAMANYANAGAR, ,BENGALURU,560055.
+CIN No. U51909KA2001PLC028483.
+
+PURCHASE ORDER   Number   : 5111235660
+   Po Date    : 22.09.2025
+   Page No  : 1
+Sr.No Article No.
+ HSN Code
+ EAN No.
+ Vendor Article No.
+ Vendor Item No
+ Material Description
+ Delivery Date
+ Site
+QuantityUOMMRPBase CostIGST (%)
+CESS(%)
+CessFxdRt
+IGST
+CESS
+CessFxdVl
+Total Base Value
+ 1 491437831
+ 09023020
+ 
+ 8906102210205
+ 
+ 
+ MARVEL RED LEAF TEA 1KG PP
+ 04.10.2025
+ T0QS
+           3.000 
+          75.000 
+CAR
+EA
+       8,000.00 
+         320.00 
+5,699.05           5.00 
+           0.00 
+           0.00 
+854.86
+0.00
+0.00
+17,097.14
+Grand Total of Qty           3.000 
+ TOTAL BASIC VALUEINR17,097.14
+ TOTAL IGSTINR854.86
+ Total Order Value:INR17,952.00
+Terms of payment :
+Pro-rata payment(s) shall be made within 21 days from the date of reciept of GOODS, subject to reciept of correct invoice and despatch documents, whichever is later.
+Note(S) :
+»  It  is  essential  that  the  seller  shall  mention  Item  No  &  Item  code  along  with  corresponding  Material  Description  and  P.O.  No.  as  mentioned  above,  in  the  Delivery  challan(On-Shore  Order)  /
+Packing List (Off-shore Order) and invoice for ease of material Inwarding  and Bill Processing.It is also essential that the Seller attaches a Tag /Sticker with each item indicating item Code & PO
+No. Failure to do so may be the grounds for the rejection(s) or delay in release of payment(s).
+» Suppliers need to call the destination DC/Store atleast 24 hrs in advance to schedule the delivery time for goods.Vehicles without prior  appointment could be subject to delay.
+GSTIN Number Details:
+GSTIN No : 19AACCM4684P1ZO
+Pan No      : AACCM4684P
+» As per recent amendment(s) in the Income-Tax Rules ("Rules") made vide the Income-tax (22nd Amendment) Rules, 2015, effective 1 January 2016. Rule 114B of the Rules as substituted,
+mentions transactions in relation to which Permanent Account Number (PAN) is to be quoted on all documents and includes sale or purchase of goods or services of any nature for an amount
+exceeding two lakh rupees per transaction (Sl. No 18 of the Table in Rule 114B).
+» Rule 114C (2) of the Rules as substituted reads as follows: "Any person, being a person raising bills referred to at Sl. No 5 or 6 or 18 of rule 114B, who, in relation to a transaction specified in
+the said Sl. No., has issued any document shall ensure after verification that permanent account number has been correctly furnished and the same shall be mentioned in such document, or as
+the case may be, a declaration in Form 60 has been duly furnished with complete particulars". In case PAN is applied for and / or not available, Form 60 is to be duly filled and signed / verified
+and submitted with identity and address proof (KYC documents) as per the page 3 of form 60.
+» You are therefore requested that your invoice / bill / payment acknowledgement / debit note / credit note, etc. should mention PAN of your entity as well as our PAN.
+DEFINITIONS AND INTERPRETATION
+1.1Definitions:
+
+PURCHASE ORDER   Number   : 5111235660
+   Po Date    : 22.09.2025
+   Page No  : 2
+The following terms, unless the context requires otherwise, shall have the following meanings:
+(a)ACCEPTANCE OF GOODS means (i) if acceptance criteria are set forth in this CONTRACT, the BUYER#S preliminary determination that the GOODS satisfy all such acceptance criteria,
+including commissioning and performance tests, if applicable; or (ii) if no such criteria are provided, the BUYER#S preliminary determination that the GOODS comply with all requirements set
+forth in this CONTRACT. ACCEPTANCE OF GOODS shall be evidenced by the issuance of an acceptance certificate by the BUYER.
+(b)AFFILIATE means, with respect to any PERSON, any other PERSON, directly or indirectly controlling, controlled by or under direct, indirect or common control with, such PERSON.  For the
+purposes of this definition, #control# means the possession, directly or indirectly, of the power to direct or cause the direction of the management or policies of such PERSON, whether through
+the ownership of voting securities, by agreement with respect to the voting of securities, by other agreement conferring control over management or policy decisions, by virtue of the power to
+control the composition of the board of directors or managers, or otherwise.  The terms #controlling# and #controlled# shall have correlative meanings.
+(c)BUYER means Metro Cash And Carry India Limited and shall include its successors and assigns. Terms such as Metro Cash And Carry India Limited ,Purchaser','Owner',  or 'Customer',as
+may be used in anyCONTRACT DOCUMENTS shall be construed tomean BUYER.
+(d)CHANGE is defined in Section 19.1.
+(e)CHANGE NOTICE is defined in Section 19.1.
+(f)CONFIDENTIAL INFORMATION is defined in Section 12.
+(g)CONTRACT means the totality of the agreement between the BUYER and the SELLER as expressed in the CONTRACT DOCUMENTS.
+(h)CONTRACT DOCUMENTS means the following and in the event of any conflicting provisions within the CONTRACT DOCUMENTS, the order of precedence of the documents shall be as
+provided below:
+PURCHASE ORDER, including any amendments thereto;
+SPECIAL CONDITIONS and annexures thereto;
+GCP; and
+any other document (A) referred to in any of the documents referred to in clauses (i) through (iii) above, or (B) agreed by the PARTIES to constitute a part of the CONTRACT DOCUMENTS and
+incorporated herein by specific reference.
+(i)DEFECT means any defect, deficiency, error, failure, flaw, omission, damage, fault, inadequacy or discrepancy in the workmanship or in the materials used in the fabrication and
+manufacture of GOODS or any part or component thereof and the word #DEFECTIVE# shall be construed accordingly.
+(j)DELIVERY POINT is defined or described in the SPECIAL CONDITIONS.
+(k)DELIVERY SCHEDULE is defined or described in the SPECIAL CONDITIONS.
+(l)DELIVERY TERMS means the terms for the delivery of the GOODS, including the DELIVERY SCHEDULE, DELIVERY POINTS and locations and shipping terms, as set out in this
+CONTRACT.  Except as otherwise specified in this CONTRACT, terms for the delivery of the GOODS shall incorporate the INCOTERMS.
+
+PURCHASE ORDER   Number   : 5111235660
+   Po Date    : 22.09.2025
+   Page No  : 3
+(m)DISPUTE is defined in Section 18.
+(n)DRAWINGS and DOCUMENTS mean the design calculations, drawings, analysis patterns, specifications, construction and fabrication drawings and documents, certificates, test results,
+installation, operating and maintenance manuals and any other documentation or materials prepared or provided by the SELLER under this CONTRACT (whether recorded in physical form or on
+electronic storage media).
+(o)GOODS means each item to be provided to the BUYER by the SELLER, or by a SUB-SELLER on behalf of the SELLER, including raw materials, processed materials, equipment,
+components, fabricated goods, finished products, spares, DRAWINGS and DOCUMENTS, data, related firmware or software and any other documentation described in this CONTRACT.
+(p)GOODS WARRANTY and GOODS WARRANTIES are defined in Section 9.
+(q)GOODS WARRANTY PERIOD is defined or described in the SPECIAL CONDITIONS. (r)GENERAL CONDITIONS OF PURCHASE or GCP means this General Conditions of Purchase.
+(s)INCOTERMS means the most recent International Commercial Terms published by the International Chamber of Commerce, Paris, which are in effect as on the date of the PURCHASE
+ORDER.
+(t)INVOICE PAYMENT DETAILS is defined in Section 5.
+(u)MAKE GOOD means to repair, correct, re-perform, replace, re-install or re-erect, as appropriate, a
+
+--- END TEXT SAMPLE ---
+
+--------------------------------------------------
+ANALYZING: Reliance (PO. INTM_ 9201910324 .PDF Reliance Retail Limited_eastern.PDF)
+--------------------------------------------------
+--- EXTRACTED PDF TEXT (First 10000 chars) ---
+
+
+   Reliance Retail Limited
+   Unitech Commercial Tower-1,
+   Sector -45, Gurugram,,
+   Haryana, Gurugram,
+   Gurgaon, Haryana- 122003   Haryana, INDIA
+SELLERPURCHASE ORDER
+   Vendor Code : 20011895
+   GLOMIN OVERSEAS
+   
+   NAHARPUR, H.NO-33
+   VILLAGE, ROHINI SECTOR-7
+   ROHINI, NORTH WEST DELHI, DELHI, 11
+   NORTH WEST DELHI,    Delhi
+   Pin Code : 110085,   India
+   E-Mail : GLOMINOFFICE@GMAIL.COM
+   Pan No. : AARFG6393F
+   Vendor Status :    01 - REGISTERED
+   GSTN No: 07AARFG6393F1ZX
+   Attention : 
+   
+   PO NO.:    9201910324  Site : FR87
+   PO Date : 20.08.2025
+   
+CDC-JHAJJAR-KULANA (SF)
+   In accepting this PURCHASE ORDER, SELLER agrees to furnish the GOODS specified in full accordance with all conditions set
+forth    herein  and  /  or  attachments  hereto.  All  drawings,    designs,  specifications  and  other  data  prepared  by  OWNER  and    related
+thereto arethe property of the OWNER and must  be returned to OWNER upon completionby SELLER of the  obligations under this
+PURCHASE ORDER. Theinformation contained herein is not to be released or disclosed for any other use or purpose other than for
+the  execution  of  this  PURCHASE  ORDER.  This  formal  PURCHASE  ORDER  constitutes  the  entire  agreement  and  only    written
+changes by way of an amendment to this PURCHASE ORDER  will be legally binding. It is important that SELLER  signs and returns
+the PURCHASE ORDER copy within three (3) days of  receipt. No other form of acceptance will be accepted.  Failure to return the
+acceptance does not diminish the responsibilities as set forth herein, but may result in a delay to any payments that may be due and
+may be cause for  termination of this PURCHASE ORDER.
+   Delivery Address : Distribution Center
+   Cdc Jhajjar Kulana Sf
+   Mustatil No 55 56 57 Kh No 110
+   
+   
+   Jhajjar, Haryana - 124108
+   Tel : 
+   GSTN No : 06AABCR1718E1ZT
+   EMAIL : FRDCJHJ.FR88ASN@zmail.ril.com
+   TOTAL BASIC VALUE   INR3,615.25
+   TOTAL IGST   INR650.74
+   Total Order Value :INR4,265.99
+   DELIVERY DATE :   25.08.2025
+    Payment Terms :  See Page Inside
+  Delivery Term :  - 
+.
+   Buyer  : RROPSFNR
+   Email : rrho.replenishment@ril.com
+For CDC-JHAJJAR-KULANA (SF)
+   Reliance Retail Limited
+This is computer generated document not requiring
+any signature
+SELLER'S Acceptence
+Signature      Title        Date
+Registered Office : 3rd Floor, Court House,Lokmanya Tilak Marg,, Dhobi Talao,,Mumbai,400002.
+CIN No. U01100MH1999PLC120563.
+
+PURCHASE ORDER   Number   : 9201910324
+   Po Date    : 20.08.2025
+   Page No  : 1
+Sr.No Article No.
+ HSN Code
+ EAN No.
+ Vendor Article No.
+ Vendor Item No
+ Material Description
+ Delivery Date
+ Site
+QuantityUOMMRPBase CostIGST (%)
+CESS(%)
+CessFxdRt
+IGST
+CESS
+CessFxdVl
+Total Base Value
+ 1 494503579
+ 21069099
+ 
+ 8901440223993
+ 
+ 
+ EASTERN 5 MINUTE PUTTU 200 G POUCH
+ 25.08.2025
+ FR87
+           1.000 
+          48.000 
+CAR
+EA
+       3,312.00 
+          69.00 
+2,105.08          18.00 
+           0.00 
+           0.00 
+378.91
+0.00
+0.00
+2,105.08
+ 2 494503580
+ 21069099
+ 
+ 8901440224020
+ 
+ 
+ EASTERN 5 MINUTE IDIYAPPAM 200 G CBD
+ 25.08.2025
+ FR87
+           1.000 
+          24.000 
+C01
+EA
+       2,376.00 
+          99.00 
+1,510.17          18.00 
+           0.00 
+           0.00 
+271.83
+0.00
+0.00
+1,510.17
+Grand Total of Qty           2.000 
+ TOTAL BASIC VALUEINR3,615.25
+ TOTAL IGSTINR650.74
+ Total Order Value:INR4,265.99
+Terms of payment :
+Pro-rata payment(s) shall be made within 3 days from the date of reciept of GOODS, subject to reciept of correct invoice and despatch documents, whichever is later.
+Note(S) :
+»  It  is  essential  that  the  seller  shall  mention  Item  No  &  Item  code  along  with  corresponding  Material  Description  and  P.O.  No.  as  mentioned  above,  in  the  Delivery  challan(On-Shore  Order)  /
+Packing List (Off-shore Order) and invoice for ease of material Inwarding  and Bill Processing.It is also essential that the Seller attaches a Tag /Sticker with each item indicating item Code & PO
+No. Failure to do so may be the grounds for the rejection(s) or delay in release of payment(s).
+» The ordered material should be delivered to QWIK SUPPLY CHAIN PVT.LTD at the Distribution Centre given in the PO Under Delivery Address who are authorized to receive the the material
+on our behalf.
+» Suppliers need to call the destination DC/Store atleast 24 hrs in advance to schedule the delivery time for goods.Vehicles without prior  appointment could be subject to delay.
+» Purchase order is subject to PFA warranty before receipt of goods from Vendor to ensure legal compliance with PFA rules.
+» Vendor should submit one consolidated invoice or consolidated summary statement of tax invoices, at the end of every Billing Cycle Period, which is printed on your P.O.
+» Along with the consolidated invoice or summary statement you are submitting, kindly submit store-wise supply details for the Billing Cycle Period, mentioning Reliance GRN numbers.
+GSTIN Number Details:
+GSTIN No : 06AABCR1718E1ZT
+Pan No      : AABCR1718E
+» As per recent amendment(s) in the Income-Tax Rules ("Rules") made vide the Income-tax (22nd Amendment) Rules, 2015, effective 1 January 2016. Rule 114B of the Rules as substituted,
+mentions transactions in relation to which Permanent Account Number (PAN) is to be quoted on all documents and includes sale or purchase of goods or services of any nature for an amount
+exceeding two lakh rupees per transaction (Sl. No 18 of the Table in Rule 114B).
+
+PURCHASE ORDER   Number   : 9201910324
+   Po Date    : 20.08.2025
+   Page No  : 2
+» Rule 114C (2) of the Rules as substituted reads as follows: "Any person, being a person raising bills referred to at Sl. No 5 or 6 or 18 of rule 114B, who, in relation to a transaction specified in
+the said Sl. No., has issued any document shall ensure after verification that permanent account number has been correctly furnished and the same shall be mentioned in such document, or as
+the case may be, a declaration in Form 60 has been duly furnished with complete particulars". In case PAN is applied for and / or not available, Form 60 is to be duly filled and signed / verified
+and submitted with identity and address proof (KYC documents) as per the page 3 of form 60.
+» You are therefore requested that your invoice / bill / payment acknowledgement / debit note / credit note, etc. should mention PAN of your entity as well as our PAN.
+DEFINITIONS AND INTERPRETATION
+1.1Definitions:
+The following terms, unless the context requires otherwise, shall have the following meanings:
+(a)ACCEPTANCE OF GOODS means (i) if acceptance criteria are set forth in this CONTRACT, the BUYER#S preliminary determination that the GOODS satisfy all such acceptance criteria,
+including commissioning and performance tests, if applicable; or (ii) if no such criteria are provided, the BUYER#S preliminary determination that the GOODS comply with all requirements set
+forth in this CONTRACT. ACCEPTANCE OF GOODS shall be evidenced by the issuance of an acceptance certificate by the BUYER.
+(b)AFFILIATE means, with respect to any PERSON, any other PERSON, directly or indirectly controlling, controlled by or under direct, indirect or common control with, such PERSON.  For the
+purposes of this definition, #control# means the possession, directly or indirectly, of the power to direct or cause the direction of the management or policies of such PERSON, whether through
+the ownership of voting securities, by agreement with respect to the voting of securities, by other agreement conferring control over management or policy decisions, by virtue of the power to
+control the composition of the board of directors or managers, or otherwise.  The terms #controlling# and #controlled# shall have correlative meanings.
+(c)BUYER means Reliance Retail Limited and shall include its successors and assigns. Terms such as Reliance Retail Limited ,Purchaser','Owner',  or 'Customer',as may be used in
+anyCONTRACT DOCUMENTS shall be construed tomean BUYER.
+(d)CHANGE is defined in Section 19.1.
+(e)CHANGE NOTICE is defined in Section 19.1.
+(f)CONFIDENTIAL INFORMATION is defined in Section 12.
+(g)CONTRACT means the totality of the agreement between the BUYER and the SELLER as expressed in the CONTRACT DOCUMENTS.
+(h)CONTRACT DOCUMENTS means the following and in the event of any conflicting provisions within the CONTRACT DOCUMENTS, the order of precedence of the documents shall be as
+provided below:
+PURCHASE ORDER, including any amendments thereto;
+SPECIAL CONDITIONS and annexures thereto;
+GCP; and
+any other document (A) referred to in any of the documents referred to in clauses (i) through (iii) above, or (B) agreed by the PARTIES to constitute a part of the CONTRACT DOCUMENTS and
+incorporated herein by specific reference.
+
+PURCHASE ORDER   Number   : 9201910324
+   Po Date    : 20.08.2025
+   Page No  : 3
+(i)DEFECT means any defect, deficiency, error, failure, flaw, omission, damage, fault, inadequacy or discrepancy in the workmanship or in the materials used in the fabrication and
+manufacture of GOODS or any part or component thereof and the word #DEFECTIVE# shall be construed accordingly.
+(j)DELIVERY POINT is defined or described in the SPECIAL CONDITIONS.
+(k)DELIVERY SCHEDULE is defined or described in the SPECIAL CONDITIONS.
+(l)DELIVERY TERMS means the terms for the delivery of the GOODS, including the DELIVERY SCHEDULE, DELIVERY POINTS and locations and shipping terms, as set out in this
+CONTRACT.  Except as otherwise specified in this CONTRACT, terms for the delivery of the GOODS shall incorporate the INCOTERMS.
+(m)DISPUTE is defined in Section 18.
+(n)DRAWINGS and DOCUMENTS mean the design calculations, drawings, analysis patterns, specifications, construction and fabrication drawings and documents, certificates, test results,
+installation, operating and maintenance manuals and any other documentation or materials prepared or provided by the SELLER under this CONTRACT (whether recorded in physical form or on
+electronic s
+
+--- END TEXT SAMPLE ---
 
 Analysis Complete.
