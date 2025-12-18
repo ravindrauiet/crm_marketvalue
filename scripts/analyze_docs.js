@@ -6,9 +6,7 @@ const XLSX = require('xlsx');
 
 // Configuration: Samples to analyze
 const SAMPLES = [
-    { vendor: 'DMart', file: 'MOTHERS  PO_dmart.pdf' },
-    { vendor: 'DMart', file: 'MOTHERS PAPAD PO_dmart.pdf' },
-    { vendor: 'DMart', file: 'MOTHERS po_dmart.pdf' }
+    { vendor: 'Amazon', file: "Amazon po's 29.08.2025.xlsx" }
 ];
 
 const BASE_DIR = path.join(__dirname, '../../PO automation');
@@ -36,15 +34,21 @@ async function analyze() {
             if (sample.file.endsWith('.pdf')) {
                 const dataBuffer = fs.readFileSync(filePath);
                 const data = await pdf(dataBuffer);
-                log('--- EXTRACTED PDF TEXT (First 1500 chars) ---');
-                log(data.text.substring(0, 1500));
+                log('--- EXTRACTED PDF TEXT (First 2000 chars) ---');
+                log(data.text.substring(0, 2000));
                 log('\n--- END TEXT SAMPLE ---');
+            } else if (sample.file.endsWith('.csv')) {
+                const csvContent = fs.readFileSync(filePath, 'utf-8');
+                const lines = csvContent.split('\n').slice(0, 15);
+                log('--- EXTRACTED CSV DATA (First 15 rows) ---');
+                log(lines.join('\n'));
+                log('\n--- END CSV SAMPLE ---');
             } else if (sample.file.endsWith('.xlsx') || sample.file.endsWith('.xls')) {
                 const buf = fs.readFileSync(filePath);
                 const wb = XLSX.read(buf, { type: 'buffer' });
                 const sheetName = wb.SheetNames[0];
                 const sheet = wb.Sheets[sheetName];
-                const json = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // Array of arrays to see headers
+                const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
                 log('--- EXTRACTED EXCEL DATA (First 10 rows) ---');
                 log(JSON.stringify(json.slice(0, 10), null, 2));

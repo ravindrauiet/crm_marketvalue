@@ -138,15 +138,42 @@ EXTRACTION INSTRUCTIONS:
     amazon: `${baseInstructions}
 
 AMAZON-SPECIFIC INSTRUCTIONS (Excel Format):
-The text provided is a JSON extraction of an Excel file.
-1. ROW STRUCTURE: Look for arrays where index 3 (Column D) is an alphanumeric code valid as ASIN (e.g., B08G5QLVJ4).
-2. COLUMNS TO EXTRACT:
-   - SKU/ASIN: Index 3 (Column D)
-   - Name: Index 4 (Column E) - Extract full title.
-   - Quantity: Index 6 (Column G) - This is "Quantity Outstanding". Only extract if > 0.
-   - Cost: Index 7 (Column H) - "Unit Cost".
-3. IGNORE: Rows where "Quantity Outstanding" is 0 or missing.
-4. BRAND: Usually the first 1-2 words of the Name (e.g., "Mother's Recipe").`,
+Amazon PO files are clean Excel spreadsheets. Extract ALL fields.
+
+## EXCEL COLUMN STRUCTURE:
+1. PO - Purchase Order ID (e.g., "8Q4RMHAU") -> poNumber
+2. Vendor - Vendor code (e.g., "GLVSE") -> vendorCode
+3. Ship to location - Warehouse address (e.g., "HNR4 - Dadri Toe, HARYANA") -> shipTo
+4. ASIN - Amazon SKU (e.g., "B08G5QLVJ4") -> Use as SKU (10-char alphanumeric)
+5. Title - Product name (e.g., "Mother's Recipe Rice Papad Jeera Pouch,75 Gram") -> name
+6. Window end - Delivery date (e.g., "13/9/2025") -> deliveryDate
+7. Quantity Outstanding - ORDER QUANTITY (e.g., 32, 88, 24) -> quantity
+8. Unit Cost - Price per unit (e.g., 18.57, 58.5) -> price
+9. (Currency) - Usually "INR"
+10. Total cost - Line total (e.g., 594.24, 5148) -> totalCost
+11. (Currency) - Usually "INR"
+
+## HEADER (for rawDocumentInfo):
+- poNumber: PO column value (same for all rows in a PO)
+- vendorCode: Vendor column
+- shipTo: Ship to location
+- deliveryDate: Window end date
+
+## EXTRACTION RULES:
+- sku: ASIN (10-character code like "B08G5QLVJ4")
+- name: Title (full product name)
+- quantity: Quantity Outstanding (integer)
+- price: Unit Cost (decimal)
+- totalCost: Total cost (for validation)
+
+## VALIDATION:
+Total cost = Quantity Outstanding × Unit Cost
+Example: 32 × 18.57 = 594.24 ✓
+
+## BRAND DETECTION:
+First words of Title are usually the brand:
+- "Mother's Recipe" -> brand: "Mother's Recipe"
+- "Eastern" -> brand: "Eastern"`,
 
     blinkit: `${baseInstructions}
 
@@ -235,25 +262,105 @@ Sno | EAN No | Article Description | UOM | Qty | Free | B.Price | Sp.Dis% | Sch.
 
     zepto: `${baseInstructions}
 
-ZEPTO-SPECIFIC INSTRUCTIONS (PDF Format):
-The text often runs together (e.g., "1101446Eastern").
-1. SPLITTING REQUIRED: If you see a numeric code immediately followed by text (e.g., "1101446Eastern"), SPLIT IT.
-   - SKU/Material Code: "1101446"
-   - Name: "Eastern Chilli Powder..."
-2. IDENTIFIERS:
-   - Material Code (7 digits) is the primary internal SKU.
-   - EAN (13 digits, starting 890) might be present later in the text block.
-3. QUANTITY: Look for the quantity number. It might be mentioned as "1 pack" in description, but look for the tabular quantity column value (e.g., "160" or "40.00").
-4. EXTRACTION: Prioritize separating the leading ID from the Name.`,
+ZEPTO-SPECIFIC INSTRUCTIONS:
+Zepto POs come in CSV and PDF formats. Extract ALL fields.
+
+## CSV FORMAT (PREFERRED - VERY CLEAN DATA):
+CSV columns in order:
+1. PoNumber - PO number (e.g., "P2057888")
+2. BatchID - Batch identifier
+3. StoreName - Store location (e.g., "JJR-DRY-MH-LUHARI")
+4. PoDate - PO date (YYYY-MM-DD HH:MM:SS)
+5. Status - Order status
+6. VendorCode - Vendor code (e.g., "KK-3798")
+7. VendorName - Vendor name (e.g., "GLOMIN OVERSEAS-DELHI")
+8. PoTotalAmount - Total PO amount
+9. DeliveryLocation - Delivery location code
+10. LineNumber - Line item number
+11. Sku - SKU UUID (e.g., "1987446e-56f4-46cd-a223-c1a955190ba2") -> Use as SKU
+12. MaterialCode - Internal code (e.g., "101446") -> Also useful as alternate SKU
+13. SkuDesc - Product description (e.g., "Eastern Chilli Powder - 1 pack (100 g)") -> Use as Name
+14. Brand - Brand name (e.g., "Eastern", "Mother's Recipe")
+15. EAN - Barcode (13 digits starting 890)
+16. HSN - HSN code for tax
+17. CGSTPercentage, SGSTPercentage, IGSTPercentage, CESSPercentage - Tax rates
+18. AbsoluteCess - Cess amount
+19. MRP - Maximum retail price
+20. Quantity - ORDER QUANTITY (e.g., 600, 320, 250)
+21. UnitBaseCost - Base cost per unit
+22. LandingCost - Final cost after taxes
+23. TotalAmount - Line total
+
+## PDF FORMAT:
+PDF text often concatenates values. Key patterns:
+- "1101446Eastern Chilli Powder" -> Split: MaterialCode="101446", Name="Eastern Chilli Powder..."
+- First column is Sr. (row number) + MaterialCode concatenated
+- Look for: Material Code | Item Description | SKU Code (UUID) | HSN | EAN | Quantity | MRP | Unit Base Cost | Taxable Value
+
+## HEADER (for rawDocumentInfo):
+- PO No: (e.g., "P2057888")
+- PO Date: YYYY-MM-DD
+- Vendor Name, GSTIN
+- Expected Delivery Date
+- PO Expiry Date
+- Shipping Address (Zepto warehouse)
+
+## EXTRACTION MAPPING:
+- sku: Use MaterialCode (6 digits like "101446") or the UUID Sku
+- name: SkuDesc / Item Description
+- brand: Brand column
+- quantity: Quantity column (integer like 600, 320, 250)
+- price: UnitBaseCost or LandingCost
+- mrp: MRP value
+- ean: 13-digit EAN barcode
+- totalAmount: TotalAmount for validation
+
+## VALIDATION:
+TotalAmount ≈ Quantity × LandingCost`,
 
     swiggy: `${baseInstructions}
 
-SWIGGY-SPECIFIC INSTRUCTIONS (PDF Format):
-1. ITEM CODE: 5-7 digit number (e.g., "11531" or "217762") usually at the start of a logical row.
-2. NAME PATTERN: Follows the code. (e.g. "Mtr Upma Breakfast Mix 160.0 g").
-3. QUANTITY: Integer value appearing after the name and HSN.
-4. COST: "Unit Base Cost" (e.g. "41.18") usually appears after MRP.
-5. SPECIAL CASE: "Colour: Size: size" - Ignore this generic metadata.`,
+SWIGGY-SPECIFIC INSTRUCTIONS:
+Swiggy POs come in PDF and XLS formats via SCOOTSY LOGISTICS. Extract ALL fields.
+
+## PDF FORMAT:
+PDF text has headers split across lines and concatenated numbers.
+
+HEADER (for rawDocumentInfo):
+- PO No: (e.g., "ETPPO03012", "FC5PO242865")
+- PO Date: (e.g., "Sep 16, 2025")
+- Payment Terms, Expected Delivery Date, PO Expiry Date
+- Vendor: "GLOMIN OVERSEAS-GURAGON" with GSTIN
+- Shipping Address: SCOOTSY LOGISTICS PRIVATE LIMITED
+
+PRODUCT TABLE COLUMNS:
+1. S.No - Row number
+2. Item Code - 4-6 digit code (e.g., "11531", "217762") -> Use as SKU
+3. Item Desc - Product name (e.g., "Mtr Upma Breakfast Mix 160.0 g")
+4. HSN Code - 8-digit HSN
+5. Qty - ORDER QUANTITY (e.g., 120, 30, 40)
+6. MRP - Maximum retail price
+7. Unit Base Cost (INR) - Cost per unit
+8. Taxable Value (INR) - Tax base amount
+9. Tax columns (CGST, SGST, IGST, CESS)
+10. Total (INR) - Line total
+
+## CRITICAL: IGNORE METADATA
+Product descriptions contain garbage text to IGNORE:
+- "Colour: " (followed by blank or "size")
+- "Size: size"
+- "Brand:Top 800-1200" or "Brand:CAMPAIGN" or "Brand:Default"
+REMOVE these when extracting the product name.
+
+## VALIDATION:
+Total ≈ TaxableValue × (1 + TaxRate)
+
+## OUTPUT:
+- sku: Item Code (4-6 digits)
+- name: Clean Item Desc (without Colour/Size/Brand garbage)
+- quantity: Qty column
+- price: Unit Base Cost
+- mrp: MRP`,
 
     eastern: `${baseInstructions}
 EASTERN-SPECIFIC INSTRUCTIONS:
@@ -294,91 +401,91 @@ export async function extractProductsWithAI(
     const vendorPromptInstructions = getVendorSpecificPrompt(vendor);
 
     // Create AI prompt for extraction - TWO PARTS: Document Info + Products
-    const prompt = `You are an expert data extraction assistant. Extract ALL information from this ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
+    const prompt = `You are an expert data extraction assistant.Extract ALL information from this ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
 
-${vendorPromptInstructions}
+    ${vendorPromptInstructions}
 
-## PART 1: DOCUMENT INFORMATION (FULL CONTENT)
-CRITICAL: This section must contain EVERY piece of information visible in the document. Do not skip anything. Even though you extract products in Part 2, you MUST also include them here in summary or text form so this section is a standalone complete record.
+## PART 1: DOCUMENT INFORMATION(FULL CONTENT)
+  CRITICAL: This section must contain EVERY piece of information visible in the document.Do not skip anything.Even though you extract products in Part 2, you MUST also include them here in summary or text form so this section is a standalone complete record.
 
-Extract:
-- Document type (Invoice, Purchase Order, Stock Report, Delivery Note, etc.)
-- Document number (PO number, Invoice number, Reference number, etc.)
-- Document date
-- Vendor/Supplier details (name, address, phone, email, GST/Tax ID)
-- Buyer/Customer details (name, address, phone, email, GST/Tax ID)
-- Shipping address (if different)
-- Payment terms
-- Delivery/Due date
-- Subtotal, Tax, Total amounts
-- Currency
-- Any notes, terms, conditions
-- ALL product line items (include them in 'allVisibleText' or 'productSummaryText' if they don't fit specific fields)
-- Any other additional information visible
+    Extract:
+  - Document type(Invoice, Purchase Order, Stock Report, Delivery Note, etc.)
+    - Document number(PO number, Invoice number, Reference number, etc.)
+      - Document date
+        - Vendor / Supplier details(name, address, phone, email, GST / Tax ID)
+          - Buyer / Customer details(name, address, phone, email, GST / Tax ID)
+            - Shipping address(if different)
+    - Payment terms
+      - Delivery / Due date
+        - Subtotal, Tax, Total amounts
+          - Currency
+          - Any notes, terms, conditions
+            - ALL product line items(include them in 'allVisibleText' or 'productSummaryText' if they don't fit specific fields)
+              - Any other additional information visible
 
-## PART 2: PRODUCT/ORDER LINE ITEMS
-Extract all products/items with:
-- SKU/Product Code (REQUIRED) - Extract EXACTLY as written
-- Product Name (REQUIRED) - Extract EXACTLY as written
-- Brand (if available)
-- Group/Category (if available)
-- Quantity/Stock (REQUIRED if available)
-- Unit Price (if available)
-- Total Price (if available)
-- Description (if available)
+## PART 2: PRODUCT / ORDER LINE ITEMS
+Extract all products / items with:
+  - SKU / Product Code(REQUIRED) - Extract EXACTLY as written
+    - Product Name(REQUIRED) - Extract EXACTLY as written
+      - Brand(if available)
+    - Group / Category(if available)
+    - Quantity / Stock(REQUIRED if available)
+    - Unit Price(if available)
+    - Total Price(if available)
+    - Description(if available)
 
 Return the data as a JSON object with this structure:
-{
-  "rawDocumentInfo": {
-    "documentType": "string (Invoice/PO/Stock Report/etc.)",
-    "documentNumber": "string (exact document number)",
-    "documentDate": "string (date as shown)",
-    "vendorName": "string",
-    "vendorAddress": "string",
-    "vendorContact": "string (phone/email)",
-    "vendorGST": "string (GST/Tax ID)",
-    "buyerName": "string",
-    "buyerAddress": "string",
-    "buyerContact": "string",
-    "buyerGST": "string",
-    "shippingAddress": "string",
-    "paymentTerms": "string",
-    "deliveryDate": "string",
-    "subtotal": number,
-    "taxAmount": number,
-    "totalAmount": number,
-    "currency": "string (INR/USD/etc.)",
-    "notes": "string (any notes or remarks)",
-    "terms": "string (terms and conditions)",
-    "lineItemsSummary": "string (textual list/summary of all products and quantities)",
-    "allVisibleText": "string (summary of any other text not captured above)",
-    "additionalFields": {} // Any other key-value pairs found
-  },
-  "products": [
-    {
-      "sku": "string (required - exact as in document)",
-      "name": "string (required - exact as in document)",
-      "brand": "string (optional)",
-      "group": "string (optional)",
-      "quantity": number (optional),
-      "price": number (optional - unit price),
-      "totalPrice": number (optional - line total),
-      "description": "string (optional)"
+  {
+    "rawDocumentInfo": {
+      "documentType": "string (Invoice/PO/Stock Report/etc.)",
+        "documentNumber": "string (exact document number)",
+          "documentDate": "string (date as shown)",
+            "vendorName": "string",
+              "vendorAddress": "string",
+                "vendorContact": "string (phone/email)",
+                  "vendorGST": "string (GST/Tax ID)",
+                    "buyerName": "string",
+                      "buyerAddress": "string",
+                        "buyerContact": "string",
+                          "buyerGST": "string",
+                            "shippingAddress": "string",
+                              "paymentTerms": "string",
+                                "deliveryDate": "string",
+                                  "subtotal": number,
+                                    "taxAmount": number,
+                                      "totalAmount": number,
+                                        "currency": "string (INR/USD/etc.)",
+                                          "notes": "string (any notes or remarks)",
+                                            "terms": "string (terms and conditions)",
+                                              "lineItemsSummary": "string (textual list/summary of all products and quantities)",
+                                                "allVisibleText": "string (summary of any other text not captured above)",
+                                                  "additionalFields": { } // Any other key-value pairs found
+    },
+    "products": [
+      {
+        "sku": "string (required - exact as in document)",
+        "name": "string (required - exact as in document)",
+        "brand": "string (optional)",
+        "group": "string (optional)",
+        "quantity": number(optional),
+        "price": number(optional - unit price),
+        "totalPrice": number(optional - line total),
+        "description": "string (optional)"
+      }
+    ],
+      "metadata": {
+      "documentType": "string",
+        "totalItems": number,
+          "date": "string (if found)"
     }
-  ],
-  "metadata": {
-    "documentType": "string",
-    "totalItems": number,
-    "date": "string (if found)"
   }
-}
 
 Document content:
 ${truncatedText}
 
 Return ONLY valid JSON, no additional text or explanation.`;
 
-    console.log(`\n=== AI Extraction for Vendor: ${vendor.toUpperCase()} ===\n`);
+    console.log(`\n === AI Extraction for Vendor: ${vendor.toUpperCase()} ===\n`);
 
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -388,17 +495,17 @@ Return ONLY valid JSON, no additional text or explanation.`;
           content: `You are an expert data extraction assistant specialized in reading inventory and stock documents.
 
 CRITICAL EXTRACTION RULES:
-1. Extract EVERY SINGLE product from the document - be COMPLETE and THOROUGH
-2. SKU/Product Code is the PRIMARY identifier - extract it EXACTLY as written
-3. Read the ENTIRE document carefully - check ALL tables, ALL rows, ALL sections
-4. Do NOT skip any products - if you see a product code and name, extract it
-5. Extract ALL occurrences - if same product appears multiple times, include all
-6. Look for product codes in various formats: numbers, alphanumeric, with dashes
+  1. Extract EVERY SINGLE product from the document - be COMPLETE and THOROUGH
+  2. SKU / Product Code is the PRIMARY identifier - extract it EXACTLY as written
+  3. Read the ENTIRE document carefully - check ALL tables, ALL rows, ALL sections
+  4. Do NOT skip any products - if you see a product code and name, extract it
+  5. Extract ALL occurrences - if same product appears multiple times, include all
+  6. Look for product codes in various formats: numbers, alphanumeric, with dashes
 7. Product names may be long, have special characters, or abbreviations - extract exactly
-8. Quantities are important - extract the exact numbers you see
-9. Be thorough - scan every section, every table, every list
-10. If unsure whether something is a product, extract it anyway - better to have extra than miss something
-11. Always return valid JSON only - no explanations, no markdown, just JSON`
+  8. Quantities are important - extract the exact numbers you see
+  9. Be thorough - scan every section, every table, every list
+  10. If unsure whether something is a product, extract it anyway - better to have extra than miss something
+  11. Always return valid JSON only - no explanations, no markdown, just JSON`
         },
         {
           role: 'user',
@@ -426,16 +533,16 @@ CRITICAL EXTRACTION RULES:
     if (result.products && result.products.length > 0) {
       console.log('\nAll extracted products:');
       result.products.forEach((p, idx) => {
-        console.log(`  ${idx + 1}. SKU: "${p.sku}" | Name: "${p.name}" | Qty: ${p.quantity || 'N/A'} | Brand: ${p.brand || 'N/A'} | Group: ${p.group || 'N/A'}`);
+        console.log(`  ${idx + 1}.SKU: "${p.sku}" | Name: "${p.name}" | Qty: ${p.quantity || 'N/A'} | Brand: ${p.brand || 'N/A'} | Group: ${p.group || 'N/A'} `);
       });
       console.log('\nSummary:');
-      console.log(`  - Total products: ${result.products.length}`);
+      console.log(`  - Total products: ${result.products.length} `);
       const withQty = result.products.filter(p => p.quantity && p.quantity > 0).length;
-      console.log(`  - Products with quantity: ${withQty}`);
+      console.log(`  - Products with quantity: ${withQty} `);
       const uniqueSkus = new Set(result.products.map(p => p.sku)).size;
-      console.log(`  - Unique SKUs: ${uniqueSkus}`);
+      console.log(`  - Unique SKUs: ${uniqueSkus} `);
       const uniqueNames = new Set(result.products.map(p => p.name)).size;
-      console.log(`  - Unique Names: ${uniqueNames}`);
+      console.log(`  - Unique Names: ${uniqueNames} `);
     }
     console.log('================================\n');
 
@@ -460,7 +567,7 @@ CRITICAL EXTRACTION RULES:
 
     return result;
   } catch (error: any) {
-    throw new Error(`AI extraction failed: ${error.message}`);
+    throw new Error(`AI extraction failed: ${error.message} `);
   }
 }
 

@@ -1,206 +1,142 @@
 Starting analysis of sample documents...
 
 --------------------------------------------------
-ANALYZING: DMart (MOTHERS  PO_dmart.pdf)
+ANALYZING: Amazon (Amazon po's 29.08.2025.xlsx)
 --------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
+--- EXTRACTED EXCEL DATA (First 10 rows) ---
+[
+  [
+    "PO",
+    "Vendor",
+    "Ship to location",
+    "ASIN",
+    "Title",
+    "Window end",
+    "Quantity Outstanding",
+    "Unit Cost",
+    "",
+    "Total cost",
+    ""
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B08G5QLVJ4",
+    "Mother's Recipe Rice Papad Jeera Pouch,75 Gram",
+    "13/9/2025",
+    32,
+    18.57,
+    "INR",
+    594.24,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B08G5NGZVY",
+    "Mother's Recipe Udad Papad 5\" Pouch, 180 Grams",
+    "13/9/2025",
+    88,
+    58.5,
+    "INR",
+    5148,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B08G5NG761",
+    "Mother's Recipe Green Chilli Pickle Bottle,400 G",
+    "13/9/2025",
+    24,
+    97.5,
+    "INR",
+    2340,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B08FRF3NQR",
+    "Mother's Recipe Tamarind Date Chutney Pouch,200 G",
+    "13/9/2025",
+    60,
+    45.27,
+    "INR",
+    2716.2,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B08DV37GZT",
+    "Mother's Recipe Delhi Chaat Chutney Pouch,200 G",
+    "13/9/2025",
+    60,
+    45.27,
+    "INR",
+    2716.2,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B07H3V7LR3",
+    "Mother's Recipe Mixed Pickle (MP/EI) Pouch, 200 g",
+    "13/9/2025",
+    54,
+    41.79,
+    "INR",
+    2256.66,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B07DCKVH2M",
+    "Mothers Recipe Rice Papad Ajwain Pouch, 75 g",
+    "13/9/2025",
+    32,
+    18.57,
+    "INR",
+    594.24,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B07CR39GYV",
+    "Mother's Recipe Mixed Pickle (MP/EI) Jar, 1000 g",
+    "13/9/2025",
+    36,
+    188.04,
+    "INR",
+    6769.44,
+    "INR"
+  ],
+  [
+    "8Q4RMHAU",
+    "GLVSE",
+    "HNR4 - Dadri Toe, HARYANA",
+    "B075319JY4",
+    "Mother's RECIPE Potato Chip Papad Pouch, 70 Gm - Potato",
+    "13/9/2025",
+    32,
+    25.26,
+    "INR",
+    808.32,
+    "INR"
+  ]
+]
 
-
-Ship ToAvenue Supermarts Ltd.
-Tughlakabad Metro Stn, N Delhi
-New Delhi 110044
-Phone
-Fax
-Tughlakabad MRTS Station
-Emailgrn.1104@dmartindia.com
-Buyer100
-Vendor FSSAI No13318005000092
-Validity17.02.2024 To 07.03.2029
-CIN
-GSTIN
-:L51900MH2000PLC126473
-:07AACCA8432H1ZS
-Vendor
-Phone
-Email
-Attn
-GSTIN07AARFG6393F1ZX
-GLOMIN OVERSEAS
-NAHARPUR VILLAGE
-DELHI 110085
-8527104727 FAX :0000000000
-GLOMINOVERSEAS@GMAIL.COM
-PURCHASE ORDER
-PO #
-PO Date
-Delivery Dt
-4544776992
-23.07.2025
-23.07.2025
-SnoEAN NoArticle DescriptionUOM  Qty   FreeB.Price Sp.Dis
-%
-Sch.Val   SGST/
-UTGST
-%
-CGST/
-IGST
-%
-Cess L.Price   MRPT.Value
-1  8906001051503 MOTHERS MOONG PAPAD(180G)
-[HSN Code:19059040]
-EA   88057.00   0.0023.25    0.00   0.00  0.00   33.75   75.00  2,970.00 
-2  8906001058182 MOTHERS GARLIC G/CHILLI
-PAPAD-200 g [HSN
-Code:19059040]
-EA   58057.00   0.0023.25    0.00   0.00  0.00   33.75   75.00  1,957.50 
-3  8906001051619 MOTHERS SABUDANA PAPAD-70GM
-[HSN Code:19059030]
-EA   160025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  2,447.36 
-4  8906001058151 MOTHERS PUNJABI MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   88066.12   0.0026.97    0.00   0.00  0.00   39.15   87.00  3,445.20 
-5  8906001051602 MOTHERS PATATO PAPAD-70G
-[HSN Code:19059030]
-EA   128025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  1,957.89 
-Total52212777.95
-Amount in wordsRUPEES  TWELVE THOUSAND SEVEN HUNDRED SEVENTY SEVEN &  NINETY FIVE PAISE ONLY
-Terms and Conditions:
-By supplying goods/services under this Purchase Order (P
-
---- END TEXT SAMPLE ---
-
---------------------------------------------------
-ANALYZING: DMart (MOTHERS PAPAD PO_dmart.pdf)
---------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
-
-
-Ship ToAvenue Supermarts Ltd.
-Tughlakabad Metro Stn, N Delhi
-New Delhi 110044
-Phone
-Fax
-Tughlakabad MRTS Station
-Emailgrn.1104@dmartindia.com
-Buyer100
-Vendor FSSAI No13318005000092
-Validity17.02.2024 To 07.03.2029
-CIN
-GSTIN
-:L51900MH2000PLC126473
-:07AACCA8432H1ZS
-Vendor
-Phone
-Email
-Attn
-GSTIN07AARFG6393F1ZX
-GLOMIN OVERSEAS
-NAHARPUR VILLAGE
-DELHI 110085
-8527104727 FAX :0000000000
-GLOMINOVERSEAS@GMAIL.COM
-PURCHASE ORDER
-PO #
-PO Date
-Delivery Dt
-4545204014
-25.08.2025
-25.08.2025
-SnoEAN NoArticle DescriptionUOM  Qty   FreeB.Price Sp.Dis
-%
-Sch.Val   SGST/
-UTGST
-%
-CGST/
-IGST
-%
-Cess L.Price   MRPT.Value
-1  8906001058151 MOTHERS PUNJABI MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   88066.12   0.0026.97    0.00   0.00  0.00   39.15   87.00  3,445.20 
-2  8906001054306 MOTHERS CHANA MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   88066.30   0.0028.05    0.00   0.00  0.00   38.25   85.00  3,366.00 
-Total1766811.20
-Amount in wordsRUPEES  SIX THOUSAND EIGHT HUNDRED ELEVEN &  TWENTY PAISE ONLY
-Terms and Conditions:
-By supplying goods/services under this Purchase Order (PO), the vendor acknowledges and agrees as below -
-a) GST rates mentioned in PO/Contract are indicative only. Vendor/Contractor need to ensure supply of goods and/or services covered
-in the PO/contract with correct GST Tax rate and HSN.
-b) To allow buyer to adjust/withhold claims of tax, interest and penalty that may arise due to incorrect GST tax rate and HSN
-classification including right to set-off the differential GST amount a
-
---- END TEXT SAMPLE ---
-
---------------------------------------------------
-ANALYZING: DMart (MOTHERS po_dmart.pdf)
---------------------------------------------------
---- EXTRACTED PDF TEXT (First 1500 chars) ---
-
-
-Ship ToAvenue Supermarts Ltd.
-Tughlakabad Metro Stn, N Delhi
-New Delhi 110044
-Phone
-Fax
-Tughlakabad MRTS Station
-Emailgrn.1104@dmartindia.com
-Buyer100
-Vendor FSSAI No13318005000092
-Validity17.02.2024 To 07.03.2029
-CIN
-GSTIN
-:L51900MH2000PLC126473
-:07AACCA8432H1ZS
-Vendor
-Phone
-Email
-Attn
-GSTIN07AARFG6393F1ZX
-GLOMIN OVERSEAS
-NAHARPUR VILLAGE
-DELHI 110085
-8527104727 FAX :0000000000
-GLOMINOVERSEAS@GMAIL.COM
-PURCHASE ORDER
-PO #
-PO Date
-Delivery Dt
-4545471067
-15.09.2025
-15.09.2025
-SnoEAN NoArticle DescriptionUOM  Qty   FreeB.Price Sp.Dis
-%
-Sch.Val   SGST/
-UTGST
-%
-CGST/
-IGST
-%
-Cess L.Price   MRPT.Value
-1  8906001051602 MOTHERS PATATO PAPAD-70G
-[HSN Code:19059030]
-EA   480025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  7,342.08 
-2  8906001051619 MOTHERS SABUDANA PAPAD-70GM
-[HSN Code:19059030]
-EA   480025.26   0.0010.69    2.50   2.50  0.00   15.30   34.00  7,342.08 
-3  8906001058151 MOTHERS PUNJABI MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   88066.12   0.0026.97    0.00   0.00  0.00   39.15   87.00  3,445.20 
-4  8906001054306 MOTHERS CHANA MASALA
-PAPAD(180G) [HSN
-Code:19059040]
-EA   100066.30   0.0028.05    0.00   0.00  0.00   38.25   85.00  3,825.00 
-Total114821954.36
-Amount in wordsRUPEES  TWENTY ONE THOUSAND NINE HUNDRED FIFTY FOUR &  THIRTY SIX PAISE ONLY
-Terms and Conditions:
-By supplying goods/services under this Purchase Order (PO), the vendor acknowledges and agrees as below -
-a) GST rates mentioned in PO/Contract are indicative only. Vendor/Contractor need to ensu
-
---- END TEXT SAMPLE ---
+--- END EXCEL SAMPLE ---
 
 Analysis Complete.
