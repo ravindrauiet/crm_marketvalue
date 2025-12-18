@@ -195,13 +195,43 @@ The text often has messy vertical formatting where the Row Number (S.No) gets st
     dmart: `${baseInstructions}
 
 DMART-SPECIFIC INSTRUCTIONS (PDF Format):
-This document is usually a clean table.
-1. RECORD MARKER: Lines starting with a small integer or "EAN No" are the best indicators.
-2. KEY IDENTIFIER (EAN): Look for a 13-digit number starting with '890' (e.g., "8906001051602"). Use this as the SKU.
-3. NAME PATTERN: Text immediately following the EAN (e.g., "MOTHERS PATATO PAPAD-70G").
-4. CLEANUP: Remove "[HSN Code: ...]" from the Name if it's attached.
-5. QUANTITY: Look for the large integer following "EA" or "CS" (e.g., "EA 4800"). This is the most critical extraction.
-6. COST: "L.Price" value usually appears near the end of the line (e.g. "15.30").`,
+DMart POs have a consistent structure. Extract EVERYTHING.
+
+## CRITICAL: QUANTITY EXTRACTION WITH VALIDATION
+The PDF may concatenate Qty and Free (which is always 0). Use this validation method:
+
+VALIDATION FORMULA: Qty ≈ T.Value ÷ L.Price
+
+REAL EXAMPLES FROM DOCUMENT:
+Row 1: T.Value=7,342.08, L.Price=15.30 → Qty = 7342.08÷15.30 = 480 ✓
+Row 2: T.Value=7,342.08, L.Price=15.30 → Qty = 7342.08÷15.30 = 480 ✓
+Row 3: T.Value=3,445.20, L.Price=39.15 → Qty = 3445.20÷39.15 = 88 ✓
+Row 4: T.Value=3,825.00, L.Price=38.25 → Qty = 3825.00÷38.25 = 100 ✓
+
+CORRECT QUANTITIES: 480, 480, 88, 100 (Total: 1148 - matches footer)
+
+## COLUMN ORDER IN PDF:
+Sno | EAN No | Article Description | UOM | Qty | Free | B.Price | Sp.Dis% | Sch.Val | SGST% | CGST% | Cess | L.Price | MRP | T.Value
+
+## EXTRACTION RULES:
+1. EAN No (13 digits starting 890) → sku
+2. Article Description → name (REMOVE "[HSN Code:...]")
+3. Qty → quantity (USE VALIDATION: T.Value ÷ L.Price)
+4. Free → IGNORE (always 0)
+5. L.Price → price
+6. T.Value → totalValue (for validation)
+
+## HEADER (for rawDocumentInfo):
+- SHIP TO: Avenue Supermarts Ltd.
+- VENDOR: GLOMIN OVERSEAS
+- PO #, PO Date, Delivery Dt
+- GSTIN numbers
+
+## OUTPUT:
+- sku: EAN (13 digits)
+- name: Clean description (no HSN code)
+- quantity: Validated qty (e.g., 480, 88, 100)
+- price: L.Price value`,
 
     zepto: `${baseInstructions}
 

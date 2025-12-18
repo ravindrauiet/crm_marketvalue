@@ -6,9 +6,9 @@ const XLSX = require('xlsx');
 
 // Configuration: Samples to analyze
 const SAMPLES = [
-    { vendor: 'BigBasket', file: '27601427_big basket2.xlsx' },
-    { vendor: 'BigBasket', file: '27612449_big basket2.xlsx' },
-    { vendor: 'BigBasket', file: '27612449_eastern_big basket.xlsx' }
+    { vendor: 'DMart', file: 'MOTHERS  PO_dmart.pdf' },
+    { vendor: 'DMart', file: 'MOTHERS PAPAD PO_dmart.pdf' },
+    { vendor: 'DMart', file: 'MOTHERS po_dmart.pdf' }
 ];
 
 const BASE_DIR = path.join(__dirname, '../../PO automation');
