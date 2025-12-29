@@ -67,8 +67,26 @@ export async function processFileWithAI(
   };
 
   try {
-    // Extract products using AI with vendor-specific logic
-    const extractionResult = await extractProductsWithAI(file.path, file.mimetype, vendor);
+    // Determine extraction method based on file type
+    let extractionResult;
+
+    // Check if it's an Excel file
+    if (file.mimetype.includes('excel') ||
+      file.mimetype.includes('spreadsheet') ||
+      file.filename.endsWith('.xlsx') ||
+      file.filename.endsWith('.xls')) {
+
+      console.log(`\n=== Processing Excel File: ${file.filename} (Vendor: ${vendor}) ===`);
+      console.log('Using deterministic Excel extractor (bypassing AI)...');
+
+      // Use efficient deterministic extraction
+      const { extractFromExcel } = await import('./excel-extractor');
+      extractionResult = await extractFromExcel(file.path, vendor);
+
+    } else {
+      // Use AI for PDFs, Images, etc.
+      extractionResult = await extractProductsWithAI(file.path, file.mimetype, vendor);
+    }
     result.productsExtracted = extractionResult.products.length;
     result.metadata = {
       ...extractionResult.metadata,
