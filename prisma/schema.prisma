@@ -24,26 +24,30 @@ model File {
   record           Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
   recordId         String   @db.ObjectId
   extractionStatus String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
-  rawDocumentInfo  String?  // JSON string of ALL information visible in the document
-  extractedData    String?  // JSON string of structured product/order data
+  rawDocumentInfo  String? // JSON string of ALL information visible in the document
+  extractedData    String? // JSON string of structured product/order data
   extractionError  String?
+  Grn              Grn[]
 }
 
 model Product {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  sku               String   @unique
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
+  sku               String             @unique
   name              String
   brand             String?
   group             String?
   description       String?
-  price             Float?   // Selling price
-  cost              Float?    // Cost price
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  price             Float? // Selling price
+  cost              Float? // Cost price
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
   stocks            Stock[]
   orderItems        OrderItem[]
   stockTransactions StockTransaction[]
-  minStockThreshold Int      @default(10) // Default minimum stock threshold
+  minStockThreshold Int                @default(10) // Default minimum stock threshold
+  InvoiceItem       InvoiceItem[]
+  GRNItem           GRNItem[]
+
   @@index([name])
   @@index([brand])
   @@index([group])
@@ -57,14 +61,15 @@ model Stock {
   quantity  Int      @default(0)
   minStock  Int      @default(0) // Minimum stock threshold
   updatedAt DateTime @updatedAt
-  @@index([productId])
+
   @@unique([productId, location])
+  @@index([productId])
 }
 
 model Customer {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
   name      String
-  type      String   @default("CUSTOMER") @map("type") // CUSTOMER, VENDOR
+  type      String    @default("CUSTOMER") @map("type") // CUSTOMER, VENDOR
   company   String?
   email     String?
   phone     String?
@@ -75,9 +80,12 @@ model Customer {
   country   String?
   taxId     String?
   notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   orders    Order[]
+  Invoice   Invoice[]
+  Payment   Payment[]
+
   @@index([name])
   @@index([email])
 }
@@ -85,7 +93,7 @@ model Customer {
 model Order {
   id           String      @id @default(auto()) @map("_id") @db.ObjectId
   orderNumber  String      @unique
-  type         String      // "PURCHASE" | "SALE"
+  type         String // "PURCHASE" | "SALE"
   customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
   customerId   String?     @db.ObjectId
   status       String      @default("PENDING") // PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
@@ -96,6 +104,9 @@ model Order {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   items        OrderItem[]
+  Invoice      Invoice[]
+  Grn          Grn[]
+
   @@index([customerId])
   @@index([status])
   @@index([orderDate])
@@ -111,6 +122,7 @@ model OrderItem {
   unitPrice  Float
   totalPrice Float
   createdAt  DateTime @default(now())
+
   @@index([orderId])
   @@index([productId])
 }
@@ -119,14 +131,15 @@ model StockTransaction {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId   String   @db.ObjectId
-  type        String   // "IN" | "OUT" | "ADJUSTMENT"
+  type        String // "IN" | "OUT" | "ADJUSTMENT"
   quantity    Int
   previousQty Int
   newQty      Int
-  reason      String?  // "PURCHASE", "SALE", "RETURN", "ADJUSTMENT", etc.
-  reference   String?  // Order ID or other reference
+  reason      String? // "PURCHASE", "SALE", "RETURN", "ADJUSTMENT", etc.
+  reference   String? // Order ID or other reference
   notes       String?
   createdAt   DateTime @default(now())
+
   @@index([productId])
   @@index([type])
   @@index([createdAt])
@@ -134,14 +147,118 @@ model StockTransaction {
 
 model Notification {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  type      String   // "LOW_STOCK", "ORDER", "SYSTEM"
+  type      String // "LOW_STOCK", "ORDER", "SYSTEM"
   title     String
   message   String
   read      Boolean  @default(false)
-  link      String?  // URL to related page
+  link      String? // URL to related page
   createdAt DateTime @default(now())
+
   @@index([read])
   @@index([createdAt])
 }
 
+model Invoice {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber String    @unique
+  date          DateTime  @default(now())
+  dueDate       DateTime?
+  status        String    @default("DRAFT") // DRAFT, SENT, PAID, PARTIALLY_PAID, OVERDUE, VOID
+  totalAmount   Float
+  taxAmount     Float     @default(0)
 
+  order   Order?  @relation(fields: [orderId], references: [id])
+  orderId String? @db.ObjectId
+
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String   @db.ObjectId
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  tallyXmlContent   String?
+  isExportedToTally Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([date])
+}
+
+model InvoiceItem {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String  @db.ObjectId
+  product     Product @relation(fields: [productId], references: [id])
+  productId   String  @db.ObjectId
+  description String?
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  paymentNumber String   @unique
+  date          DateTime @default(now())
+  amount        Float
+  method        String // CASH, BANK_TRANSFER, CHEQUE, UPI, ETC
+  reference     String? // Cheque no, transaction ID
+  type          String // INCOMING, OUTGOING
+  notes         String?
+
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  invoiceId String?  @db.ObjectId
+
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  customerId String?   @db.ObjectId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([date])
+  @@index([type])
+}
+
+model Grn {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  grnNumber         String    @unique
+  receivedDate      DateTime  @default(now())
+  vendorInvoiceNo   String?
+  vendorInvoiceDate DateTime?
+  note              String?
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String @db.ObjectId
+
+  document File?   @relation(fields: [fileId], references: [id])
+  fileId   String? @db.ObjectId
+
+  items GRNItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([receivedDate])
+}
+
+model GRNItem {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  grn   Grn    @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  grnId String @db.ObjectId
+
+  product   Product @relation(fields: [productId], references: [id])
+  productId String  @db.ObjectId
+
+  quantityReceived Int
+  quantityRejected Int     @default(0)
+  rejectionReason  String?
+
+  @@index([grnId])
+}

@@ -202,10 +202,86 @@ export default function OrdersPage() {
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       {getStatusBadge(order.status)}
                     </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                    <td style={{ padding: '12px', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      {order.type === 'SALE' && ['CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(order.status) && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm('Generate Invoice for this order?')) return;
+                            try {
+                              const res = await fetch('/api/invoices/generate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ orderId: order.id })
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                alert('Invoice Generated!');
+                                router.push('/invoices');
+                              } else {
+                                alert('Error: ' + data.error);
+                              }
+                            } catch (e) {
+                              alert('Failed to generate invoice');
+                            }
+                          }}
+                          className="btn"
+                          style={{ fontSize: '12px', padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+                          title="Generate Invoice"
+                        >
+                          📄
+                        </button>
+                      )}
                       <Link href={`/orders/${order.id}`} className="btn secondary" style={{ fontSize: '12px', padding: '4px 10px' }}>
                         View
                       </Link>
+                      {order.type === 'PURCHASE' && ['CONFIRMED', 'SHIPPED'].includes(order.status) && (
+                        <button
+                          onClick={async () => {
+                            // Quick auto-receive for now
+                            if (!confirm('Create GRN for this PO (Receive All)?')) return;
+                            try {
+                              // Fetch items first to auto-fill
+                              // ... Assuming backend handles empty items list by receiving all? 
+                              // Actually for simplicity let's just create a shell GRN or assume 'receive all' logic in backend if items empty, 
+                              // but better to just show a prompt or redirect.
+                              // Let's redirect to a new GRN creation page? Or just simple create.
+                              // For this MVP, I'll assume we can just create the GRN with the orderID and "Received All" note.
+                              // I need to fetch items to pass them if strict, but let's try just passing orderId and handling on server if desired,
+                              // or fetching order details client side.
+                              // SIMPLIFICATION: fetches order details then posts.
+                              const orderRes = await fetch(`/api/orders/${order.id}`);
+                              const orderData = await orderRes.json();
+
+                              const res = await fetch('/api/grn', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  orderId: order.id,
+                                  note: 'Auto-received via One-Click',
+                                  items: orderData.items.map((i: any) => ({
+                                    productId: i.productId,
+                                    quantityReceived: i.quantity
+                                  }))
+                                })
+                              });
+
+                              if (res.ok) {
+                                alert('GRN Created and Order marked Received');
+                                router.push('/grn');
+                              } else {
+                                alert('Failed to create GRN');
+                              }
+                            } catch (e) {
+                              alert('Error creating GRN');
+                            }
+                          }}
+                          className="btn"
+                          style={{ fontSize: '12px', padding: '4px 10px', background: '#dcfce7', color: '#166534', border: '1px solid #bbb' }}
+                          title="Receive Goods"
+                        >
+                          📦 Recv
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -214,6 +290,6 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }
