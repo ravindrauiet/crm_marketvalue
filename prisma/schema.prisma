@@ -262,3 +262,150 @@ model GRNItem {
 
   @@index([grnId])
 }
+
+// ─── FMCG MODULES ───────────────────────────────────────────────
+
+// MODULE 1: Item Mapping Master
+// Maps chain item codes ↔ internal Tally SKU ↔ company item code
+model ItemMapping {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  chainName       String   // FLIPKART, AMAZON, ZEPTO, BLINKIT, etc.
+  chainItemCode   String   // Code used by the chain
+  chainItemName   String   // Name used by the chain
+  tallyItemName   String   // Name in Tally (internal)
+  tallyItemSku    String?  // SKU in Products table
+  companyItemCode String?  // Code used when ordering from company
+  companyItemName String?  // Name used when ordering from company
+  pcsPerCase      Int      @default(1) // Unit conversion: PCS → CASE
+  isActive        Boolean  @default(true)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([chainName])
+  @@index([chainItemCode])
+  @@index([tallyItemSku])
+}
+
+// MODULE 2: Purchase Order from Chains
+model ChainPurchaseOrder {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  poNumber        String   @unique  // PO number from chain
+  chainName       String   // FLIPKART, AMAZON, ZEPTO, BLINKIT
+  status          String   @default("ACTIVE") // ACTIVE, PLANNED, COMPLETED, REMOVED
+  poDate          DateTime @default(now())
+  appointmentDate DateTime?
+  deliveryDate    DateTime?
+  totalAmount     Float    @default(0)
+  notes           String?
+  planningNote    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  items           ChainPOItem[]
+
+  @@index([chainName])
+  @@index([status])
+  @@index([poDate])
+}
+
+model ChainPOItem {
+  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  po          ChainPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  poId        String @db.ObjectId
+  chainItemCode String
+  chainItemName String
+  tallyItemName String?  // mapped Tally name
+  quantityPcs   Int      // Quantity in PCS (as per chain PO)
+  quantityCase  Float    @default(0) // Equivalent in CASEs
+  unitPrice     Float    @default(0)
+  totalPrice    Float    @default(0)
+  mappingId     String?  @db.ObjectId // reference to ItemMapping
+
+  @@index([poId])
+}
+
+// MODULE 3: Purchase Bill (OCR Import)
+model PurchaseBill {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  supplierName    String?
+  invoiceNumber   String?
+  invoiceDate     DateTime?
+  totalAmount     Float    @default(0)
+  taxAmount       Float    @default(0)
+  status          String   @default("PENDING") // PENDING, EXTRACTED, VERIFIED, POSTED, DUPLICATE, FAILED
+  filePath        String?  // uploaded file path
+  fileName        String?
+  mimeType        String?
+  rawExtractedData String? // JSON string from OCR
+  verifiedData    String? // JSON string after user verification
+  tallyXmlContent String? // generated Tally XML
+  isPostedToTally Boolean @default(false)
+  duplicateOf     String? // invoice number of duplicate
+  errorMessage    String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  items           PurchaseBillItem[]
+
+  @@index([invoiceNumber])
+  @@index([status])
+  @@index([supplierName])
+}
+
+model PurchaseBillItem {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  bill          PurchaseBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  billId        String @db.ObjectId
+  itemName      String  // from bill / OCR
+  tallyItemName String? // mapped to Tally
+  quantity      Float   @default(0)
+  unit          String? // PCS, CASE, KG, etc.
+  rate          Float   @default(0)
+  amount        Float   @default(0)
+  taxRate       Float   @default(0)
+  taxAmount     Float   @default(0)
+  hsnCode       String?
+
+  @@index([billId])
+}
+
+// MODULE 4: Payment Reconciliation
+model PaymentReco {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  batchId           String   @db.ObjectId // groups rows from same upload
+  txnDate           DateTime?
+  narration         String?
+  debitAmount       Float    @default(0)
+  creditAmount      Float    @default(0)
+  balance           Float    @default(0)
+  bankRef           String?
+  chequeNo          String?
+  // Matching results
+  matchStatus       String   @default("UNMATCHED") // MATCHED, PARTIAL, UNMATCHED, IGNORED
+  matchedInvoiceNo  String?
+  matchedPoNumber   String?
+  matchedAmount     Float    @default(0)
+  pendingAmount     Float    @default(0)
+  chainName         String?
+  deductionAmount   Float    @default(0)
+  deductionReason   String?
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([batchId])
+  @@index([matchStatus])
+  @@index([txnDate])
+}
+
+model RecoBatch {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  fileName    String
+  uploadedAt  DateTime @default(now())
+  rowCount    Int      @default(0)
+  matchedCount Int     @default(0)
+  unmatchedCount Int   @default(0)
+  totalCredit Float    @default(0)
+  totalDebit  Float    @default(0)
+  notes       String?
+}

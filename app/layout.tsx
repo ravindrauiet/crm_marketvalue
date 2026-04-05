@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'CRM Marketplace',
-  description: 'Lightweight CRM/ERP for managing records and files'
+  title: 'BhavishCRM – FMCG Distributor System',
+  description: 'FMCG distributor operations: PO management, shortfall automation, OCR bill import, payment reconciliation'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -34,13 +34,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>CRM Marketplace</a>
-            <nav className="row" style={{ gap: 12 }}>
-              <a className="btn secondary" href="/records">Records</a>
-              <a className="btn secondary" href="/products">Products</a>
-              <a className="btn secondary" href="/customers">Customers</a>
-              <a className="btn secondary" href="/orders">Orders</a>
-              <a className="btn secondary" href="/analytics">Analytics</a>
-              <a className="btn" href="/products/import">Import Stock</a>
+            <nav className="row" style={{ gap: 6 }}>
+              <a className="btn secondary" href="/po" style={{ fontSize: 13, padding: '7px 12px' }}>📦 POs</a>
+              <a className="btn secondary" href="/shortfall" style={{ fontSize: 13, padding: '7px 12px' }}>⚡ Shortfall</a>
+              <a className="btn secondary" href="/purchase-bills" style={{ fontSize: 13, padding: '7px 12px' }}>🧾 Bills OCR</a>
+              <a className="btn secondary" href="/reconciliation" style={{ fontSize: 13, padding: '7px 12px' }}>💰 Reco</a>
+              <a className="btn secondary" href="/item-mapping" style={{ fontSize: 13, padding: '7px 12px' }}>🔗 Mapping</a>
+              <span style={{ width: 1, background: 'var(--border)', height: 20, alignSelf: 'center' }} />
+              <a className="btn secondary" href="/orders" style={{ fontSize: 13, padding: '7px 12px' }}>Orders</a>
+              <a className="btn secondary" href="/invoices" style={{ fontSize: 13, padding: '7px 12px' }}>Invoices</a>
+              <a className="btn secondary" href="/analytics" style={{ fontSize: 13, padding: '7px 12px' }}>Analytics</a>
+              <a className="btn" href="/products/import" style={{ fontSize: 13, padding: '7px 12px' }}>Import Stock</a>
             </nav>
           </div>
         </header>
@@ -70,12 +74,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             {/* Links Columns - Improved Typography */}
             <div style={{ borderLeft: '1px solid #1f2937', paddingLeft: 32 }}>
-              <h4 style={{ color: '#fff', marginBottom: 20, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Operations</h4>
+              <h4 style={{ color: '#fff', marginBottom: 20, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FMCG Operations</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <a href="/orders" className="footer-link">📦  Orders Management</a>
-                <a href="/products" className="footer-link">🏷️  Product Catalog</a>
-                <a href="/customers" className="footer-link">👥  Customer Base</a>
-                <a href="/records" className="footer-link">📂  Document Archive</a>
+                <a href="/po" className="footer-link">📦  PO Management</a>
+                <a href="/shortfall" className="footer-link">⚡  Shortfall Calculator</a>
+                <a href="/purchase-bills" className="footer-link">🧾  Bills OCR Import</a>
+                <a href="/reconciliation" className="footer-link">💰  Payment Reconciliation</a>
+                <a href="/item-mapping" className="footer-link">🔗  Item Mapping Master</a>
               </div>
             </div>
 
@@ -83,18 +88,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <h4 style={{ color: '#fff', marginBottom: 20, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Finance Suite</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <a href="/invoices" className="footer-link">📄  Invoices & Tally</a>
-                <a href="/payments" className="footer-link">💰  Payment Ledger</a>
+                <a href="/payments" className="footer-link">💳  Payment Ledger</a>
                 <a href="/grn" className="footer-link">📥  GRN Verification</a>
                 <a href="/analytics" className="footer-link">📊  Financial Reports</a>
               </div>
             </div>
 
             <div style={{ borderLeft: '1px solid #1f2937', paddingLeft: 32 }}>
-              <h4 style={{ color: '#fff', marginBottom: 20, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Utilities</h4>
+              <h4 style={{ color: '#fff', marginBottom: 20, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Catalog & Tools</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <a href="/products/import" className="footer-link">⚡  Bulk Import</a>
-                <a href="/records" className="footer-link">📤  Smart Upload</a>
-                <a href="#" className="footer-link" style={{ opacity: 0.5, cursor: 'not-allowed' }}>⚙️  Settings (Soon)</a>
+                <a href="/orders" className="footer-link">🛒  Orders Management</a>
+                <a href="/products" className="footer-link">🏷️  Product Catalog</a>
+                <a href="/customers" className="footer-link">👥  Customer Base</a>
+                <a href="/products/import" className="footer-link">⚡  Bulk Stock Import</a>
               </div>
             </div>
 
