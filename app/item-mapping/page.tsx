@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 type Mapping = {
   id: string;
@@ -36,6 +36,8 @@ export default function ItemMappingPage() {
   const [filterChain, setFilterChain] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadMappings(); }, [filterChain, search]);
 
@@ -48,6 +50,27 @@ export default function ItemMappingPage() {
     const data = await res.json();
     setMappings(Array.isArray(data) ? data : []);
     setLoading(false);
+  }
+
+  async function uploadFile(file: File) {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch('/api/item-mapping/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`✅ Upload successful!\nCreated: ${data.created}\nUpdated: ${data.updated}`);
+        loadMappings();
+      } else {
+        alert(`❌ Upload failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Upload failed: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -92,9 +115,15 @@ export default function ItemMappingPage() {
             Map chain item codes → Tally SKU → Company codes with PCS/CASE conversion
           </p>
         </div>
-        <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }} className="btn" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', whiteSpace: 'nowrap' }}>
-          + Add Mapping
-        </button>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
+          <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
+            {uploading ? 'Uploading...' : '📤 Bulk Upload'}
+          </button>
+          <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }} className="btn" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', whiteSpace: 'nowrap' }}>
+            + Add Mapping
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

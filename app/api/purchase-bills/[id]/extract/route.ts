@@ -19,18 +19,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await prisma.purchaseBill.update({ where: { id: params.id }, data: { status: 'PROCESSING' } });
 
     // Read the file
-    const absolutePath = path.join(process.cwd(), 'public', bill.filePath);
     let documentText = '';
 
     try {
+      let buf: Buffer;
+      if (bill.filePath?.startsWith('data:')) {
+        const base64Data = bill.filePath.split(',')[1];
+        buf = Buffer.from(base64Data, 'base64');
+      } else {
+        const absolutePath = path.join(process.cwd(), 'public', bill.filePath || '');
+        buf = readFileSync(absolutePath);
+      }
+
       if (bill.mimeType?.includes('pdf')) {
-        const buf = readFileSync(absolutePath);
         const pdfData = await pdf(buf);
         documentText = pdfData.text;
       } else if (bill.mimeType?.startsWith('image/')) {
         // Use OpenAI vision for images
-        const imageBuffer = readFileSync(absolutePath);
-        const base64Image = imageBuffer.toString('base64');
+        const base64Image = buf.toString('base64');
         const mimeType = bill.mimeType;
 
         const visionResponse = await openai.chat.completions.create({
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         });
         documentText = visionResponse.choices[0]?.message?.content || '';
       } else {
-        documentText = readFileSync(absolutePath, 'utf-8');
+        documentText = buf.toString('utf-8');
       }
     } catch (readErr: any) {
       await prisma.purchaseBill.update({

@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 
 type PO = { id: string; poNumber: string; chainName: string; status: string; totalAmount: number; items: any[] };
 type ShortfallItem = {
@@ -51,24 +52,20 @@ function ShortfallContent() {
     const confirmed = confirm(`Generate Purchase Order to Company for ${itemsWithShortfall.length} items?`);
     if (!confirmed) return;
 
-    // Print-friendly PO
-    const poContent = `
-PURCHASE ORDER TO COMPANY
-Generated: ${new Date().toLocaleString('en-IN')}
-Reference POs: ${[...selectedIds].map(id => activePOs.find(p => p.id === id)?.poNumber).join(', ')}
+    // Excel Export
+    const poData = itemsWithShortfall.map((item, i) => ({
+      'S.No': i + 1,
+      'Item Name': item.tallyItemName,
+      'Company Item Code': '', // Ideally we'd fetch this from mapping, but we can leave column for now
+      'Order QTY (Cases)': Number(item.shortfallCases.toFixed(2)),
+      'Order QTY (PCS)': item.shortfallPcs,
+      'Reference POs': item.sources.join(', ')
+    }));
 
-Items Required (in CASEs):
-${itemsWithShortfall.map((item, i) =>
-  `${i + 1}. ${item.tallyItemName}\n   Required: ${item.totalPcs} PCS (${item.totalCases.toFixed(2)} Cases)\n   Available Stock: ${item.availableStock} PCS\n   ORDER: ${item.shortfallPcs} PCS (${item.shortfallCases.toFixed(2)} Cases)\n   Ref POs: ${item.sources.join(', ')}`
-).join('\n\n')}
-
-Total Items: ${itemsWithShortfall.length}
-`;
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`<pre style="font-family:monospace;font-size:14px;padding:32px">${poContent}</pre>`);
-      win.print();
-    }
+    const ws = XLSX.utils.json_to_sheet(poData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Brand_PO');
+    XLSX.writeFile(wb, `Company_PO_${new Date().toISOString().slice(0,10)}.xlsx`);
   }
 
   const displayItems = showOnlyShortfall ? shortfall.filter(i => i.shortfallPcs > 0) : shortfall;

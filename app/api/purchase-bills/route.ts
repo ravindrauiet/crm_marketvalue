@@ -8,7 +8,24 @@ export async function GET(req: NextRequest) {
     const status = req.nextUrl.searchParams.get('status');
     const bills = await prisma.purchaseBill.findMany({
       where: status ? { status } : {},
-      include: { items: true },
+      select: {
+        id: true,
+        supplierName: true,
+        invoiceNumber: true,
+        invoiceDate: true,
+        totalAmount: true,
+        taxAmount: true,
+        status: true,
+        fileName: true,
+        mimeType: true,
+        isPostedToTally: true,
+        duplicateOf: true,
+        errorMessage: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+        items: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(bills);
@@ -30,18 +47,14 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save file
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'bills');
-    await mkdir(uploadDir, { recursive: true });
-    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const filePath = path.join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
+    const base64Data = buffer.toString('base64');
+    const dataUri = `data:${file.type || 'application/octet-stream'};base64,${base64Data}`;
 
     // Check for duplicate by checking if file is a re-upload (we'll check after OCR)
     const bill = await prisma.purchaseBill.create({
       data: {
         status: 'PENDING',
-        filePath: `/uploads/bills/${fileName}`,
+        filePath: dataUri,
         fileName: file.name,
         mimeType: file.type,
       }

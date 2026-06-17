@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'OTHER'];
@@ -20,6 +20,8 @@ export default function NewPOPage() {
   const [mappings, setMappings] = useState<Mapping[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Load mappings for the selected chain for autocomplete
@@ -64,6 +66,35 @@ export default function NewPOPage() {
     } finally { setSaving(false); }
   }
 
+  async function handleFileUpload(file: File) {
+    if (!file) return;
+    setUploading(true); setError('');
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('chainName', form.chainName);
+    try {
+      const res = await fetch('/api/po/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to extract PO');
+      
+      if (data.poNumber) setForm(f => ({ ...f, poNumber: data.poNumber }));
+      if (data.poDate) setForm(f => ({ ...f, poDate: data.poDate }));
+      
+      if (data.items && data.items.length > 0) {
+        setItems(data.items.map((i: any) => ({
+          chainItemCode: i.chainItemCode || '',
+          chainItemName: i.chainItemName || '',
+          quantityPcs: String(i.quantityPcs || 0),
+          unitPrice: String(i.unitPrice || 0)
+        })));
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="container fade-in">
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -81,7 +112,15 @@ export default function NewPOPage() {
         <form onSubmit={handleSubmit}>
           {/* Header section */}
           <div className="card" style={{ marginBottom: 20 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 20 }}>PO Details</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0 }}>PO Details</h3>
+              <div>
+                <input ref={fileRef} type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ''; }} />
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn secondary" style={{ fontSize: 13, background: 'var(--bg-secondary)' }}>
+                  {uploading ? 'Extracting...' : '📄 Upload PO (Auto-fill)'}
+                </button>
+              </div>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
               <div>
                 <label>PO Number *</label>
