@@ -8,6 +8,7 @@ type Mapping = {
   chainItemName: string;
   tallyItemName: string;
   tallyItemSku?: string;
+  brandName?: string;
   companyItemCode?: string;
   companyItemName?: string;
   pcsPerCase: number;
@@ -23,8 +24,8 @@ const CHAIN_COLORS: Record<string, string> = {
 
 const emptyForm = {
   chainName: 'FLIPKART', chainItemCode: '', chainItemName: '',
-  tallyItemName: '', tallyItemSku: '', companyItemCode: '',
-  companyItemName: '', pcsPerCase: '1', notes: ''
+  tallyItemName: '', tallyItemSku: '', brandName: '',
+  companyItemCode: '', companyItemName: '', pcsPerCase: '1', notes: ''
 };
 
 export default function ItemMappingPage() {
@@ -34,17 +35,19 @@ export default function ItemMappingPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [filterChain, setFilterChain] = useState('');
+  const [filterBrand, setFilterBrand] = useState('');
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { loadMappings(); }, [filterChain, search]);
+  useEffect(() => { loadMappings(); }, [filterChain, filterBrand, search]);
 
   async function loadMappings() {
     setLoading(true);
     const params = new URLSearchParams();
     if (filterChain) params.set('chain', filterChain);
+    if (filterBrand) params.set('brand', filterBrand);
     if (search) params.set('search', search);
     const res = await fetch(`/api/item-mapping?${params}`);
     const data = await res.json();
@@ -98,7 +101,7 @@ export default function ItemMappingPage() {
   }
 
   function openEdit(m: Mapping) {
-    setForm({ chainName: m.chainName, chainItemCode: m.chainItemCode, chainItemName: m.chainItemName, tallyItemName: m.tallyItemName, tallyItemSku: m.tallyItemSku || '', companyItemCode: m.companyItemCode || '', companyItemName: m.companyItemName || '', pcsPerCase: String(m.pcsPerCase), notes: m.notes || '' });
+    setForm({ chainName: m.chainName, chainItemCode: m.chainItemCode, chainItemName: m.chainItemName, tallyItemName: m.tallyItemName, tallyItemSku: m.tallyItemSku || '', brandName: m.brandName || '', companyItemCode: m.companyItemCode || '', companyItemName: m.companyItemName || '', pcsPerCase: String(m.pcsPerCase), notes: m.notes || '' });
     setEditingId(m.id);
     setShowModal(true);
   }
@@ -142,12 +145,17 @@ export default function ItemMappingPage() {
 
       {/* Search + Filter */}
       <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input placeholder="🔍 Search item name or code..." value={search} onChange={e => setSearch(e.target.value)}
+        <input placeholder="🔍 Search item name, code or brand..." value={search} onChange={e => setSearch(e.target.value)}
           style={{ flex: '1 1 200px', padding: '8px 12px', fontSize: 13 }} />
         <select value={filterChain} onChange={e => setFilterChain(e.target.value)} style={{ padding: '8px 12px', minWidth: 140, fontSize: 13 }}>
           <option value="">All Chains</option>
           {CHAINS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <input placeholder="Filter by brand..." value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
+          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }} />
+        {filterBrand && (
+          <button onClick={() => setFilterBrand('')} className="btn secondary" style={{ fontSize: 12, padding: '6px 10px' }}>✕ Clear Brand</button>
+        )}
         <span className="muted" style={{ fontSize: 13 }}>{mappings.length} mapping{mappings.length !== 1 ? 's' : ''}</span>
       </div>
 
@@ -171,6 +179,7 @@ export default function ItemMappingPage() {
                   <th>Chain Code</th>
                   <th>Chain Name</th>
                   <th>Tally Name</th>
+                  <th>Brand</th>
                   <th>Company Code</th>
                   <th style={{ textAlign: 'center' }}>PCS/Case</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
@@ -187,6 +196,11 @@ export default function ItemMappingPage() {
                     <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{m.chainItemCode}</td>
                     <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.chainItemName}</td>
                     <td style={{ fontWeight: 600 }}>{m.tallyItemName}</td>
+                    <td>
+                      {m.brandName
+                        ? <span style={{ background: '#f3e8ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>{m.brandName}</span>
+                        : <span className="muted">—</span>}
+                    </td>
                     <td className="muted" style={{ fontSize: 12, fontFamily: 'monospace' }}>{m.companyItemCode || '-'}</td>
                     <td style={{ textAlign: 'center' }}>
                       <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
@@ -209,8 +223,8 @@ export default function ItemMappingPage() {
 
       {/* Modal */}
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
-          <div className="card" style={{ width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1100, padding: '32px 16px', overflowY: 'auto' }}>
+          <div className="card" style={{ width: '100%', maxWidth: 560, marginBottom: 24 }}>
             <h3 style={{ marginBottom: 20 }}>{editingId ? 'Edit' : 'Add'} Item Mapping</h3>
             <form onSubmit={handleSave}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -235,6 +249,10 @@ export default function ItemMappingPage() {
                 <div>
                   <label>Tally SKU (optional)</label>
                   <input value={form.tallyItemSku} onChange={e => setForm({ ...form, tallyItemSku: e.target.value })} placeholder="Product SKU" />
+                </div>
+                <div>
+                  <label>Brand Name</label>
+                  <input value={form.brandName} onChange={e => setForm({ ...form, brandName: e.target.value })} placeholder="e.g. HUL, Nestle, ITC" />
                 </div>
                 <div>
                   <label>Company Item Code</label>

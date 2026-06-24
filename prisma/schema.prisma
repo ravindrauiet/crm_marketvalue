@@ -274,6 +274,7 @@ model ItemMapping {
   chainItemName   String   // Name used by the chain
   tallyItemName   String   // Name in Tally (internal)
   tallyItemSku    String?  // SKU in Products table
+  brandName       String?  // Brand / manufacturer name
   companyItemCode String?  // Code used when ordering from company
   companyItemName String?  // Name used when ordering from company
   pcsPerCase      Int      @default(1) // Unit conversion: PCS → CASE
@@ -285,6 +286,7 @@ model ItemMapping {
   @@index([chainName])
   @@index([chainItemCode])
   @@index([tallyItemSku])
+  @@index([brandName])
 }
 
 // MODULE 2: Purchase Order from Chains
