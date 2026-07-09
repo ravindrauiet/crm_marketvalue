@@ -9,9 +9,13 @@ type LineItem = {
   chainItemName: string;
   quantityPcs: string;
   unitPrice: string;
+  tallyItemName?: string;
+  matched?: boolean;
 };
 
 type Mapping = { chainItemCode: string; chainItemName: string; tallyItemName: string; pcsPerCase: number };
+
+const norm = (s: string) => s.trim().toLowerCase();
 
 export default function NewPOPage() {
   const router = useRouter();
@@ -33,12 +37,21 @@ export default function NewPOPage() {
   const updateItem = (i: number, field: keyof LineItem, val: string) => {
     const updated = [...items];
     updated[i] = { ...updated[i], [field]: val };
-    // Auto-fill name from mapping on code change
+    // Auto-fill name from mapping on code change (trim + case-insensitive so
+    // whitespace/case differences between the mapping table and typed/OCR'd
+    // codes don't silently fail to match)
     if (field === 'chainItemCode') {
-      const mapping = mappings.find(m => m.chainItemCode === val);
-      if (mapping) updated[i].chainItemName = mapping.chainItemName;
+      const mapping = mappings.find(m => norm(m.chainItemCode) === norm(val));
+      updated[i].chainItemName = mapping ? mapping.chainItemName : updated[i].chainItemName;
+      updated[i].tallyItemName = mapping?.tallyItemName;
+      updated[i].matched = !!mapping;
     }
     setItems(updated);
+  };
+
+  const isMapped = (item: LineItem) => {
+    if (item.matched !== undefined) return item.matched;
+    return mappings.some(m => norm(m.chainItemCode) === norm(item.chainItemCode));
   };
 
   const total = items.reduce((s, i) => s + (parseFloat(i.quantityPcs || '0') * parseFloat(i.unitPrice || '0')), 0);
@@ -47,6 +60,12 @@ export default function NewPOPage() {
     e.preventDefault();
     if (!form.poNumber.trim()) { setError('PO Number is required'); return; }
     if (items.every(i => !i.chainItemCode)) { setError('Add at least one item'); return; }
+
+    const unmapped = items.filter(i => i.chainItemCode && !isMapped(i));
+    if (unmapped.length > 0) {
+      const proceed = confirm(`${unmapped.length} item(s) have no matching Item Mapping and will be saved without a Tally name (they won't count toward stock/shortfall). Add mappings for these codes on the Item Mapping page first, or continue anyway?`);
+      if (!proceed) return;
+    }
 
     setSaving(true); setError('');
     try {
@@ -85,7 +104,12 @@ export default function NewPOPage() {
           chainItemCode: i.chainItemCode || '',
           chainItemName: i.chainItemName || '',
           quantityPcs: String(i.quantityPcs || 0),
-          unitPrice: String(i.unitPrice || 0)
+          unitPrice: String(i.unitPrice || 0),
+          // Carry through the mapping match found during extraction — otherwise
+          // an item shown as "matched" right after upload could silently become
+          // unmapped again when the PO is saved, since save uses a fresh lookup.
+          tallyItemName: i.tallyItemName || undefined,
+          matched: !!i.matched,
         })));
       }
     } catch (err: any) {
@@ -164,7 +188,7 @@ export default function NewPOPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-secondary)' }}>
-                    {['#', 'Chain Item Code', 'Item Name', 'Qty (PCS)', 'Unit Price (₹)', 'Total', ''].map(h => (
+                    {['#', 'Chain Item Code', 'Item Name', 'Mapping', 'Qty (PCS)', 'Unit Price (₹)', 'Total', ''].map(h => (
                       <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{h}</th>
                     ))}
                   </tr>
@@ -183,6 +207,11 @@ export default function NewPOPage() {
                       <td style={{ padding: '4px 8px' }}>
                         <input value={item.chainItemName} onChange={e => updateItem(i, 'chainItemName', e.target.value)}
                           placeholder="Item name" style={{ width: '100%', padding: '6px 8px', fontSize: 13 }} />
+                      </td>
+                      <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                        {!item.chainItemCode ? null : isMapped(item)
+                          ? <span title={item.tallyItemName} style={{ background: '#dcfce7', color: '#16a34a', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700 }}>✓ Mapped</span>
+                          : <span title="No matching Item Mapping found for this chain code — it will be saved without a Tally name and excluded from stock/shortfall calculations." style={{ background: '#fee2e2', color: '#dc2626', padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700 }}>⚠ Unmapped</span>}
                       </td>
                       <td style={{ padding: '4px 8px' }}>
                         <input type="number" min="0" value={item.quantityPcs} onChange={e => updateItem(i, 'quantityPcs', e.target.value)}
@@ -203,7 +232,7 @@ export default function NewPOPage() {
                 </tbody>
                 <tfoot>
                   <tr style={{ background: 'var(--bg-secondary)', borderTop: '2px solid var(--border)' }}>
-                    <td colSpan={5} style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700 }}>Total PO Value:</td>
+                    <td colSpan={6} style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700 }}>Total PO Value:</td>
                     <td style={{ padding: '12px 8px', fontWeight: 700, fontSize: 16 }}>₹{total.toLocaleString('en-IN')}</td>
                     <td />
                   </tr>

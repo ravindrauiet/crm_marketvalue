@@ -283,6 +283,7 @@ model ItemMapping {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([chainName, chainItemCode])
   @@index([chainName])
   @@index([chainItemCode])
   @@index([tallyItemSku])

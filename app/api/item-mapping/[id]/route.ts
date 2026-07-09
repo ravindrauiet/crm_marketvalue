@@ -8,6 +8,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       where: { id: params.id },
       data: {
         ...body,
+        chainName: body.chainName ? body.chainName.toUpperCase() : undefined,
+        chainItemCode: body.chainItemCode !== undefined ? String(body.chainItemCode).trim() : undefined,
+        chainItemName: body.chainItemName !== undefined ? String(body.chainItemName).trim() : undefined,
+        tallyItemName: body.tallyItemName !== undefined ? String(body.tallyItemName).trim() : undefined,
         pcsPerCase: body.pcsPerCase ? parseInt(body.pcsPerCase) : undefined,
       }
     });

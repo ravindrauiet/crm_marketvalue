@@ -40,17 +40,28 @@ export async function POST(req: NextRequest) {
 
     // Enrich each item with mapping info
     const enrichedItems = await Promise.all(chainItems.map(async (item: any) => {
+      const code = String(item.chainItemCode || '').trim();
+      const name = String(item.chainItemName || '').trim();
       let mapping = null;
-      if (item.chainItemCode) {
+      if (code) {
         mapping = await prisma.itemMapping.findFirst({
-          where: { chainItemCode: item.chainItemCode, chainName: chainName.toUpperCase(), isActive: true }
+          where: { chainItemCode: { equals: code, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
+      if (!mapping && name) {
+        // Fall back to matching by chain item name when the code doesn't match
+        // (mirrors the logic used during PO-upload extraction so both paths agree)
+        mapping = await prisma.itemMapping.findFirst({
+          where: { chainItemName: { equals: name, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          orderBy: { updatedAt: 'desc' },
         });
       }
       const pcsPerCase = mapping?.pcsPerCase || 1;
       const quantityCase = item.quantityPcs / pcsPerCase;
       return {
-        chainItemCode: item.chainItemCode || '',
-        chainItemName: item.chainItemName || '',
+        chainItemCode: code,
+        chainItemName: name,
         tallyItemName: mapping?.tallyItemName || item.tallyItemName || '',
         quantityPcs: parseInt(item.quantityPcs || 0),
         quantityCase,

@@ -111,23 +111,29 @@ ${documentText.substring(0, 8000)}`;
     }
 
     // Auto-match items against ItemMapping
+    // Matching logic must stay identical to /api/po (the save-time matcher), otherwise
+    // an item that looks "matched" right after upload can silently become unmapped on save.
     const finalItems = await Promise.all((extractedData.items || []).map(async (item: any) => {
+      const code = String(item.chainItemCode || '').trim();
+      const name = String(item.chainItemName || '').trim();
       let mapping = null;
-      if (item.chainItemCode) {
+      if (code) {
         mapping = await prisma.itemMapping.findFirst({
-          where: { chainItemCode: item.chainItemCode, chainName: chainName.toUpperCase() }
+          where: { chainItemCode: { equals: code, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          orderBy: { updatedAt: 'desc' },
         });
       }
-      if (!mapping && item.chainItemName) {
+      if (!mapping && name) {
         // Try fuzzy name match if code fails
-         mapping = await prisma.itemMapping.findFirst({
-          where: { chainItemName: item.chainItemName, chainName: chainName.toUpperCase() }
+        mapping = await prisma.itemMapping.findFirst({
+          where: { chainItemName: { equals: name, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          orderBy: { updatedAt: 'desc' },
         });
       }
 
       return {
-        chainItemCode: item.chainItemCode || '',
-        chainItemName: item.chainItemName || '',
+        chainItemCode: code,
+        chainItemName: name,
         tallyItemName: mapping?.tallyItemName || '',
         quantityPcs: typeof item.quantityPcs === 'number' ? item.quantityPcs : parseFloat(item.quantityPcs || 0) || 0,
         unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || 0) || 0,

@@ -36,12 +36,22 @@ export async function POST(req: NextRequest) {
     if (!chainName || !chainItemCode || !chainItemName || !tallyItemName) {
       return NextResponse.json({ error: 'chainName, chainItemCode, chainItemName, tallyItemName are required' }, { status: 400 });
     }
+    const normalizedChainName = chainName.toUpperCase();
+    const normalizedCode = String(chainItemCode).trim();
+
+    const existing = await prisma.itemMapping.findFirst({
+      where: { chainName: normalizedChainName, chainItemCode: { equals: normalizedCode, mode: 'insensitive' }, isActive: true }
+    });
+    if (existing) {
+      return NextResponse.json({ error: `A mapping for ${normalizedChainName} code "${normalizedCode}" already exists — edit that mapping instead of creating a duplicate.` }, { status: 409 });
+    }
+
     const mapping = await prisma.itemMapping.create({
       data: {
-        chainName: chainName.toUpperCase(),
-        chainItemCode,
-        chainItemName,
-        tallyItemName,
+        chainName: normalizedChainName,
+        chainItemCode: normalizedCode,
+        chainItemName: String(chainItemName).trim(),
+        tallyItemName: String(tallyItemName).trim(),
         tallyItemSku: tallyItemSku || null,
         brandName: brandName || null,
         companyItemCode: companyItemCode || null,

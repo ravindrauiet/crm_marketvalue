@@ -40,7 +40,10 @@ export async function POST(req: NextRequest) {
 
       const chainName = String(find(['chainname', 'chain'])).toUpperCase().trim();
       const chainItemCode = String(find(['chainitemcode', 'chaincode', 'itemcode'])).trim();
-      const chainItemName = String(find(['chainitemname', 'chainname', 'itemname'])).trim();
+      // Note: 'chainitemname' must be matched before any pattern that could also match
+      // the chain-identifier column (e.g. "Chain Name"), otherwise chainItemName gets
+      // overwritten with the chain identifier (FLIPKART/AMAZON/...) instead of the item name.
+      const chainItemName = String(find(['chainitemname', 'itemname', 'productname', 'description'])).trim();
       const tallyItemName = String(find(['tallyitemname', 'tallyname', 'tally'])).trim();
       const companyItemCode = String(find(['companycode', 'companyitemcode']));
       const pcsPerCase = parseInt(String(find(['pcspercase', 'pcscase', 'conversion']))) || 1;
@@ -50,7 +53,7 @@ export async function POST(req: NextRequest) {
       const existing = await prisma.itemMapping.findFirst({
         where: {
           chainName,
-          chainItemCode,
+          chainItemCode: { equals: chainItemCode, mode: 'insensitive' },
         }
       });
 
