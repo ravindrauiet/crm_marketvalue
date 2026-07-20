@@ -181,6 +181,7 @@ export default function ItemMappingPage() {
                   <th>Tally Name</th>
                   <th>Brand</th>
                   <th>Company Code</th>
+                  <th>Company Name</th>
                   <th style={{ textAlign: 'center' }}>PCS/Case</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
@@ -202,6 +203,9 @@ export default function ItemMappingPage() {
                         : <span className="muted">—</span>}
                     </td>
                     <td className="muted" style={{ fontSize: 12, fontFamily: 'monospace' }}>{m.companyItemCode || '-'}</td>
+                    <td style={{ fontSize: 13, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.companyItemName || undefined}>
+                      {m.companyItemName || '-'}
+                    </td>
                     <td style={{ textAlign: 'center' }}>
                       <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>
                         {m.pcsPerCase}
@@ -257,6 +261,10 @@ export default function ItemMappingPage() {
                 <div>
                   <label>Company Item Code</label>
                   <input value={form.companyItemCode} onChange={e => setForm({ ...form, companyItemCode: e.target.value })} placeholder="Code for company order" />
+                </div>
+                <div>
+                  <label>Company Item Name</label>
+                  <input value={form.companyItemName} onChange={e => setForm({ ...form, companyItemName: e.target.value })} placeholder="Name for company order" />
                 </div>
                 <div>
                   <label>PCS per Case *</label>

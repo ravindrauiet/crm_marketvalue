@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
       // overwritten with the chain identifier (FLIPKART/AMAZON/...) instead of the item name.
       const chainItemName = String(find(['chainitemname', 'itemname', 'productname', 'description'])).trim();
       const tallyItemName = String(find(['tallyitemname', 'tallyname', 'tally'])).trim();
-      const companyItemCode = String(find(['companycode', 'companyitemcode']));
+      const companyItemCode = String(find(['companycode', 'companyitemcode'])).trim();
+      const companyItemName = String(find(['companyname', 'companyitemname'])).trim();
       const pcsPerCase = parseInt(String(find(['pcspercase', 'pcscase', 'conversion']))) || 1;
 
       if (!chainName || !chainItemCode) continue;
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest) {
           data: {
             chainItemName: chainItemName || existing.chainItemName,
             tallyItemName: tallyItemName || existing.tallyItemName,
-            companyItemCode: companyItemCode || existing.companyItemCode,
+            companyItemCode: companyItemCode || existing.companyItemCode || null,
+            companyItemName: companyItemName || existing.companyItemName || null,
             pcsPerCase,
           }
         });
@@ -75,7 +77,8 @@ export async function POST(req: NextRequest) {
             chainItemCode,
             chainItemName,
             tallyItemName,
-            companyItemCode,
+            companyItemCode: companyItemCode || null,
+            companyItemName: companyItemName || null,
             pcsPerCase,
             isActive: true,
           }
