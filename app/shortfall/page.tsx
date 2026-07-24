@@ -11,6 +11,7 @@ type ShortfallItem = {
   chainName: string;
   brandName?: string;
   tallyItemName: string;
+  eanCode?: string;
   companyItemCode?: string;
   companyItemName?: string;
   pcsPerCase: number;
@@ -105,6 +106,7 @@ function ShortfallContent() {
       'Chain': item.chainName || '—',
       'BRAND': item.brandName || '—',
       'Tally Item Name': item.tallyItemName || '—',
+      'EAN Code': item.eanCode || '—',
       'Company Item Code (optional)': item.companyItemCode || '—',
       'Company Item Code/Name*': item.companyItemName || '—',
       'PCS per Case *': item.pcsPerCase,
@@ -197,6 +199,7 @@ function ShortfallContent() {
                 <th>Chain</th>
                 <th>Brand</th>
                 <th>Tally Item Name</th>
+                <th>EAN Code</th>
                 <th>Company Item Code</th>
                 <th>Company Item Name</th>
                 <th class="right">PCS per Case</th>
@@ -217,6 +220,7 @@ function ShortfallContent() {
                   <td>${item.chainName || '—'}</td>
                   <td>${item.brandName || '—'}</td>
                   <td style="font-weight: 600;">${item.tallyItemName || '—'}</td>
+                  <td style="font-family: monospace;">${item.eanCode || '—'}</td>
                   <td style="font-family: monospace;">${item.companyItemCode || '—'}</td>
                   <td>${item.companyItemName || '—'}</td>
                   <td class="right" style="font-weight: 600;">${item.pcsPerCase}</td>
@@ -398,6 +402,7 @@ function ShortfallContent() {
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Chain</th>
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Brand</th>
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Tally Item Name</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>EAN Code</th>
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Company Item Code (optional)</th>
                     <th style={{ padding: '12px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>Company Item Code/Name*</th>
                     <th style={{ padding: '12px 14px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)' }}>PCS per Case *</th>
@@ -432,6 +437,7 @@ function ShortfallContent() {
                           )}
                         </td>
                         <td style={{ padding: '12px 14px', fontWeight: 600, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.tallyItemName}>{item.tallyItemName}</td>
+                        <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12 }}>{item.eanCode || '—'}</td>
                         <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: 'var(--text-secondary)' }}>{item.companyItemCode || '—'}</td>
                         <td style={{ padding: '12px 14px', fontSize: 13, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.companyItemName || undefined}>{item.companyItemName || '—'}</td>
                         <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600 }}>{item.pcsPerCase}</td>

@@ -8,6 +8,7 @@ type Mapping = {
   chainItemName: string;
   tallyItemName: string;
   tallyItemSku?: string;
+  eanCode?: string;
   brandName?: string;
   companyItemCode?: string;
   companyItemName?: string;
@@ -24,7 +25,7 @@ const CHAIN_COLORS: Record<string, string> = {
 
 const emptyForm = {
   chainName: 'FLIPKART', chainItemCode: '', chainItemName: '',
-  tallyItemName: '', tallyItemSku: '', brandName: '',
+  tallyItemName: '', tallyItemSku: '', eanCode: '', brandName: '',
   companyItemCode: '', companyItemName: '', pcsPerCase: '1', notes: ''
 };
 
@@ -101,7 +102,7 @@ export default function ItemMappingPage() {
   }
 
   function openEdit(m: Mapping) {
-    setForm({ chainName: m.chainName, chainItemCode: m.chainItemCode, chainItemName: m.chainItemName, tallyItemName: m.tallyItemName, tallyItemSku: m.tallyItemSku || '', brandName: m.brandName || '', companyItemCode: m.companyItemCode || '', companyItemName: m.companyItemName || '', pcsPerCase: String(m.pcsPerCase), notes: m.notes || '' });
+    setForm({ chainName: m.chainName, chainItemCode: m.chainItemCode, chainItemName: m.chainItemName, tallyItemName: m.tallyItemName, tallyItemSku: m.tallyItemSku || '', eanCode: m.eanCode || '', brandName: m.brandName || '', companyItemCode: m.companyItemCode || '', companyItemName: m.companyItemName || '', pcsPerCase: String(m.pcsPerCase), notes: m.notes || '' });
     setEditingId(m.id);
     setShowModal(true);
   }
@@ -179,6 +180,7 @@ export default function ItemMappingPage() {
                   <th>Chain Code</th>
                   <th>Chain Name</th>
                   <th>Tally Name</th>
+                  <th>EAN Code</th>
                   <th>Brand</th>
                   <th>Company Code</th>
                   <th>Company Name</th>
@@ -197,6 +199,7 @@ export default function ItemMappingPage() {
                     <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{m.chainItemCode}</td>
                     <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.chainItemName}</td>
                     <td style={{ fontWeight: 600 }}>{m.tallyItemName}</td>
+                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.eanCode || '-'}</td>
                     <td>
                       {m.brandName
                         ? <span style={{ background: '#f3e8ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>{m.brandName}</span>
@@ -253,6 +256,10 @@ export default function ItemMappingPage() {
                 <div>
                   <label>Tally SKU (optional)</label>
                   <input value={form.tallyItemSku} onChange={e => setForm({ ...form, tallyItemSku: e.target.value })} placeholder="Product SKU" />
+                </div>
+                <div>
+                  <label>EAN Code (optional)</label>
+                  <input value={form.eanCode} onChange={e => setForm({ ...form, eanCode: e.target.value })} placeholder="e.g. 8901234567890" />
                 </div>
                 <div>
                   <label>Brand Name</label>

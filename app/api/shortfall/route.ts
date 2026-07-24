@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
         const mapping = findMapping(po.chainName.toUpperCase(), item.chainItemCode || '', item.chainItemName || '');
         const tallyName = mapping?.tallyItemName || item.tallyItemName || item.chainItemName;
         const brand = mapping?.brandName || '';
+        const eanCode = mapping?.eanCode || '';
         const companyItemCode = mapping?.companyItemCode || '';
         const companyItemName = mapping?.companyItemName || '';
         const pcsPerCase = mapping?.pcsPerCase || 1;
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
           chainName: po.chainName,
           brandName: brand,
           tallyItemName: tallyName,
+          eanCode,
           companyItemCode,
           companyItemName,
           pcsPerCase,
