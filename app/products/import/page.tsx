@@ -11,6 +11,7 @@ export default function ImportProductsPage() {
     { id: 'bigbasket', name: 'BigBasket', color: '#689F38' },
     { id: 'eastern', name: 'Eastern', color: '#E41E26' },
     { id: 'reliance', name: 'Reliance Retail', color: '#005CB9' },
+    { id: 'vishal', name: 'Vishal Mega Mart', color: '#0055A5' },
   ];
 
   return (

@@ -25,7 +25,7 @@ type ShortfallItem = {
   location: string;
 };
 
-const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', OTHER: '#64748b' };
+const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', VISHAL: '#0055A5', OTHER: '#64748b' };
 
 function ShortfallContent() {
   const searchParams = useSearchParams();

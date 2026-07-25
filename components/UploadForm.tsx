@@ -79,6 +79,7 @@ export default function UploadForm({ preselectedVendor }: { preselectedVendor?: 
               <option value="swiggy">Swiggy</option>
               <option value="bigbasket">BigBasket</option>
               <option value="eastern">Eastern</option>
+              <option value="vishal">Vishal Mega Mart</option>
             </select>
             <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>
               Select vendor for better extraction accuracy

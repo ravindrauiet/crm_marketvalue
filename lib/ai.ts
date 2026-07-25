@@ -413,6 +413,22 @@ EASTERN-SPECIFIC INSTRUCTIONS:
 3. Extract batch numbers if clearly labeled.
 4. Standard table extraction rules apply: Code -> Name -> Quantity.`,
 
+    vishal: `${baseInstructions}
+VISHAL MEGA MART / AIRPLAZA RETAIL SPECIFIC INSTRUCTIONS:
+1. HEADER:
+   - PO Number: Look for "PO Number:" (e.g. "6907043005") -> poNumber
+   - PO Date: "PODate: DD.MM.YYYY" -> poDate
+   - Delivery Date: "DEL.DATE" column (DD.MM.YYYY) -> deliveryDate
+   - Vendor / Purchasing Entity: "AIRPLAZA RETAIL HOLDINGS PVT LTD" (Vishal Mega Mart)
+2. PRODUCT TABLE COLUMNS:
+   - MAT. NO. (Material Code, e.g. "1310000368") -> sku / chainItemCode
+   - EAN No (e.g. "48003425") -> ean
+   - MATERIAL DESCRIPTION (e.g. "MTHRS-PKL-MXD-500G 24PK-PP") -> name / chainItemName
+   - ORD.QTY (e.g. 24.00, 18.00) -> quantity / quantityPcs
+   - RATE/UOM / BASE COST (e.g. 62.74, 105.24) -> price / unitPrice
+   - M.R.P (e.g. 155.00, 260.00) -> mrp
+   - NET VALUE (e.g. 1505.76, 1894.32) -> totalPrice`,
+
     default: baseInstructions
   };
 

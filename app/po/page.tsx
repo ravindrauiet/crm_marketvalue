@@ -13,8 +13,8 @@ type PO = {
   notes?: string; planningNote?: string; items: POItem[];
 };
 
-const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'OTHER'];
-const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', OTHER: '#64748b' };
+const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'VISHAL', 'OTHER'];
+const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', VISHAL: '#0055A5', OTHER: '#64748b' };
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   ACTIVE: { label: '🟢 Active', color: '#16a34a', bg: '#dcfce7' },
   PLANNED: { label: '🔵 Planned', color: '#2563eb', bg: '#dbeafe' },
