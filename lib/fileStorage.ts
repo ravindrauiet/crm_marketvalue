@@ -1,7 +1,15 @@
 import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
+import os from 'os';
 
 export function getUploadDir() {
+  // Netlify & Vercel serverless functions have a read-only filesystem outside /tmp
+  if (process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NODE_ENV === 'production') {
+    const tmpDir = path.join(os.tmpdir(), 'uploads');
+    if (!existsSync(tmpDir)) mkdirSync(tmpDir, { recursive: true });
+    return tmpDir;
+  }
+
   const dir = process.env.UPLOAD_DIR || 'public/uploads';
   const abs = path.join(process.cwd(), dir);
   if (!existsSync(abs)) mkdirSync(abs, { recursive: true });
