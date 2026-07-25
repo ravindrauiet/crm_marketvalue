@@ -175,28 +175,28 @@ First words of Title are usually the brand:
 - "Mother's Recipe" -> brand: "Mother's Recipe"
 - "Eastern" -> brand: "Eastern"`,
 
-    blinkit: `${baseInstructions}
+    blinkit: `${baseInstructions}BLINKIT-SPECIFIC INSTRUCTIONS (PDF Format):
+1. HEADER:
+   - PO Number: Look for "P.O. Number :" (e.g., "1724010035523") -> poNumber
+   - PO Date: "Date :" (e.g., "June 19, 2026") -> poDate
+   - PO Delivery Date: "PO delivery date :" -> deliveryDate
+   - PO Expiry Date: "PO expiry date :" -> expiryDate
+   - Vendor Name: "Vendor :" (e.g., "SPAR TRADING COMPANY")
+   - Purchaser Entity: "BLINK COMMERCE PRIVATE LIMITED"
+   - Delivery Warehouse: "Delivered To :" (e.g., "BCPL - Dasna 2 Warehouse")
 
-BLINKIT-SPECIFIC INSTRUCTIONS (PDF Format):
-The text often has messy vertical formatting where the Row Number (S.No) gets stuck to the Item Code.
-1. SKU/ITEM CODE CLEANUP (CRITICAL):
-   - You might see "1100028", "2101970", "10101119".
-   - This pattern is [Row Number] + [Item Code].
-   - Row 1: "1100028" -> Split "1" and "100028". SKU is "100028".
-   - Row 2: "2101970" -> Split "2" and "101970". SKU is "101970".
-   - Row 10: "10101119" -> Split "10" and "101119". SKU is "101119".
-   - ALWAYS remove the leading integer if it matches the sequential row count. The separate SKU is usually 6-7 digits.
-2. QUANTITY (CRITICAL):
-   - Do NOT assume quantity is "24" for all items.
-   - Look for the specific integer column usually labelled "O/S Qty", "PO Qty", or appearing after the Product Description.
-   - Ensure each row has its own unique quantity.
-3. NAME PATTERN: "Brand + Product + Weight" (e.g., "Mother's Recipe Appalam Papad (100 g)").
-4. UPC/EAN: Extract '890...' numbers if present as secondary identifiers.
-5. EXTRACTION STRATEGY:
-   - Identify the Row Start (1, 2, 3...).
-   - Extract the SKU immediately following it.
-   - Extract the Name.
-   - Extract the specific Quantity for THAT row.`,
+2. TABLE COLUMNS:
+   - # (Row Number): 1, 2, 3... (DO NOT concatenate with Item Code)
+   - Item Code (e.g., "10112731", "10001341", "10019793") -> MUST be set as 'sku' (chainItemCode)
+   - Product UPC (13-digit EAN, e.g., "8901440013501") -> MUST be set as 'ean' (eanCode)
+   - Product Description (e.g., "Eastern Chicken Kebab Masala(Pouch) (100 GM)") -> 'name' (chainItemName)
+   - Qty. (e.g., 250, 100, 96, 48, 35) -> 'quantity'
+   - Landing Rate / Basic Cost Price (e.g., 42.00, 35.70) -> 'price'
+   - MRP (e.g., 60.00, 51.00) -> 'mrp'
+   - Total Amt (e.g., 10500.00, 8925.00) -> 'totalAmount'
+
+3. ITEM CODE CLEANUP (If text is concatenated):
+   - If Row Number gets concatenated to Item Code (e.g., "110112731"), strip the leading row number to get the 8-digit Item Code ("10112731").`,
 
     bigbasket: `${baseInstructions}
 
@@ -241,7 +241,7 @@ CORRECT QUANTITIES: 480, 480, 88, 100 (Total: 1148 - matches footer)
 Sno | EAN No | Article Description | UOM | Qty | Free | B.Price | Sp.Dis% | Sch.Val | SGST% | CGST% | Cess | L.Price | MRP | T.Value
 
 ## EXTRACTION RULES:
-1. EAN No (13 digits starting 890) → sku
+1. EAN No (13 digits starting with 890, e.g. 8906012240019) → MUST be set as BOTH 'sku' (Item Code) AND 'ean' (EAN Barcode)
 2. Article Description → name (REMOVE "[HSN Code:...]")
 3. Qty → quantity (USE VALIDATION: T.Value ÷ L.Price)
 4. Free → IGNORE (always 0)
@@ -255,10 +255,11 @@ Sno | EAN No | Article Description | UOM | Qty | Free | B.Price | Sp.Dis% | Sch.
 - GSTIN numbers
 
 ## OUTPUT:
-- sku: EAN (13 digits)
-- name: Clean description (no HSN code)
-- quantity: Validated qty (e.g., 480, 88, 100)
-- price: L.Price value`,
+- sku: EAN No (13 digits starting 890, e.g., 8906012240019)
+- ean: EAN No (13 digits starting 890, e.g., 8906012240019)
+- name: Clean description (without HSN code, e.g., DILBAHAR ANARDANA GOLI(100G))
+- quantity: Validated qty (e.g., 160, 160, 16)
+- price: L.Price value (e.g., 18.31, 26.27, 19.10)`,
 
     zepto: `${baseInstructions}
 
@@ -306,61 +307,41 @@ PDF text often concatenates values. Key patterns:
 - Shipping Address (Zepto warehouse)
 
 ## EXTRACTION MAPPING:
-- sku: Use MaterialCode (6 digits like "101446") or the UUID Sku
-- name: SkuDesc / Item Description
-- brand: Brand column
-- quantity: Quantity column (integer like 600, 320, 250)
-- price: UnitBaseCost or LandingCost
-- mrp: MRP value
-- ean: 13-digit EAN barcode
-- totalAmount: TotalAmount for validation
+- sku: MUST use Material Code (6 digits like "318922", "101467", "110143", "101850", "105180", "103451") as the primary Item Code (chainItemCode)
+- ean: 13-digit EAN barcode (e.g. "8901440013280")
+- name: Item Description (e.g. "Eastern Meat Masala Powder Pouch - 1 pack (100 g)")
+- brand: Extract brand name if present (e.g. "Eastern")
+- quantity: Quantity column (integer like 250, 100)
+- price: Unit Base Cost (e.g. 46.00, 45.71)
+- mrp: MRP/RSP value (e.g. 69.00, 72.00)
+- totalAmount: Total (INR) column (e.g. 12075.00, 4799.52)
 
 ## VALIDATION:
-TotalAmount ≈ Quantity × LandingCost`,
+TotalAmount ≈ Quantity × Unit Base Cost × (1 + TaxRate)`,
 
     reliance: `${baseInstructions}
 
 RELIANCE RETAIL / METRO CASH AND CARRY INSTRUCTIONS (PDF Format):
-Extract ALL fields from Reliance or Metro POs.
+1. HEADER:
+   - PO Number: "PO NO.:" (e.g., "9202569635") -> poNumber
+   - PO Date: "PO Date :" (e.g., "19.06.2026") -> poDate
+   - Delivery Date: "DELIVERY DATE :" (e.g., "04.07.2026") -> deliveryDate
+   - Vendor Name & Code: "Vendor Code : 20011895 GLOMIN OVERSEAS" -> vendorName
+   - Delivery Address: "CDC-JHAJJAR-KULANA (SF)" / Distribution Center -> shippingAddress
 
-## HEADER (for rawDocumentInfo):
-- PO No: "PO NO.:" or "PURCHASE ORDER Number :" (e.g., 5110802591, 9201910324)
-- PO Date: "PO Date :" (DD.MM.YYYY)
-- Vendor: Look for "Vendor Code :" and the Name below it (e.g., "GLOMIN OVERSEAS")
-- Shipping Address: "Delivery Address :" block (e.g., "Distribution Center...", "Metro East Jadavpur...")
-- Billing Address: Often "Reliance Retail Limited" or "Metro Cash And Carry" at top left.
+2. CRITICAL ARTICLE NO. VS HSN CODE SPLIT:
+   In Reliance POs, the "Article No." and "HSN Code" are stacked vertically in a SINGLE column:
+   - FIRST / TOP Number (9 digits, e.g. "494627068") MUST be extracted as 'sku' (chainItemCode / Reliance Article No).
+   - SECOND / BOTTOM Number (8 digits, e.g. "17011490") MUST be extracted as 'hsnCode' (HSN Code).
+   - DO NOT mix up or swap the Article No. and HSN Code!
 
-## PRODUCT TABLE EXTRACTION:
-The table headers are often run together: "QuantityUOMMRPBase CostIGST (%)".
-Columns are: Sr.No | Article No | HSN | EAN | Desc | Del Date | Site | Qty | UOM | MRP | Base Cost | Taxes...
-
-DATA ROW PATTERN (Vertical Split):
-Row 1: "1 491696481" (Sr + Reliance Article)
-Row 2: "09023020" (HSN)
-Row 3: "8906102210595" (EAN -> PRIMARY SKU)
-...
-Row N: "MARVEL PREMIUM LEAF TEA 1KG PCH" (Description -> Name)
-Row N+1: "23.08.2025" (Delivery Date)
-Row N+2: "1.000" (Case Qty?)
-Row N+3: "25.000" (Total Units? or Units/Case?)
-Row N+4: "CAR" (UOM)
-Row N+5: "15,500.00" (Total Value?)
-Row N+6: "620.00" (Unit MRP/Price?)
-
-## CRITICAL EXTRACTION RULES:
-1. SKU: Use the EAN (13 digits starting with 890). If missing, use Article No (9 digits).
-2. Qty: Look for the larger quantity number if multiple exist.
-   - Example: "1.000" and "25.000" -> Quantity is 25 (if 25 matches the unit price calc).
-   - Example: "2.000" and "96.000" -> Quantity is 96.
-   - Rule: Use the "Total Units" count.
-3. Price: "Unit Base Cost" or derive from "Total Base Value" / Quantity.
-   - Check if a "Unit MRP" exists (e.g. 620.00) and a "Unit Cost" exists.
-   - Prioritize "Base Cost" (before tax).
-4. Name: Full "Material Description".
-
-## VALIDATION:
-Total Base Value ≈ Quantity × Unit Base Cost
-Total Order Value ≈ Total Base Value + Taxes`,
+3. OTHER COLUMNS:
+   - EAN No. (13 digits starting 890, e.g., "8908022806186") -> 'ean' (eanCode)
+   - Material Description (e.g., "HEALTHY HUNGER RGLR JAGGRY CUBS 500G JAR") -> 'name' (chainItemName)
+   - Quantity: Extract the total individual pieces (EA count, e.g., 870) as 'quantity' (quantityPcs). Also note Case count (CAR, e.g., 29).
+   - Price: Base Cost or Unit Rate (e.g., 1857.00 per case or derived per unit).
+   - MRP: MRP per case (e.g., 3600.00) or unit MRP (e.g., 120.00) -> 'mrp'
+   - Total Base Value: Line total base value (e.g., 53853.00) -> 'totalAmount'`,
 
     swiggy: `${baseInstructions}
 

@@ -45,7 +45,14 @@ export async function POST(req: NextRequest) {
       let mapping = null;
       if (code) {
         mapping = await prisma.itemMapping.findFirst({
-          where: { chainItemCode: { equals: code, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          where: {
+            chainName: chainName.toUpperCase(),
+            isActive: true,
+            OR: [
+              { chainItemCode: { equals: code, mode: 'insensitive' } },
+              { eanCode: { equals: code, mode: 'insensitive' } },
+            ]
+          },
           orderBy: { updatedAt: 'desc' },
         });
       }

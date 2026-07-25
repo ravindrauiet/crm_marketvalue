@@ -28,9 +28,12 @@ export async function POST(req: NextRequest) {
       const c = code.trim().toLowerCase();
       const n = name.trim().toLowerCase();
       
-      // Match by code first
+      // Match by code or eanCode first
       if (c) {
-        const m = mappings.find(m => m.chainName === chainName && m.chainItemCode.toLowerCase() === c);
+        const m = mappings.find(m => m.chainName === chainName && (
+          m.chainItemCode.toLowerCase() === c || 
+          (m.eanCode && m.eanCode.toLowerCase() === c)
+        ));
         if (m) return m;
       }
       // Match by name if code fails or is empty
