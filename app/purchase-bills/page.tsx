@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 
 type BillItem = {
   id?: string;
@@ -36,6 +37,44 @@ export default function PurchaseBillsPage() {
 
   useEffect(() => { loadBills(); }, []);
 
+  function downloadSampleBill() {
+    const sampleData = [
+      {
+        "Supplier Name": "GLOMIN OVERSEAS",
+        "Invoice Number": "INV-2026-001",
+        "Invoice Date": "2026-06-20",
+        "Item Name": "Mother's Recipe Mixed Pickle 500g",
+        "HSN Code": "20019000",
+        "Quantity": 100,
+        "Unit": "PCS",
+        "Rate": 45.00,
+        "Amount": 4500.00,
+        "Tax Rate (%)": 5,
+        "Tax Amount": 225.00,
+        "Total Amount": 4725.00
+      },
+      {
+        "Supplier Name": "GLOMIN OVERSEAS",
+        "Invoice Number": "INV-2026-001",
+        "Invoice Date": "2026-06-20",
+        "Item Name": "Eastern Meat Masala 100g",
+        "HSN Code": "09109100",
+        "Quantity": 200,
+        "Unit": "PCS",
+        "Rate": 40.00,
+        "Amount": 8000.00,
+        "Tax Rate (%)": 5,
+        "Tax Amount": 400.00,
+        "Total Amount": 8400.00
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Purchase Bill");
+    XLSX.writeFile(wb, "Purchase_Bill_Sample_Format.xlsx");
+  }
+
   // Poll for processing bills
   useEffect(() => {
     const processing = bills.filter(b => b.status === 'PENDING' || b.status === 'PROCESSING');
@@ -53,8 +92,9 @@ export default function PurchaseBillsPage() {
 
   async function uploadFile(file: File) {
     if (!file) return;
-    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      alert('Only PDF, JPG, PNG, WEBP files are supported'); return;
+    const isSupported = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'text/csv'].includes(file.type) || file.name.match(/\.(pdf|jpg|jpeg|png|webp|xlsx|xls|csv)$/i);
+    if (!isSupported) {
+      alert('Only PDF, Image (JPG/PNG/WEBP), or Excel/CSV (XLSX/XLS/CSV) files are supported'); return;
     }
     setUploading(true);
     const fd = new FormData();
@@ -173,19 +213,27 @@ export default function PurchaseBillsPage() {
         ))}
       </div>
 
+      {/* Action Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 style={{ margin: 0 }}>Upload Purchase Invoices</h3>
+        <button onClick={(e) => { e.stopPropagation(); downloadSampleBill(); }} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
+          📥 Download Sample Format (.xlsx)
+        </button>
+      </div>
+
       {/* Upload Zone */}
       <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
         onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
         onClick={() => fileRef.current?.click()}
         className="card" style={{ marginBottom: 24, padding: 40, textAlign: 'center', cursor: 'pointer', border: `2px dashed ${dragOver ? '#f59e0b' : 'var(--border)'}`, background: dragOver ? '#fffbeb' : 'var(--bg-secondary)', transition: 'all 0.2s' }}>
-        <input ref={fileRef} type="file" accept=".pdf,image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
+        <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv,image/jpeg,image/png,image/webp" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
         {uploading ? (
           <div><div className="spinner" style={{ margin: '0 auto 12px' }} /><p>Uploading & starting OCR extraction…</p></div>
         ) : (
           <>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
-            <h3 style={{ marginBottom: 8 }}>Drop purchase bill here</h3>
-            <p className="muted" style={{ margin: 0 }}>PDF, JPG, PNG, WEBP · AI will auto-extract supplier, invoice no, items & amounts</p>
+            <h3 style={{ marginBottom: 8 }}>Drop purchase bill here or click to browse</h3>
+            <p className="muted" style={{ margin: 0 }}>PDF, XLSX, XLS, CSV, JPG, PNG, WEBP · AI will auto-extract supplier, invoice no, items & amounts</p>
           </>
         )}
       </div>

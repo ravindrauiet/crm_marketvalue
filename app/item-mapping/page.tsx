@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 
 type Mapping = {
   id: string;
@@ -43,6 +44,81 @@ export default function ItemMappingPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadMappings(); }, [filterChain, filterBrand, search]);
+
+  function downloadSampleExcel() {
+    const sampleData = [
+      {
+        "Chain Name": "AMAZON",
+        "Chain Item Code": "B08G5QLVJ4",
+        "Chain Item Name": "Mother's Recipe Rice Papad Jeera Pouch,75 Gram",
+        "Tally Item Name": "Mother's Recipe Rice Papad Jeera 75g",
+        "Tally Item SKU": "SKU-PAPAD-001",
+        "EAN Code": "8906001053453",
+        "Brand Name": "Mother's Recipe",
+        "Company Item Code": "MR-PAPAD-JEERA-75G",
+        "Company Item Name": "Mother's Recipe Rice Papad Jeera Pouch 75g",
+        "PCS Per Case": 24,
+        "Notes": "Sample mapping for Amazon"
+      },
+      {
+        "Chain Name": "VISHAL",
+        "Chain Item Code": "1310000368",
+        "Chain Item Name": "MTHRS-PKL-MXD-500G 24PK-PP",
+        "Tally Item Name": "Mother's Recipe Mixed Pickle 500g",
+        "Tally Item SKU": "SKU-PKL-500G",
+        "EAN Code": "48003425",
+        "Brand Name": "Mother's Recipe",
+        "Company Item Code": "MR-PKL-MXD-500G",
+        "Company Item Name": "Mother's Recipe Mixed Pickle Jar 500g",
+        "PCS Per Case": 24,
+        "Notes": "Sample mapping for Vishal Mega Mart"
+      },
+      {
+        "Chain Name": "ZEPTO",
+        "Chain Item Code": "318922",
+        "Chain Item Name": "Eastern Meat Masala Powder Pouch - 1 pack (100 g)",
+        "Tally Item Name": "Eastern Meat Masala 100g",
+        "Tally Item SKU": "EAST-MM-100",
+        "EAN Code": "8901440013280",
+        "Brand Name": "Eastern",
+        "Company Item Code": "EAST-MM-100G",
+        "Company Item Name": "Eastern Meat Masala 100g Pouch",
+        "PCS Per Case": 40,
+        "Notes": "Sample mapping for Zepto"
+      },
+      {
+        "Chain Name": "BLINKIT",
+        "Chain Item Code": "10112731",
+        "Chain Item Name": "Eastern Chicken Kebab Masala(Pouch) (100 GM)",
+        "Tally Item Name": "Eastern Chicken Kebab Masala 100g",
+        "Tally Item SKU": "EAST-CKM-100",
+        "EAN Code": "8901440013501",
+        "Brand Name": "Eastern",
+        "Company Item Code": "EAST-CKM-100G",
+        "Company Item Name": "Eastern Chicken Kebab Masala 100g",
+        "PCS Per Case": 40,
+        "Notes": "Sample mapping for Blinkit"
+      },
+      {
+        "Chain Name": "DMART",
+        "Chain Item Code": "8906012240019",
+        "Chain Item Name": "DILBAHAR ANARDANA GOLI(100G)",
+        "Tally Item Name": "Dilbahar Anardana Goli 100g",
+        "Tally Item SKU": "DIL-AG-100",
+        "EAN Code": "8906012240019",
+        "Brand Name": "Dilbahar",
+        "Company Item Code": "DIL-ANARDANA-100G",
+        "Company Item Name": "Dilbahar Anardana Goli 100g Pouch",
+        "PCS Per Case": 48,
+        "Notes": "Sample mapping for DMart"
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Item Mappings");
+    XLSX.writeFile(wb, "Item_Mapping_Sample_Format.xlsx");
+  }
 
   async function loadMappings() {
     setLoading(true);
@@ -121,6 +197,9 @@ export default function ItemMappingPage() {
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
+          <button onClick={downloadSampleExcel} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
+            📥 Sample Format (.xlsx)
+          </button>
           <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
             {uploading ? 'Uploading...' : '📤 Bulk Upload'}
           </button>

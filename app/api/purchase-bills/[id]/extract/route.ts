@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import OpenAI from 'openai';
 import pdf from 'pdf-parse';
+import * as XLSX from 'xlsx';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
@@ -31,13 +32,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         buf = readFileSync(absolutePath);
       }
 
-      if (bill.mimeType?.includes('pdf')) {
+      const fileNameLower = (bill.fileName || '').toLowerCase();
+      const mimeTypeLower = (bill.mimeType || '').toLowerCase();
+
+      if (mimeTypeLower.includes('excel') || mimeTypeLower.includes('spreadsheet') || mimeTypeLower.includes('csv') || fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls') || fileNameLower.endsWith('.csv')) {
+        // Parse Excel / CSV spreadsheet
+        const wb = XLSX.read(buf, { type: 'buffer' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        documentText = JSON.stringify(rawRows, null, 2);
+      } else if (mimeTypeLower.includes('pdf')) {
         const pdfData = await pdf(buf);
         documentText = pdfData.text;
-      } else if (bill.mimeType?.startsWith('image/')) {
+      } else if (mimeTypeLower.startsWith('image/')) {
         // Use OpenAI vision for images
         const base64Image = buf.toString('base64');
-        const mimeType = bill.mimeType;
 
         const visionResponse = await openai.chat.completions.create({
           model: 'gpt-4o',
@@ -46,7 +55,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             content: [
               {
                 type: 'image_url',
-                image_url: { url: `data:${mimeType};base64,${base64Image}` }
+                image_url: { url: `data:${bill.mimeType};base64,${base64Image}` }
               },
               {
                 type: 'text',
