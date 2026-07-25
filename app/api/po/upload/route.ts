@@ -10,12 +10,21 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 // POST /api/po/upload
 // Upload and extract PO details from Excel/PDF/Word/Image
 export async function POST(req: NextRequest) {
+  const timestamp = new Date().toISOString();
+  console.log(`\n==================================================`);
+  console.log(`📦 [PO UPLOAD API] Incoming PO Upload at ${timestamp}`);
+
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const chainName = formData.get('chainName') as string || 'OTHER';
 
-    if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!file) {
+      console.error(`❌ [PO UPLOAD API] Error: No file uploaded`);
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    }
+
+    console.log(`ℹ️ [PO UPLOAD API] File Name: "${file.name}" | Size: ${(file.size / 1024).toFixed(2)} KB | Chain: "${chainName.toUpperCase()}"`);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
