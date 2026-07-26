@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { poNumber, chainName, poDate, appointmentDate, deliveryDate, notes, items } = body;
+    const { poNumber, chainName, poDate, appointmentDate, deliveryDate, notes, filePath, fileName, rawDocumentInfo, items } = body;
 
     if (!poNumber || !chainName) {
       return NextResponse.json({ error: 'poNumber and chainName are required' }, { status: 400 });
@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
     const enrichedItems = await Promise.all(chainItems.map(async (item: any) => {
       const code = String(item.chainItemCode || '').trim();
       const name = String(item.chainItemName || '').trim();
+      const ean = String(item.eanCode || '').trim();
+
       let mapping = null;
       if (code) {
         mapping = await prisma.itemMapping.findFirst({
@@ -56,20 +58,27 @@ export async function POST(req: NextRequest) {
           orderBy: { updatedAt: 'desc' },
         });
       }
+      if (!mapping && ean) {
+        mapping = await prisma.itemMapping.findFirst({
+          where: { eanCode: { equals: ean, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
       if (!mapping && name) {
-        // Fall back to matching by chain item name when the code doesn't match
-        // (mirrors the logic used during PO-upload extraction so both paths agree)
         mapping = await prisma.itemMapping.findFirst({
           where: { chainItemName: { equals: name, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
           orderBy: { updatedAt: 'desc' },
         });
       }
+
       const pcsPerCase = mapping?.pcsPerCase || 1;
       const quantityCase = item.quantityPcs / pcsPerCase;
       return {
         chainItemCode: code,
         chainItemName: name,
         tallyItemName: mapping?.tallyItemName || item.tallyItemName || '',
+        eanCode: item.eanCode || mapping?.eanCode || null,
+        hsnCode: item.hsnCode || null,
         quantityPcs: parseInt(item.quantityPcs || 0),
         quantityCase,
         unitPrice: parseFloat(item.unitPrice || 0),
@@ -89,6 +98,9 @@ export async function POST(req: NextRequest) {
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         totalAmount,
         notes: notes || null,
+        filePath: filePath || null,
+        fileName: fileName || null,
+        rawDocumentInfo: typeof rawDocumentInfo === 'object' ? JSON.stringify(rawDocumentInfo) : (rawDocumentInfo || null),
         items: { create: enrichedItems }
       },
       include: { items: true }

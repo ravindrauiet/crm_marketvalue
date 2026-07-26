@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import * as XLSX from 'xlsx';
-import OpenAI from 'openai';
-import pdf from 'pdf-parse';
-import mammoth from 'mammoth';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
+import { saveBufferToUploads } from '@/lib/fileStorage';
+import { extractProductsWithAI } from '@/lib/ai';
+import { extractFromExcel } from '@/lib/excel-extractor';
+import { unlinkSync } from 'fs';
 
 // POST /api/po/upload
-// Upload and extract PO details from Excel/PDF/Word/Image
+// Upload and extract PO details from Excel/PDF/Word/Image using AI & Vendor rules
 export async function POST(req: NextRequest) {
   const timestamp = new Date().toISOString();
   console.log(`\n==================================================`);
@@ -17,154 +15,112 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
-    const chainName = formData.get('chainName') as string || 'OTHER';
+    const chainName = String(formData.get('chainName') || 'OTHER').toUpperCase().trim();
 
     if (!file) {
       console.error(`❌ [PO UPLOAD API] Error: No file uploaded`);
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    console.log(`ℹ️ [PO UPLOAD API] File Name: "${file.name}" | Size: ${(file.size / 1024).toFixed(2)} KB | Chain: "${chainName.toUpperCase()}"`);
+    console.log(`ℹ️ [PO UPLOAD API] File Name: "${file.name}" | Size: ${(file.size / 1024).toFixed(2)} KB | Chain: "${chainName}"`);
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const mimeType = file.type || '';
+    const { filepath } = await saveBufferToUploads(file.name, buffer);
+
     const name = file.name.toLowerCase();
+    const mimeType = file.type || 'application/octet-stream';
 
-    let extractedData: any = { poNumber: '', poDate: null, items: [] };
+    const base64Data = buffer.toString('base64');
+    const dataUri = `data:${mimeType};base64,${base64Data}`;
 
-    if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
-      // Parse Excel
-      const wb = XLSX.read(buffer, { type: 'buffer' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    let extractedInfo: any = { poNumber: '', poDate: '', deliveryDate: '', items: [], rawDocumentInfo: null };
 
-      const items = rawRows.map(row => {
-        const keys = Object.keys(row);
-        const find = (patterns: string[]) => {
-          for (const p of patterns) {
-            const k = keys.find(k => k.toLowerCase().replace(/[^a-z0-9]/g, '').includes(p));
-            if (k) return row[k];
-          }
-          return '';
-        };
-
-        return {
-          chainItemCode: String(find(['itemcode', 'articlecode', 'ean', 'sku'])),
-          chainItemName: String(find(['itemname', 'description', 'article name', 'product'])),
-          quantityPcs: parseFloat(String(find(['qty', 'quantity', 'pieces', 'pcs']))),
-          unitPrice: parseFloat(String(find(['price', 'rate', 'unitprice']))),
-        };
-      }).filter(i => i.chainItemName || i.chainItemCode);
-
-      extractedData.items = items;
-      
+    if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv') || mimeType.includes('excel') || mimeType.includes('spreadsheet')) {
+      console.log(`📊 [PO UPLOAD API] Extracting Excel PO with deterministic extractor...`);
+      const excelResult = await extractFromExcel(filepath, chainName.toLowerCase());
+      extractedInfo.rawDocumentInfo = excelResult.rawDocumentInfo || null;
+      extractedInfo.poNumber = excelResult.rawDocumentInfo?.documentNumber || '';
+      extractedInfo.poDate = excelResult.rawDocumentInfo?.documentDate || '';
+      extractedInfo.deliveryDate = excelResult.rawDocumentInfo?.deliveryDate || '';
+      extractedInfo.items = (excelResult.products || []).map(p => ({
+        chainItemCode: p.sku || '',
+        chainItemName: p.name || '',
+        eanCode: p.description?.includes('EAN:') ? p.description.split('EAN:')[1]?.trim() : '',
+        quantityPcs: p.quantity || 0,
+        unitPrice: p.price || 0,
+      }));
     } else {
-      // PDF, DOCX, Image -> Use GPT
-      let documentText = '';
-      if (mimeType.includes('pdf') || name.endsWith('.pdf')) {
-        const pdfData = await pdf(buffer);
-        documentText = pdfData.text;
-      } else if (name.endsWith('.docx')) {
-        const result = await mammoth.extractRawText({ buffer });
-        documentText = result.value;
-      } else if (mimeType.startsWith('image/')) {
-        const base64Image = buffer.toString('base64');
-        const visionResponse = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [{
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
-              { type: 'text', text: 'Extract ALL text from this Purchase Order image. Return plain text.' }
-            ]
-          }],
-          max_tokens: 4000,
-        });
-        documentText = visionResponse.choices[0]?.message?.content || '';
-      } else {
-        documentText = buffer.toString('utf-8');
-      }
-
-      // Extract with GPT
-      const prompt = `You are an expert at extracting Purchase Orders.
-Extract the following from this text:
-{
-  "poNumber": "PO number string",
-  "poDate": "YYYY-MM-DD or null",
-  "items": [
-    {
-      "chainItemCode": "item code/article code/EAN",
-      "chainItemName": "exact item name",
-      "quantityPcs": number,
-      "unitPrice": number
-    }
-  ]
-}
-
-Only return valid JSON. Wait to format quantities correctly as numbers. 
-If prices are not mentioned, assume 0.
-Text:
-${documentText.substring(0, 8000)}`;
-
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        messages: [{ role: 'system', content: 'You extract PO data. Return JSON.' }, { role: 'user', content: prompt }],
-        temperature: 0.1,
-        response_format: { type: 'json_object' }
-      });
-      const gptExtracted = JSON.parse(completion.choices[0]?.message?.content || '{}');
-      extractedData.poNumber = gptExtracted.poNumber || '';
-      extractedData.poDate = gptExtracted.poDate || null;
-      extractedData.items = gptExtracted.items || [];
+      console.log(`🤖 [PO UPLOAD API] Extracting PDF/Image PO using AI (${process.env.OPENAI_MODEL || 'gpt-4o'})...`);
+      const aiResult = await extractProductsWithAI(filepath, mimeType, chainName.toLowerCase());
+      extractedInfo.rawDocumentInfo = aiResult.rawDocumentInfo || null;
+      extractedInfo.poNumber = aiResult.rawDocumentInfo?.documentNumber || '';
+      extractedInfo.poDate = aiResult.rawDocumentInfo?.documentDate || '';
+      extractedInfo.deliveryDate = aiResult.rawDocumentInfo?.deliveryDate || '';
+      extractedInfo.items = (aiResult.products || []).map(p => ({
+        chainItemCode: p.sku || '',
+        chainItemName: p.name || '',
+        eanCode: p.description?.includes('EAN:') ? p.description.split('EAN:')[1]?.trim() : '',
+        quantityPcs: p.quantity || 0,
+        unitPrice: p.price || 0,
+      }));
     }
 
-    // Auto-match items against ItemMapping
-    // Matching logic must stay identical to /api/po (the save-time matcher), otherwise
-    // an item that looks "matched" right after upload can silently become unmapped on save.
-    const finalItems = await Promise.all((extractedData.items || []).map(async (item: any) => {
-      const code = String(item.chainItemCode || '').trim();
-      const name = String(item.chainItemName || '').trim();
+    // Clean up temporary file
+    try { unlinkSync(filepath); } catch {}
+
+    // Auto-match extracted items against ItemMapping for this chain
+    const mappings = await prisma.itemMapping.findMany({
+      where: { chainName: chainName, isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const finalItems = extractedInfo.items.map((item: any) => {
+      const code = String(item.chainItemCode || '').trim().toLowerCase();
+      const name = String(item.chainItemName || '').trim().toLowerCase();
+      const ean = String(item.eanCode || '').trim().toLowerCase();
+
       let mapping = null;
       if (code) {
-        mapping = await prisma.itemMapping.findFirst({
-          where: {
-            chainName: chainName.toUpperCase(),
-            isActive: true,
-            OR: [
-              { chainItemCode: { equals: code, mode: 'insensitive' } },
-              { eanCode: { equals: code, mode: 'insensitive' } },
-            ]
-          },
-          orderBy: { updatedAt: 'desc' },
-        });
+        mapping = mappings.find(m =>
+          m.chainItemCode.toLowerCase() === code ||
+          (m.eanCode && m.eanCode.toLowerCase() === code)
+        );
+      }
+      if (!mapping && ean) {
+        mapping = mappings.find(m => m.eanCode && m.eanCode.toLowerCase() === ean);
       }
       if (!mapping && name) {
-        // Try fuzzy name match if code fails
-        mapping = await prisma.itemMapping.findFirst({
-          where: { chainItemName: { equals: name, mode: 'insensitive' }, chainName: chainName.toUpperCase(), isActive: true },
-          orderBy: { updatedAt: 'desc' },
-        });
+        mapping = mappings.find(m => m.chainItemName.toLowerCase() === name);
       }
 
       return {
-        chainItemCode: code,
-        chainItemName: name,
+        chainItemCode: item.chainItemCode || '',
+        chainItemName: item.chainItemName || '',
         tallyItemName: mapping?.tallyItemName || '',
+        eanCode: item.eanCode || mapping?.eanCode || '',
+        hsnCode: item.hsnCode || '',
         quantityPcs: typeof item.quantityPcs === 'number' ? item.quantityPcs : parseFloat(item.quantityPcs || 0) || 0,
         unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || 0) || 0,
         matched: !!mapping,
       };
-    }));
+    });
+
+    console.log(`✅ [PO UPLOAD SUCCESS] PO Number: "${extractedInfo.poNumber}" | Items Extracted: ${finalItems.length} | Matched: ${finalItems.filter((i: any) => i.matched).length}`);
+    console.log(`==================================================\n`);
 
     return NextResponse.json({
       success: true,
-      poNumber: extractedData.poNumber || '',
-      poDate: extractedData.poDate || '',
+      poNumber: extractedInfo.poNumber || '',
+      poDate: extractedInfo.poDate || '',
+      appointmentDate: extractedInfo.deliveryDate || '',
+      fileName: file.name,
+      filePath: dataUri,
+      rawDocumentInfo: extractedInfo.rawDocumentInfo,
       items: finalItems,
     });
   } catch (err: any) {
-    console.error('PO Upload Error:', err);
+    console.error(`❌ [PO UPLOAD ERROR] Processing failed:`, err.message || err);
     return NextResponse.json({ error: 'Failed to process PO: ' + err.message }, { status: 500 });
   }
 }

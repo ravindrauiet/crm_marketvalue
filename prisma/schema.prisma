@@ -304,6 +304,9 @@ model ChainPurchaseOrder {
   totalAmount     Float    @default(0)
   notes           String?
   planningNote    String?
+  filePath        String?  // path/data URI of uploaded PO file
+  fileName        String?  // original filename of PO file
+  rawDocumentInfo String?  // JSON string containing all 16 extracted AI document fields
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   items           ChainPOItem[]
@@ -314,12 +317,14 @@ model ChainPurchaseOrder {
 }
 
 model ChainPOItem {
-  id          String @id @default(auto()) @map("_id") @db.ObjectId
-  po          ChainPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  poId        String @db.ObjectId
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  po            ChainPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  poId          String @db.ObjectId
   chainItemCode String
   chainItemName String
   tallyItemName String?  // mapped Tally name
+  eanCode       String?  // EAN / Barcode
+  hsnCode       String?  // HSN Code
   quantityPcs   Int      // Quantity in PCS (as per chain PO)
   quantityCase  Float    @default(0) // Equivalent in CASEs
   unitPrice     Float    @default(0)

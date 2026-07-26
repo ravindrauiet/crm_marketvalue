@@ -4,13 +4,16 @@ import Link from 'next/link';
 
 type POItem = {
   id: string; chainItemCode: string; chainItemName: string;
-  tallyItemName?: string; quantityPcs: number; quantityCase: number;
+  tallyItemName?: string; eanCode?: string; hsnCode?: string;
+  quantityPcs: number; quantityCase: number;
   unitPrice: number; totalPrice: number;
 };
 type PO = {
   id: string; poNumber: string; chainName: string; status: string;
   poDate: string; appointmentDate?: string; totalAmount: number;
-  notes?: string; planningNote?: string; items: POItem[];
+  notes?: string; planningNote?: string;
+  filePath?: string; fileName?: string; rawDocumentInfo?: string;
+  items: POItem[];
 };
 
 const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'VISHAL', 'OTHER'];
@@ -164,9 +167,47 @@ export default function POPage() {
                   <span style={{ fontSize: 18, color: 'var(--text-secondary)', flex: 'none' }}>{isExpanded ? '▲' : '▼'}</span>
                 </div>
 
-                {/* Expanded items */}
+                {/* Expanded items & document info */}
                 {isExpanded && (
-                  <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                  <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', padding: '16px 20px' }}>
+                    {/* Uploaded File Link & AI 16 Fields Grid */}
+                    {(po.filePath || po.rawDocumentInfo) && (
+                      <div style={{ marginBottom: 16, padding: 14, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: '#1e40af' }}>🤖 AI Extracted Document Summary (16 Fields)</span>
+                          {po.filePath && (
+                            <a href={po.filePath} download={po.fileName || `PO_${po.poNumber}`} className="btn secondary" style={{ fontSize: 12, padding: '4px 10px', background: '#dbeafe', color: '#1e40af', border: '1px solid #bfdbfe' }}>
+                              📄 Download Original File ({po.fileName || 'PO File'})
+                            </a>
+                          )}
+                        </div>
+                        {po.rawDocumentInfo && (() => {
+                          let info: any = {};
+                          try { info = JSON.parse(po.rawDocumentInfo); } catch {}
+                          return (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, fontSize: 12 }}>
+                              <div><strong>1. Type:</strong> {info.documentType || 'Purchase Order'}</div>
+                              <div><strong>2. PO Number:</strong> {info.documentNumber || po.poNumber}</div>
+                              <div><strong>3. PO Date:</strong> {info.documentDate || new Date(po.poDate).toLocaleDateString('en-IN')}</div>
+                              <div><strong>4. Delivery Date:</strong> {info.deliveryDate || (po.appointmentDate ? new Date(po.appointmentDate).toLocaleDateString('en-IN') : 'N/A')}</div>
+                              <div><strong>5. Vendor Name:</strong> {info.vendorName || po.chainName}</div>
+                              <div><strong>6. Vendor Address:</strong> {info.vendorAddress || 'N/A'}</div>
+                              <div><strong>7. Vendor Contact:</strong> {info.vendorContact || 'N/A'}</div>
+                              <div><strong>8. Vendor GSTIN:</strong> {info.vendorGST || 'N/A'}</div>
+                              <div><strong>9. Buyer Name:</strong> {info.buyerName || 'Bhavish CRM'}</div>
+                              <div><strong>10. Buyer Address:</strong> {info.buyerAddress || 'N/A'}</div>
+                              <div><strong>11. Buyer GSTIN:</strong> {info.buyerGST || 'N/A'}</div>
+                              <div><strong>12. Shipping Address:</strong> {info.shippingAddress || 'N/A'}</div>
+                              <div><strong>13. Payment Terms:</strong> {info.paymentTerms || 'N/A'}</div>
+                              <div><strong>14. Subtotal:</strong> ₹{info.subtotal ? Number(info.subtotal).toLocaleString('en-IN') : '0'}</div>
+                              <div><strong>15. Tax Amount:</strong> ₹{info.taxAmount ? Number(info.taxAmount).toLocaleString('en-IN') : '0'}</div>
+                              <div><strong>16. Total Amount:</strong> ₹{info.totalAmount ? Number(info.totalAmount).toLocaleString('en-IN') : po.totalAmount.toLocaleString('en-IN')}</div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -189,7 +230,7 @@ export default function POPage() {
                         ))}
                       </tbody>
                     </table>
-                    {po.notes && <div style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-secondary)' }}>📝 {po.notes}</div>}
+                    {po.notes && <div style={{ paddingTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>📝 {po.notes}</div>}
                   </div>
                 )}
               </div>
