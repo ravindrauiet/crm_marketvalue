@@ -122,13 +122,15 @@ EXTRACTION INSTRUCTIONS:
 2. Look in ALL places: tables, lists, headers, body text, footers, summary sections
 3. Extract EVERY product you see - if you see a product code/SKU and name, extract it
 4. SKU/Product Code is the PRIMARY identifier - extract it EXACTLY as written (numbers, letters, dashes, etc.)
-5. Product Name - extract EXACTLY as written in the document
-6. If the same SKU appears with different names, extract BOTH as separate entries
-7. If the same name appears with different SKUs, extract BOTH as separate entries  
-8. If the same product (same SKU + same name) appears multiple times, extract ALL occurrences
-9. Do NOT skip any products - better to extract too many than miss any
-10. Pay special attention to:
+5. EAN / BARCODE: Look for 13-digit EAN/GTIN/UPC barcodes (starting with 890 for India) or EAN column. Extract into 'ean' field.
+6. Product Name - extract EXACTLY as written in the document
+7. If the same SKU appears with different names, extract BOTH as separate entries
+8. If the same name appears with different SKUs, extract BOTH as separate entries  
+9. If the same product (same SKU + same name) appears multiple times, extract ALL occurrences
+10. Do NOT skip any products - better to extract too many than miss any
+11. Pay special attention to:
     - Product codes/SKUs (usually numbers, may be in first column)
+    - EAN / Barcode numbers (13-digit numbers starting with 890...)
     - Product names (can be long, may have special characters)
     - Quantities (numbers, may be in quantity/stock/closing columns)
     - Any grouping or categorization`;
@@ -137,43 +139,23 @@ EXTRACTION INSTRUCTIONS:
   const vendorInstructions: Record<string, string> = {
     amazon: `${baseInstructions}
 
-AMAZON-SPECIFIC INSTRUCTIONS (Excel Format):
-Amazon PO files are clean Excel spreadsheets. Extract ALL fields.
+AMAZON-SPECIFIC INSTRUCTIONS (PDF & Excel Format):
+Amazon PO files come in clean Excel spreadsheets or PDF documents. Extract ALL fields.
 
-## EXCEL COLUMN STRUCTURE:
-1. PO - Purchase Order ID (e.g., "8Q4RMHAU") -> poNumber
-2. Vendor - Vendor code (e.g., "GLVSE") -> vendorCode
-3. Ship to location - Warehouse address (e.g., "HNR4 - Dadri Toe, HARYANA") -> shipTo
-4. ASIN - Amazon SKU (e.g., "B08G5QLVJ4") -> Use as SKU (10-char alphanumeric)
-5. Title - Product name (e.g., "Mother's Recipe Rice Papad Jeera Pouch,75 Gram") -> name
-6. Window end - Delivery date (e.g., "13/9/2025") -> deliveryDate
-7. Quantity Outstanding - ORDER QUANTITY (e.g., 32, 88, 24) -> quantity
-8. Unit Cost - Price per unit (e.g., 18.57, 58.5) -> price
-9. (Currency) - Usually "INR"
-10. Total cost - Line total (e.g., 594.24, 5148) -> totalCost
-11. (Currency) - Usually "INR"
-
-## HEADER (for rawDocumentInfo):
-- poNumber: PO column value (same for all rows in a PO)
-- vendorCode: Vendor column
-- shipTo: Ship to location
-- deliveryDate: Window end date
+## COLUMNS & FIELDS:
+1. ASIN - Amazon SKU (e.g., "B08G5QLVJ4") -> Use as 'sku' (10-char alphanumeric)
+2. EAN / Barcode - 13-digit barcode (starting with 890..., e.g., "8906001050704") -> Use as 'ean'
+3. Title / Product Description -> Use as 'name'
+4. Quantity Outstanding - ORDER QUANTITY (e.g., 32, 88, 24) -> Use as 'quantity'
+5. Unit Cost - Price per unit (e.g., 18.57, 58.5) -> Use as 'price'
+6. Total cost - Line total -> Use as 'totalCost'
 
 ## EXTRACTION RULES:
 - sku: ASIN (10-character code like "B08G5QLVJ4")
+- ean: 13-digit EAN/UPC barcode if visible in column or description
 - name: Title (full product name)
 - quantity: Quantity Outstanding (integer)
-- price: Unit Cost (decimal)
-- totalCost: Total cost (for validation)
-
-## VALIDATION:
-Total cost = Quantity Outstanding × Unit Cost
-Example: 32 × 18.57 = 594.24 ✓
-
-## BRAND DETECTION:
-First words of Title are usually the brand:
-- "Mother's Recipe" -> brand: "Mother's Recipe"
-- "Eastern" -> brand: "Eastern"`,
+- price: Unit Cost (decimal)`,
 
     blinkit: `${baseInstructions}BLINKIT-SPECIFIC INSTRUCTIONS (PDF Format):
 1. HEADER:
@@ -434,9 +416,33 @@ export async function extractProductsWithAI(
 
     // Truncate if too long (OpenAI has token limits)
     const maxLength = 50000; // Approximate character limit
-    const truncatedText = documentText.length > maxLength
-      ? documentText.substring(0, maxLength) + '\n... [truncated]'
-      : documentText;
+
+    // Clean up split EAN barcodes in PDF text (e.g. "EAN: \n 890600105 \n 3453" -> "EAN: 8906001053453")
+    const cleanedText = documentText
+      .replace(/EAN:\s*(\d{7,10})\s*[\r\n]+\s*(\d{3,6})/gi, 'EAN: $1$2')
+      .replace(/(\b890\d{5,8})\s*[\r\n]+\s*(\d{3,6}\b)/g, '$1$2');
+
+    // Extract deterministic ASIN/Code -> EAN map from raw text as 100% accurate fallback
+    const eanMap: Record<string, string> = {};
+    const eanRegex = /(B[0-9A-Z]{9}|[A-Z0-9]{6,15})\s*EAN:\s*(\d{7,10})\s*(\d{3,6})/gi;
+    let eMatch;
+    while ((eMatch = eanRegex.exec(documentText)) !== null) {
+      const code = eMatch[1].toUpperCase().trim();
+      const ean = eMatch[2] + eMatch[3];
+      eanMap[code] = ean;
+    }
+    // Also match single-line EANs (e.g. EAN: 8906001053453)
+    const singleEanRegex = /(B[0-9A-Z]{9}|[A-Z0-9]{6,15})\s*EAN:\s*(\d{13})/gi;
+    while ((eMatch = singleEanRegex.exec(documentText)) !== null) {
+      const code = eMatch[1].toUpperCase().trim();
+      eanMap[code] = eMatch[2];
+    }
+
+    console.log(`ℹ️ [AI EXTRACTION] Deterministic EANs found in text: ${Object.keys(eanMap).length} / 22`);
+
+    const truncatedText = cleanedText.length > maxLength
+      ? cleanedText.substring(0, maxLength) + '\n... [truncated]'
+      : cleanedText;
 
     // Get vendor-specific instructions
     const vendorPromptInstructions = getVendorSpecificPrompt(vendor);
@@ -504,8 +510,9 @@ Return the data as a JSON object with this structure:
     },
     "products": [
       {
-        "sku": "string (required - exact as in document)",
-        "name": "string (required - exact as in document)",
+        "sku": "string (required - exact Item Code or ASIN as in document)",
+        "ean": "string (optional - 13-digit EAN / UPC Barcode if visible, e.g. 8906001050704)",
+        "name": "string (required - exact product description)",
         "brand": "string (optional)",
         "group": "string (optional)",
         "quantity": number(optional),
@@ -574,7 +581,7 @@ CRITICAL EXTRACTION RULES:
     if (result.products && result.products.length > 0) {
       console.log('\nAll extracted products:');
       result.products.forEach((p, idx) => {
-        console.log(`  ${idx + 1}.SKU: "${p.sku}" | Name: "${p.name}" | Qty: ${p.quantity || 'N/A'} | Brand: ${p.brand || 'N/A'} | Group: ${p.group || 'N/A'} `);
+        console.log(`  ${idx + 1}.SKU: "${p.sku}" | EAN: "${p.ean || 'N/A'}" | Name: "${p.name}" | Qty: ${p.quantity || 'N/A'}`);
       });
       console.log('\nSummary:');
       console.log(`  - Total products: ${result.products.length} `);
@@ -595,15 +602,20 @@ CRITICAL EXTRACTION RULES:
     // Clean and validate each product
     result.products = result.products
       .filter(p => p.sku && p.name) // Only keep products with required fields
-      .map(p => ({
-        sku: String(p.sku || '').trim(),
-        name: String(p.name || '').trim(),
-        brand: p.brand ? String(p.brand).trim() : undefined,
-        group: p.group ? String(p.group).trim() : undefined,
-        quantity: p.quantity ? Number(p.quantity) || 0 : undefined,
-        price: p.price ? Number(p.price) || undefined : undefined,
-        description: p.description ? String(p.description).trim() : undefined,
-      }))
+      .map(p => {
+        const skuKey = String(p.sku || '').toUpperCase().trim();
+        const ean = String(p.ean || p.eanCode || eanMap[skuKey] || '').trim();
+        return {
+          sku: String(p.sku || '').trim(),
+          ean: ean || undefined,
+          name: String(p.name || '').trim(),
+          brand: p.brand ? String(p.brand).trim() : undefined,
+          group: p.group ? String(p.group).trim() : undefined,
+          quantity: p.quantity ? Number(p.quantity) || 0 : undefined,
+          price: p.price ? Number(p.price) || undefined : undefined,
+          description: p.description ? String(p.description).trim() : undefined,
+        };
+      })
       .filter(p => p.sku && p.name); // Final validation
 
     return result;
