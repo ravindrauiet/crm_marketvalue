@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-// Parse .env manually BEFORE importing ai
+// Parse .env manually
 const envPath = path.resolve(__dirname, '../.env');
 if (fs.existsSync(envPath)) {
   const envConfig = fs.readFileSync(envPath, 'utf8');
@@ -16,16 +16,14 @@ if (fs.existsSync(envPath)) {
 
 async function run() {
   const { extractProductsWithAI } = await import('../lib/ai');
-  const file = './public/uploads/1784996772618_bfc29e5f-87a3-4f2d-8ad4-d6d3a17b9f88.pdf';
-  console.log('Testing AI extraction with fix...');
-  const res = await extractProductsWithAI(file, 'application/pdf', 'amazon');
 
-  console.log('\n================================');
-  console.log(`TOTAL EXTRACTED PRODUCTS: ${res.products.length}`);
-  res.products.forEach((p, i) => {
-    console.log(`${i + 1}. SKU: "${p.sku}" | EAN: "${p.ean || 'N/A'}" | Name: "${p.name}"`);
+  // Test concatenated MAT. NO. extraction logic
+  const rawSkus = ['100480034251310000368', '200480033631310000306'];
+  console.log('Testing MAT. NO. regex extraction:');
+  rawSkus.forEach(raw => {
+    const m = raw.match(/(13\d{8})/);
+    console.log(`Raw SKU: "${raw}" -> Cleaned MAT. NO.: "${m ? m[1] : raw}"`);
   });
-  console.log('================================\n');
 }
 
 run().catch(console.error);

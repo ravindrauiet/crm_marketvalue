@@ -377,14 +377,18 @@ EASTERN-SPECIFIC INSTRUCTIONS:
 4. Standard table extraction rules apply: Code -> Name -> Quantity.`,
 
     vishal: `${baseInstructions}
+
 VISHAL MEGA MART / AIRPLAZA RETAIL SPECIFIC INSTRUCTIONS:
 1. HEADER:
    - PO Number: Look for "PO Number:" (e.g. "6907043005") -> poNumber
    - PO Date: "PODate: DD.MM.YYYY" -> poDate
    - Delivery Date: "DEL.DATE" column (DD.MM.YYYY) -> deliveryDate
    - Vendor / Purchasing Entity: "AIRPLAZA RETAIL HOLDINGS PVT LTD" (Vishal Mega Mart)
-2. PRODUCT TABLE COLUMNS:
-   - MAT. NO. (Material Code, e.g. "1310000368") -> sku / chainItemCode
+2. PRODUCT TABLE COLUMNS & SKU INSTRUCTIONS:
+   - MAT. NO. is the ONLY valid SKU / Product Code.
+   - MAT. NO. is ALWAYS a 10-digit number starting with "13" (e.g., "1310000368", "1310000306").
+   - CRITICAL: Do NOT concatenate S.No (e.g. 100, 200) or EAN No (e.g. 48003425) into MAT. NO.!
+   - If S.No, EAN No, and MAT. NO. appear together (e.g. "100480034251310000368"), extract ONLY the 10-digit MAT. NO. starting with "13" ("1310000368") into 'sku'.
    - EAN No (e.g. "48003425") -> ean
    - MATERIAL DESCRIPTION (e.g. "MTHRS-PKL-MXD-500G 24PK-PP") -> name / chainItemName
    - ORD.QTY (e.g. 24.00, 18.00) -> quantity / quantityPcs
@@ -603,10 +607,18 @@ CRITICAL EXTRACTION RULES:
     result.products = result.products
       .filter(p => p.sku && p.name) // Only keep products with required fields
       .map(p => {
-        const skuKey = String(p.sku || '').toUpperCase().trim();
+        let sku = String(p.sku || '').trim();
+
+        // Extract 10-digit MAT. NO. (e.g. "1310000368") if concatenated with S.No & EAN (e.g. "100480034251310000368")
+        const matMatch = sku.match(/(13\d{8})/);
+        if (matMatch) {
+          sku = matMatch[1];
+        }
+
+        const skuKey = sku.toUpperCase();
         const ean = String(p.ean || p.eanCode || eanMap[skuKey] || '').trim();
         return {
-          sku: String(p.sku || '').trim(),
+          sku: sku,
           ean: ean || undefined,
           name: String(p.name || '').trim(),
           brand: p.brand ? String(p.brand).trim() : undefined,
