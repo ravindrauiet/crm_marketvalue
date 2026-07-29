@@ -38,6 +38,60 @@ type UploadedFile = {
   rawDocumentInfo?: any;
 };
 
+function formatDateForInput(dateVal: any): string {
+  if (!dateVal) return '';
+  const str = String(dateVal).trim();
+  if (!str) return '';
+
+  const singleStr = str.split('-')[0].trim().split(/to/i)[0].trim();
+
+  // 1. DD.MM.YYYY
+  const dotParts = singleStr.split('.');
+  if (dotParts.length === 3) {
+    const day = parseInt(dotParts[0], 10);
+    const month = parseInt(dotParts[1], 10);
+    let year = parseInt(dotParts[2], 10);
+    if (year < 100) year += 2000;
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const mm = String(month).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      return `${year}-${mm}-${dd}`;
+    }
+  }
+
+  // 2. DD/MM/YYYY
+  const slashParts = singleStr.split('/');
+  if (slashParts.length === 3) {
+    const p0 = parseInt(slashParts[0], 10);
+    const p1 = parseInt(slashParts[1], 10);
+    let p2 = parseInt(slashParts[2], 10);
+    if (p2 < 100) p2 += 2000;
+
+    let day = p0;
+    let month = p1;
+    let year = p2;
+
+    if (p0 > 12) {
+      day = p0; month = p1;
+    } else if (p1 > 12) {
+      day = p1; month = p0;
+    }
+
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const mm = String(month).padStart(2, '0');
+      const dd = String(day).padStart(2, '0');
+      return `${year}-${mm}-${dd}`;
+    }
+  }
+
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+
+  return '';
+}
+
 const norm = (s: string) => s ? s.trim().toLowerCase() : '';
 
 export default function NewPOPage() {
@@ -214,8 +268,8 @@ export default function NewPOPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to extract PO');
 
       if (data.poNumber) setForm(f => ({ ...f, poNumber: data.poNumber }));
-      if (data.poDate) setForm(f => ({ ...f, poDate: data.poDate }));
-      if (data.appointmentDate) setForm(f => ({ ...f, appointmentDate: data.appointmentDate }));
+      if (data.poDate) setForm(f => ({ ...f, poDate: formatDateForInput(data.poDate) }));
+      if (data.appointmentDate) setForm(f => ({ ...f, appointmentDate: formatDateForInput(data.appointmentDate) }));
       if (data.detectedChain) setForm(f => ({ ...f, chainName: data.detectedChain }));
 
       setUploadedFile({

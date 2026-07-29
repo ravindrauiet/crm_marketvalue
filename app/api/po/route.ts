@@ -20,6 +20,58 @@ export async function GET(req: NextRequest) {
   }
 }
 
+function parseFlexibleDate(val: any): Date {
+  if (!val) return new Date();
+  if (val instanceof Date && !isNaN(val.getTime())) return val;
+
+  const str = String(val).trim();
+  if (!str) return new Date();
+
+  // If date string contains a range or "To" (e.g. "17/6/2026 - 24/6/2026" or "17.02.2024 To 07.03.2029")
+  const singleDateStr = str.split('-')[0].trim().split(/to/i)[0].trim();
+
+  // 1. Check DD.MM.YYYY
+  const dotParts = singleDateStr.split('.');
+  if (dotParts.length === 3) {
+    const day = parseInt(dotParts[0], 10);
+    const month = parseInt(dotParts[1], 10) - 1;
+    let year = parseInt(dotParts[2], 10);
+    if (year < 100) year += 2000;
+    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+      const d = new Date(Date.UTC(year, month, day));
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  // 2. Check DD/MM/YYYY
+  const slashParts = singleDateStr.split('/');
+  if (slashParts.length === 3) {
+    const p0 = parseInt(slashParts[0], 10);
+    const p1 = parseInt(slashParts[1], 10);
+    let p2 = parseInt(slashParts[2], 10);
+    if (p2 < 100) p2 += 2000;
+
+    let day = p0;
+    let month = p1 - 1;
+    let year = p2;
+
+    if (p0 > 12) {
+      day = p0; month = p1 - 1;
+    } else if (p1 > 12) {
+      day = p1; month = p0 - 1;
+    }
+
+    const d = new Date(Date.UTC(year, month, day));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // 3. Fallback to standard Date constructor
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  return new Date();
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -93,9 +145,9 @@ export async function POST(req: NextRequest) {
       data: {
         poNumber,
         chainName: chainName.toUpperCase(),
-        poDate: poDate ? new Date(poDate) : new Date(),
-        appointmentDate: appointmentDate ? new Date(appointmentDate) : null,
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+        poDate: parseFlexibleDate(poDate),
+        appointmentDate: appointmentDate ? parseFlexibleDate(appointmentDate) : null,
+        deliveryDate: deliveryDate ? parseFlexibleDate(deliveryDate) : null,
         totalAmount,
         notes: notes || null,
         filePath: filePath || null,
