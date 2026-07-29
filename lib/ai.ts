@@ -222,11 +222,14 @@ CORRECT QUANTITIES: 480, 480, 88, 100 (Total: 1148 - matches footer)
 ## COLUMN ORDER IN PDF:
 Sno | EAN No | Article Description | UOM | Qty | Free | B.Price | Sp.Dis% | Sch.Val | SGST% | CGST% | Cess | L.Price | MRP | T.Value
 
-## EXTRACTION RULES:
+## EXTRACTION RULES & QUANTITY VALIDATION:
 1. EAN No (13 digits starting with 890, e.g. 8906012240019) → MUST be set as BOTH 'sku' (Item Code) AND 'ean' (EAN Barcode)
 2. Article Description → name (REMOVE "[HSN Code:...]")
-3. Qty → quantity (USE VALIDATION: T.Value ÷ L.Price)
-4. Free → IGNORE (always 0)
+3. CRITICAL QUANTITY RULE: Qty is in column 5 (e.g. 160, 160, 16). The next column is Free (always 0). DO NOT concatenate 0 into Qty! (e.g. 160 followed by 0 is 160 units, NOT 1600!).
+4. VALIDATION FORMULA: Qty = T.Value ÷ L.Price
+   - Row 1: T.Value 2929.28 ÷ L.Price 18.31 = 160 units (NOT 1600!)
+   - Row 2: T.Value 4202.88 ÷ L.Price 26.27 = 160 units (NOT 1600!)
+   - Row 3: T.Value 305.66 ÷ L.Price 19.10 = 16 units
 5. L.Price → price
 6. T.Value → totalValue (for validation)
 
@@ -617,14 +620,27 @@ CRITICAL EXTRACTION RULES:
 
         const skuKey = sku.toUpperCase();
         const ean = String(p.ean || p.eanCode || eanMap[skuKey] || '').trim();
+        let qty = p.quantity ? Number(p.quantity) || 0 : 0;
+        const price = p.price ? Number(p.price) || 0 : 0;
+        const lineTotal = p.totalCost ? Number(p.totalCost) || 0 : (p.totalAmount ? Number(p.totalAmount) || 0 : 0);
+
+        // Auto-correct quantity concatenated with Free 0 (e.g. 1600 instead of 160)
+        if (qty > 0 && price > 0 && lineTotal > 0) {
+          const calcQty = Math.round(lineTotal / price);
+          if (calcQty > 0 && Math.abs(qty / calcQty - 10) < 0.2) {
+            console.log(`💡 [AI QTY CORRECTION] Corrected concatenated Qty from ${qty} -> ${calcQty}`);
+            qty = calcQty;
+          }
+        }
+
         return {
           sku: sku,
           ean: ean || undefined,
           name: String(p.name || '').trim(),
           brand: p.brand ? String(p.brand).trim() : undefined,
           group: p.group ? String(p.group).trim() : undefined,
-          quantity: p.quantity ? Number(p.quantity) || 0 : undefined,
-          price: p.price ? Number(p.price) || undefined : undefined,
+          quantity: qty || undefined,
+          price: price || undefined,
           description: p.description ? String(p.description).trim() : undefined,
         };
       })
