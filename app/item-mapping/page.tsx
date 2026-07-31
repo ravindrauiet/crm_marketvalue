@@ -139,12 +139,20 @@ export default function ItemMappingPage() {
     fd.append('file', file);
     try {
       const res = await fetch('/api/item-mapping/upload', { method: 'POST', body: fd });
-      const data = await res.json();
+      let data: any = {};
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(res.status === 504 ? 'Server timed out (504 Gateway Timeout)' : `Server error (${res.status}): ${text.slice(0, 100)}`);
+      }
+
       if (res.ok) {
         alert(`✅ Upload successful!\nCreated: ${data.created}\nUpdated: ${data.updated}`);
         loadMappings();
       } else {
-        alert(`❌ Upload failed: ${data.error}`);
+        alert(`❌ Upload failed: ${data.error || 'Unknown error'}`);
       }
     } catch (err: any) {
       alert(`❌ Upload failed: ${err.message}`);

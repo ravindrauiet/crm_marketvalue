@@ -454,84 +454,70 @@ export async function extractProductsWithAI(
     // Get vendor-specific instructions
     const vendorPromptInstructions = getVendorSpecificPrompt(vendor);
 
-    // Create AI prompt for extraction - TWO PARTS: Document Info + Products
-    const prompt = `You are an expert data extraction assistant.Extract ALL information from this ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
+    // Create AI prompt for extraction - Focused on high speed & structured precision
+    const prompt = `You are an expert data extraction assistant. Extract structured info from this ${vendor !== 'default' ? vendor.toUpperCase() : ''} document.
 
     ${vendorPromptInstructions}
 
-## PART 1: DOCUMENT INFORMATION(FULL CONTENT)
-  CRITICAL: This section must contain EVERY piece of information visible in the document.Do not skip anything.Even though you extract products in Part 2, you MUST also include them here in summary or text form so this section is a standalone complete record.
-
-    Extract:
-  - Document type(Invoice, Purchase Order, Stock Report, Delivery Note, etc.)
-    - Document number(PO number, Invoice number, Reference number, etc.)
-      - Document date
-        - Vendor / Supplier details(name, address, phone, email, GST / Tax ID)
-          - Buyer / Customer details(name, address, phone, email, GST / Tax ID)
-            - Shipping address(if different)
-    - Payment terms
-      - Delivery / Due date
-        - Subtotal, Tax, Total amounts
-          - Currency
-          - Any notes, terms, conditions
-            - ALL product line items(include them in 'allVisibleText' or 'productSummaryText' if they don't fit specific fields)
-              - Any other additional information visible
+## PART 1: DOCUMENT HEADER INFORMATION
+Extract header fields concise & exact:
+- Document type (Invoice, Purchase Order, etc.)
+- Document number (PO number, Invoice number, Reference number)
+- Document date & Delivery date
+- Vendor / Supplier details (name, address, GST)
+- Buyer / Customer details (name, address, GST)
+- Shipping address
+- Payment terms
+- Subtotal, Tax, Total amounts, Currency
+- Notes/terms
 
 ## PART 2: PRODUCT / ORDER LINE ITEMS
 Extract all products / items with:
-  - SKU / Product Code(REQUIRED) - Extract EXACTLY as written
-    - Product Name(REQUIRED) - Extract EXACTLY as written
-      - Brand(if available)
-    - Group / Category(if available)
-    - Quantity / Stock(REQUIRED if available)
-    - Unit Price(if available)
-    - Total Price(if available)
-    - Description(if available)
+- SKU / Product Code (REQUIRED) - Extract EXACTLY as written
+- Product Name (REQUIRED) - Extract EXACTLY as written
+- EAN / Barcode (13-digit number if visible)
+- Quantity (REQUIRED if available)
+- Unit Price & Total Price
 
-Return the data as a JSON object with this structure:
+Return the data as a JSON object with this exact structure:
   {
     "rawDocumentInfo": {
-      "documentType": "string (Invoice/PO/Stock Report/etc.)",
-        "documentNumber": "string (exact document number)",
-          "documentDate": "string (date as shown)",
-            "vendorName": "string",
-              "vendorAddress": "string",
-                "vendorContact": "string (phone/email)",
-                  "vendorGST": "string (GST/Tax ID)",
-                    "buyerName": "string",
-                      "buyerAddress": "string",
-                        "buyerContact": "string",
-                          "buyerGST": "string",
-                            "shippingAddress": "string",
-                              "paymentTerms": "string",
-                                "deliveryDate": "string",
-                                  "subtotal": number,
-                                    "taxAmount": number,
-                                      "totalAmount": number,
-                                        "currency": "string (INR/USD/etc.)",
-                                          "notes": "string (any notes or remarks)",
-                                            "terms": "string (terms and conditions)",
-                                              "lineItemsSummary": "string (textual list/summary of all products and quantities)",
-                                                "allVisibleText": "string (summary of any other text not captured above)",
-                                                  "additionalFields": { } // Any other key-value pairs found
+      "documentType": "string",
+      "documentNumber": "string",
+      "documentDate": "string",
+      "vendorName": "string",
+      "vendorAddress": "string",
+      "vendorContact": "string",
+      "vendorGST": "string",
+      "buyerName": "string",
+      "buyerAddress": "string",
+      "buyerContact": "string",
+      "buyerGST": "string",
+      "shippingAddress": "string",
+      "paymentTerms": "string",
+      "deliveryDate": "string",
+      "subtotal": number,
+      "taxAmount": number,
+      "totalAmount": number,
+      "currency": "string",
+      "notes": "string"
     },
     "products": [
       {
-        "sku": "string (required - exact Item Code or ASIN as in document)",
-        "ean": "string (optional - 13-digit EAN / UPC Barcode if visible, e.g. 8906001050704)",
-        "name": "string (required - exact product description)",
-        "brand": "string (optional)",
-        "group": "string (optional)",
-        "quantity": number(optional),
-        "price": number(optional - unit price),
-        "totalPrice": number(optional - line total),
-        "description": "string (optional)"
+        "sku": "string",
+        "ean": "string",
+        "name": "string",
+        "brand": "string",
+        "group": "string",
+        "quantity": number,
+        "price": number,
+        "totalPrice": number
       }
     ],
-      "metadata": {
+    "metadata": {
       "documentType": "string",
-        "totalItems": number,
-          "date": "string (if found)"
+      "totalItems": number,
+      "date": "string"
     }
   }
 
@@ -542,8 +528,13 @@ Return ONLY valid JSON, no additional text or explanation.`;
 
     console.log(`\n === AI Extraction for Vendor: ${vendor.toUpperCase()} ===\n`);
 
+    // Use fast model gpt-4o-mini by default for rapid serverless response times (<3s)
+    const modelToUse = process.env.OPENAI_MODEL === 'gpt-4o-mini' || !process.env.OPENAI_MODEL 
+      ? 'gpt-4o-mini' 
+      : (process.env.USE_SLOW_MODEL ? process.env.OPENAI_MODEL : 'gpt-4o-mini');
+
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      model: modelToUse,
       messages: [
         {
           role: 'system',
@@ -554,20 +545,15 @@ CRITICAL EXTRACTION RULES:
   2. SKU / Product Code is the PRIMARY identifier - extract it EXACTLY as written
   3. Read the ENTIRE document carefully - check ALL tables, ALL rows, ALL sections
   4. Do NOT skip any products - if you see a product code and name, extract it
-  5. Extract ALL occurrences - if same product appears multiple times, include all
-  6. Look for product codes in various formats: numbers, alphanumeric, with dashes
-7. Product names may be long, have special characters, or abbreviations - extract exactly
-  8. Quantities are important - extract the exact numbers you see
-  9. Be thorough - scan every section, every table, every list
-  10. If unsure whether something is a product, extract it anyway - better to have extra than miss something
-  11. Always return valid JSON only - no explanations, no markdown, just JSON`
+  5. Always return valid JSON only`
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      temperature: 0.1, // Low temperature for consistent extraction
+      temperature: 0.1,
+      max_tokens: 4000,
       response_format: { type: 'json_object' }
     });
 

@@ -264,7 +264,19 @@ export default function NewPOPage() {
     fd.append('chainName', form.chainName);
     try {
       const res = await fetch('/api/po/upload', { method: 'POST', body: fd });
-      const data = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = {};
+
+      if (contentType.includes('application/json')) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        if (res.status === 504) {
+          throw new Error('Server processing timed out (504 Gateway Timeout). The file extraction took too long on the server. Please try again or convert to CSV format.');
+        }
+        throw new Error(`Server returned error (${res.status}): ${text.slice(0, 120)}`);
+      }
+
       if (!res.ok) throw new Error(data.error || 'Failed to extract PO');
 
       if (data.poNumber) setForm(f => ({ ...f, poNumber: data.poNumber }));
