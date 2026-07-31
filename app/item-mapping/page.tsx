@@ -38,6 +38,7 @@ export default function ItemMappingPage() {
   const [form, setForm] = useState(emptyForm);
   const [filterChain, setFilterChain] = useState('');
   const [filterBrand, setFilterBrand] = useState('');
+  const [availableBrands, setAvailableBrands] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -128,7 +129,14 @@ export default function ItemMappingPage() {
     if (search) params.set('search', search);
     const res = await fetch(`/api/item-mapping?${params}`);
     const data = await res.json();
-    setMappings(Array.isArray(data) ? data : []);
+    if (Array.isArray(data)) {
+      setMappings(data);
+    } else if (data && data.mappings) {
+      setMappings(Array.isArray(data.mappings) ? data.mappings : []);
+      if (Array.isArray(data.brands) && data.brands.length > 0) {
+        setAvailableBrands(data.brands);
+      }
+    }
     setLoading(false);
   }
 
@@ -239,8 +247,22 @@ export default function ItemMappingPage() {
           <option value="">All Chains</option>
           {CHAINS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input placeholder="Filter by brand..." value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
-          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }} />
+        <select 
+          value={availableBrands.includes(filterBrand) ? filterBrand : ''} 
+          onChange={e => setFilterBrand(e.target.value)} 
+          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }}
+        >
+          <option value="">All Brands</option>
+          {availableBrands.map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+        <input 
+          placeholder="Filter by brand..." 
+          value={filterBrand} 
+          onChange={e => setFilterBrand(e.target.value)}
+          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }} 
+        />
         {filterBrand && (
           <button onClick={() => setFilterBrand('')} className="btn secondary" style={{ fontSize: 12, padding: '6px 10px' }}>✕ Clear Brand</button>
         )}
@@ -288,9 +310,18 @@ export default function ItemMappingPage() {
                     <td style={{ fontWeight: 600 }}>{m.tallyItemName}</td>
                     <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{m.eanCode || '-'}</td>
                     <td>
-                      {m.brandName
-                        ? <span style={{ background: '#f3e8ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>{m.brandName}</span>
-                        : <span className="muted">—</span>}
+                      {(() => {
+                        let b = m.brandName;
+                        if (!b) {
+                          const text = `${m.chainItemName} ${m.tallyItemName}`.toLowerCase();
+                          if (text.includes('mother')) b = "Mother's Recipe";
+                          else if (text.includes('eastern')) b = "Eastern";
+                          else if (text.includes('dilbahar')) b = "Dilbahar";
+                        }
+                        return b
+                          ? <span style={{ background: '#f3e8ff', color: '#7c3aed', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>{b}</span>
+                          : <span className="muted">—</span>;
+                      })()}
                     </td>
                     <td className="muted" style={{ fontSize: 12, fontFamily: 'monospace' }}>{m.companyItemCode || '-'}</td>
                     <td style={{ fontSize: 13, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.companyItemName || undefined}>

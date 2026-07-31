@@ -6,24 +6,72 @@ export async function GET(req: NextRequest) {
     const chain = req.nextUrl.searchParams.get('chain');
     const brand = req.nextUrl.searchParams.get('brand');
     const search = req.nextUrl.searchParams.get('search');
+
+    let brandFilter: any = null;
+    if (brand && brand.trim()) {
+      const cleanBrand = brand.trim();
+      const searchTerms = Array.from(new Set([
+        cleanBrand,
+        cleanBrand.replace(/['’]/g, ''),
+        cleanBrand.replace(/recipe/i, 'receipe')
+      ]));
+
+      brandFilter = {
+        OR: searchTerms.flatMap(term => [
+          { brandName: { contains: term, mode: 'insensitive' } },
+          { chainItemName: { contains: term, mode: 'insensitive' } },
+          { tallyItemName: { contains: term, mode: 'insensitive' } },
+          { companyItemName: { contains: term, mode: 'insensitive' } },
+        ])
+      };
+    }
+
+    const whereClause: any = {
+      isActive: true,
+      ...(chain ? { chainName: chain } : {}),
+      ...(search ? {
+        OR: [
+          { chainItemName: { contains: search, mode: 'insensitive' } },
+          { chainItemCode: { contains: search, mode: 'insensitive' } },
+          { tallyItemName: { contains: search, mode: 'insensitive' } },
+          { brandName: { contains: search, mode: 'insensitive' } },
+          { eanCode: { contains: search, mode: 'insensitive' } },
+        ]
+      } : {}),
+    };
+
+    if (brandFilter) {
+      whereClause.AND = [brandFilter];
+    }
+
     const mappings = await prisma.itemMapping.findMany({
-      where: {
-        ...(chain ? { chainName: chain } : {}),
-        ...(brand ? { brandName: { contains: brand, mode: 'insensitive' } } : {}),
-        ...(search ? {
-          OR: [
-            { chainItemName: { contains: search, mode: 'insensitive' } },
-            { chainItemCode: { contains: search, mode: 'insensitive' } },
-            { tallyItemName: { contains: search, mode: 'insensitive' } },
-            { brandName: { contains: search, mode: 'insensitive' } },
-            { eanCode: { contains: search, mode: 'insensitive' } },
-          ]
-        } : {}),
-        isActive: true,
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
     });
-    return NextResponse.json(mappings);
+
+    // Extract all unique brands for the brand filter dropdown
+    const allActive = await prisma.itemMapping.findMany({
+      where: { isActive: true },
+      select: { brandName: true, chainItemName: true, tallyItemName: true }
+    });
+
+    const brandSet = new Set<string>();
+    allActive.forEach(item => {
+      if (item.brandName && item.brandName.trim()) {
+        let b = item.brandName.trim();
+        if (b.toLowerCase().includes('mother')) b = "Mother's Recipe";
+        brandSet.add(b);
+      } else {
+        const text = `${item.chainItemName} ${item.tallyItemName}`.toLowerCase();
+        if (text.includes('mother')) brandSet.add("Mother's Recipe");
+        if (text.includes('eastern')) brandSet.add("Eastern");
+        if (text.includes('dilbahar')) brandSet.add("Dilbahar");
+      }
+    });
+
+    const brands = Array.from(brandSet).sort();
+
+    return NextResponse.json({ mappings, brands });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch mappings' }, { status: 500 });
