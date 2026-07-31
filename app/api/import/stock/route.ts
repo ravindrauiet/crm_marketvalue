@@ -64,7 +64,66 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, upserted });
 }
 
+// GET /api/import/stock - Fetch all imported stock items with product info
+export async function GET() {
+  try {
+    const stocks = await prisma.stock.findMany({
+      include: {
+        product: true
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
 
+    const items = stocks.map(s => ({
+      id: s.id,
+      productId: s.productId,
+      sku: s.product.sku,
+      name: s.product.name,
+      brand: s.product.brand || '—',
+      group: s.product.group || '—',
+      quantity: s.quantity,
+      updatedAt: s.updatedAt,
+    }));
 
+    const totalPcs = items.reduce((acc, curr) => acc + curr.quantity, 0);
 
+    return NextResponse.json({
+      success: true,
+      totalItems: items.length,
+      totalPcs,
+      items
+    });
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to fetch stock data: ' + err.message }, { status: 500 });
+  }
+}
 
+// DELETE /api/import/stock - Delete specific stock entry or reset all uploaded stock
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const resetAll = searchParams.get('resetAll');
+
+    if (resetAll === 'true') {
+      const result = await prisma.stock.updateMany({
+        data: { quantity: 0 }
+      });
+      return NextResponse.json({ success: true, message: `Reset stock to 0 for ${result.count} items` });
+    }
+
+    if (!id) {
+      return NextResponse.json({ error: 'Stock ID or resetAll parameter required' }, { status: 400 });
+    }
+
+    // Delete or reset specific stock item
+    const deleted = await prisma.stock.update({
+      where: { id },
+      data: { quantity: 0 }
+    });
+
+    return NextResponse.json({ success: true, message: 'Stock item deleted/reset to 0', deleted });
+  } catch (err: any) {
+    return NextResponse.json({ error: 'Failed to delete stock item: ' + err.message }, { status: 500 });
+  }
+}

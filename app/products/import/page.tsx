@@ -1,60 +1,49 @@
+"use client";
+import { useState } from 'react';
+import Link from 'next/link';
 import StockImportForm from '@/components/StockImportForm';
-import UploadForm from '@/components/UploadForm';
+import StockTableWithDelete from '@/components/StockTableWithDelete';
 
 export default function ImportProductsPage() {
-  const suppliers = [
-    { id: 'amazon', name: 'Amazon', color: '#FF9900' },
-    { id: 'blinkit', name: 'Blinkit', color: '#F8CB46' },
-    { id: 'dmart', name: 'DMart', color: '#26A541' },
-    { id: 'zepto', name: 'Zepto', color: '#5B18AC' },
-    { id: 'swiggy', name: 'Swiggy', color: '#FC8019' },
-    { id: 'bigbasket', name: 'BigBasket', color: '#689F38' },
-    { id: 'eastern', name: 'Eastern', color: '#E41E26' },
-    { id: 'reliance', name: 'Reliance Retail', color: '#005CB9' },
-    { id: 'vishal', name: 'Vishal Mega Mart', color: '#0055A5' },
-  ];
+  const [refreshKey, setRefreshKey] = useState(0);
 
   return (
     <div className="container fade-in">
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Import Products & Stock</h2>
+        <h2 style={{ marginTop: 0, marginBottom: 8 }}>📦 Stock & Inventory Import</h2>
         <p className="muted" style={{ fontSize: 14 }}>
-          Upload supplier documents to automatically extract and update product data.
+          Upload generic Excel files to update current closing stock quantities (PCS). Review uploaded stock below and delete/re-upload anytime.
         </p>
       </div>
 
-      <div className="card" style={{ marginBottom: 32 }}>
-        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Bulk Stock Import</h3>
+      {/* Stock Import Form */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>📥 Bulk Stock Import</h3>
         <p className="muted" style={{ fontSize: 14, marginBottom: 16 }}>
-          Use this for generic Excel sheets containing SKU, Name, and Quantity.
+          Upload Excel file (.xlsx / .xls) containing SKU/Code, Product Name, and Closing Quantity (PCS).
         </p>
-        <StockImportForm />
+        <StockImportForm onImportSuccess={() => setRefreshKey(k => k + 1)} />
       </div>
 
-      <h3 style={{ marginBottom: 16 }}>Supplier Uploads</h3>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr',
-        gap: 24
-      }}>
-        {suppliers.map(supplier => (
-          <div key={supplier.id} className="card" style={{ borderLeft: `4px solid ${supplier.color}` }}>
-            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3 style={{ margin: 0 }}>{supplier.name}</h3>
-              <span className="badge" style={{ backgroundColor: supplier.color, color: '#fff' }}>
-                {supplier.id.toUpperCase()}
-              </span>
-            </div>
-            <UploadForm preselectedVendor={supplier.id} />
+      {/* Uploaded Stock Summary & Delete Table */}
+      <StockTableWithDelete refreshKey={refreshKey} />
+
+      {/* Shifted Section Notice */}
+      <div className="card" style={{ marginTop: 32, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid #bfdbfe', padding: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+          <div>
+            <h4 style={{ margin: 0, fontSize: 16, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>📦</span> Chain / Buyer PO Uploads Moved to POs Tab
+            </h4>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#1e3a8a' }}>
+              Chain PO documents (Amazon, Blinkit, DMart, Zepto, Swiggy, BigBasket, Eastern, Reliance, Vishal) have been shifted to the POs tab for integrated PO extraction and order planning.
+            </p>
           </div>
-        ))}
+          <Link href="/po?tab=upload" className="btn" style={{ background: '#2563eb', color: '#fff', whiteSpace: 'nowrap' }}>
+            Go to POs Tab →
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
-
-
-
-
-
-

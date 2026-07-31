@@ -1,7 +1,7 @@
 "use client";
 import { useState } from 'react';
 
-export default function StockImportForm() {
+export default function StockImportForm({ onImportSuccess }: { onImportSuccess?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
@@ -19,7 +19,8 @@ export default function StockImportForm() {
       const res = await fetch('/api/import/stock', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Import failed');
-      setResult(`Imported/updated ${data.upserted} products`);
+      setResult(`✅ Imported/updated ${data.upserted} products with closing stock`);
+      if (onImportSuccess) onImportSuccess();
     } catch (e: any) {
       setError(e?.message || 'Import failed');
     } finally {
