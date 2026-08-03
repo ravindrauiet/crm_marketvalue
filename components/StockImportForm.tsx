@@ -35,7 +35,7 @@ export default function StockImportForm({ onImportSuccess }: { onImportSuccess?:
           <label>Excel file</label>
           <input 
             type="file" 
-            accept=".xls,.xlsx" 
+            accept=".xls,.xlsx,.csv" 
             onChange={e => setFile(e.target.files?.[0] || null)} 
           />
           <div className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: '1.5' }}>

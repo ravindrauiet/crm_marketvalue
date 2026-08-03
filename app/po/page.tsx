@@ -28,6 +28,7 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 
 const suppliers = [
   { id: 'amazon', name: 'Amazon', color: '#FF9900' },
+  { id: 'flipkart', name: 'Flipkart', color: '#2874F0' },
   { id: 'blinkit', name: 'Blinkit', color: '#F8CB46' },
   { id: 'dmart', name: 'DMart', color: '#26A541' },
   { id: 'zepto', name: 'Zepto', color: '#5B18AC' },
@@ -160,7 +161,13 @@ export default function POPage() {
                     {supplier.id.toUpperCase()} PO
                   </span>
                 </div>
-                <UploadForm preselectedVendor={supplier.id} />
+                <UploadForm
+                  preselectedVendor={supplier.id}
+                  onSuccess={() => {
+                    setActiveTab('list');
+                    loadPOs();
+                  }}
+                />
               </div>
             ))}
           </div>

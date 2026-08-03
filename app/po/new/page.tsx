@@ -355,10 +355,10 @@ export default function NewPOPage() {
             ← Back to Purchase Orders
           </Link>
           <h1 style={{ marginTop: 6, marginBottom: 4, fontSize: 28, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'flex', alignItems: 'center', gap: 10 }}>
-            📦 Create New Purchase Order
+            📦 Create Final Purchase Order (Manual)
           </h1>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-            Upload chain PO document for AI auto-fill or enter line items manually
+            Manually enter PO header details and line items based on shortfall analysis to issue final order to company
           </p>
         </div>
 
@@ -423,7 +423,7 @@ export default function NewPOPage() {
                 <span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Extracting AI...
               </>
             ) : (
-              <>📄 {uploadedFile ? 'Re-upload PO Document' : 'Upload PO Document'}</>
+              <>📎 {uploadedFile ? 'Re-upload Reference Doc' : 'Auto-fill from Doc (Optional)'}</>
             )}
           </button>
         </div>
@@ -592,44 +592,7 @@ export default function NewPOPage() {
         <div>
           <form onSubmit={handleSubmit}>
 
-            {/* DRAG & DROP UPLOAD ZONE (If no file uploaded yet) */}
-            {!uploadedFile && (
-              <div
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-                style={{
-                  border: `2px dashed ${dragActive ? 'var(--primary)' : 'var(--border)'}`,
-                  borderRadius: 16,
-                  padding: '28px 20px',
-                  textAlign: 'center',
-                  background: dragActive ? 'rgba(9, 105, 218, 0.04)' : 'var(--panel)',
-                  cursor: 'pointer',
-                  marginBottom: 20,
-                  transition: 'all 0.2s ease',
-                  boxShadow: dragActive ? 'var(--shadow-md)' : 'none'
-                }}
-              >
-                <div style={{ fontSize: 36, marginBottom: 8, transform: dragActive ? 'scale(1.15)' : 'scale(1)', transition: 'transform 0.2s ease' }}>
-                  {uploading ? '⚙️' : '📄'}
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
-                  {uploading ? 'Extracting PO Details with AI...' : 'Drag & drop PO document here, or click to browse'}
-                </h3>
-                <p className="muted" style={{ fontSize: 12, margin: '0 0 12px 0' }}>
-                  Supports PDF (.pdf), CSV (.csv), and Excel (.xlsx, .xls) documents
-                </p>
-                <div style={{ display: 'inline-flex', gap: 6 }}>
-                  {['.PDF', '.CSV', '.XLSX', '.XLS'].map(ext => (
-                    <span key={ext} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
-                      {ext}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+
 
             {/* PO Details Card */}
             <div className="card" style={{ marginBottom: 20 }}>
