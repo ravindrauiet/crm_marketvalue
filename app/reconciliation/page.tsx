@@ -8,7 +8,7 @@ type RecoRow = {
   matchedAmount: number; pendingAmount: number; chainName?: string;
   deductionAmount: number; deductionReason?: string; notes?: string;
 };
-type Batch = { id: string; fileName: string; uploadedAt: string; rowCount: number; matchedCount: number; unmatchedCount: number; totalCredit: number; totalDebit: number };
+type Batch = { id: string; fileName: string; uploadedAt: string; rowCount: number; matchedCount: number; unmatchedCount: number; totalCredit: number; totalDebit: number; notes?: string };
 type Summary = { totalCredit: number; totalMatched: number; totalPartial: number; totalUnmatched: number; totalPending: number };
 
 const STATUS = {
@@ -30,8 +30,10 @@ export default function ReconciliationPage() {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterChain, setFilterChain] = useState('');
   const [uploadResult, setUploadResult] = useState<any>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
+
+  const fileVendorRef = useRef<HTMLInputElement>(null);
+  const fileTallyRef = useRef<HTMLInputElement>(null);
+  const fileBankRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadData(); }, [filterStatus, filterChain]);
 
@@ -47,11 +49,12 @@ export default function ReconciliationPage() {
     setLoading(false);
   }
 
-  async function uploadFile(file: File) {
+  async function uploadFile(file: File, statementType: 'vendor' | 'tally' | 'bank' = 'bank') {
     if (!file) return;
     setUploading(true); setUploadResult(null);
     const fd = new FormData();
     fd.append('file', file);
+    fd.append('statementType', statementType);
     try {
       const res = await fetch('/api/reconciliation/upload', { method: 'POST', body: fd });
       let data: any = {};
@@ -64,7 +67,7 @@ export default function ReconciliationPage() {
       }
 
       if (res.ok) {
-        setUploadResult({ ...data, success: true });
+        setUploadResult({ ...data, success: true, statementType });
         await loadData();
         setTab('match');
       } else {
@@ -74,6 +77,21 @@ export default function ReconciliationPage() {
       setUploadResult({ error: err.message });
     }
     setUploading(false);
+  }
+
+  async function handleResetAllReco() {
+    if (!confirm('⚠️ Are you sure you want to clear/reset ALL reconciliation statement data and batches?')) return;
+    try {
+      const res = await fetch('/api/reconciliation?resetAll=true', { method: 'DELETE' });
+      if (res.ok) {
+        setUploadResult({ success: true, message: 'All reconciliation statement data cleared successfully' });
+        await loadData();
+      } else {
+        alert('Failed to reset reconciliation data');
+      }
+    } catch (err: any) {
+      alert('Reset failed: ' + err.message);
+    }
   }
 
   const filteredRows = rows.filter(r =>
@@ -97,12 +115,26 @@ export default function ReconciliationPage() {
 
   return (
     <div className="container fade-in">
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #0ea5e9, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          💰 Payment Reconciliation
-        </h1>
-        <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>Upload bank statement → Auto-match with invoices → Real-time outstanding view</p>
+      {/* Top Header & Actions */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #0ea5e9, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            💰 Payment & Statement Reconciliation
+          </h1>
+          <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
+            Upload Vendor/Debtor ledger statements & Tally statements → Auto set-off by PO # and Invoice #
+          </p>
+        </div>
+
+        {rows.length > 0 && (
+          <button
+            onClick={handleResetAllReco}
+            className="btn secondary"
+            style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: 13 }}
+          >
+            🗑️ Clear / Reset Reco Data
+          </button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -121,9 +153,9 @@ export default function ReconciliationPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs Navigation */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 24, background: 'var(--bg-secondary)', borderRadius: 12, padding: 4, width: 'fit-content' }}>
-        {[{ id: 'upload', label: '📤 Upload Statement' }, { id: 'match', label: '🔗 Match Rows' }, { id: 'dashboard', label: '📊 Dashboard' }].map(t => (
+        {[{ id: 'upload', label: '📤 Upload Statements' }, { id: 'match', label: '🔗 Match Rows & Set-Off' }, { id: 'dashboard', label: '📊 Dashboard' }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="btn" style={{ background: tab === t.id ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: 13, padding: '8px 20px', boxShadow: 'none', border: 'none' }}>
             {t.label}
@@ -134,46 +166,131 @@ export default function ReconciliationPage() {
       {/* UPLOAD TAB */}
       {tab === 'upload' && (
         <div>
-          <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)}
-            onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) uploadFile(f); }}
-            onClick={() => fileRef.current?.click()}
-            className="card" style={{ padding: 56, textAlign: 'center', cursor: 'pointer', border: `2px dashed ${dragOver ? '#0ea5e9' : 'var(--border)'}`, background: dragOver ? '#f0f9ff' : 'var(--bg-secondary)', transition: 'all 0.2s', marginBottom: 24 }}>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
-            {uploading ? (
-              <div><div className="spinner" style={{ margin: '0 auto 16px', width: 32, height: 32 }} /><p>Processing bank statement…</p></div>
-            ) : (
-              <>
-                <div style={{ fontSize: 56, marginBottom: 14 }}>🏦</div>
-                <h3 style={{ marginBottom: 8 }}>Drop Bank Statement here</h3>
-                <p className="muted" style={{ marginBottom: 8 }}>Excel (.xlsx, .xls) or CSV format</p>
-                <p className="muted" style={{ fontSize: 13 }}>Required columns: Date, Narration/Description, Credit/Debit, Balance</p>
-              </>
-            )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 24 }}>
+            
+            {/* Card 1: Vendor / Debtor Statement Upload */}
+            <div className="card" style={{ borderLeft: '4px solid #3b82f6' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>📄</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>1. Upload Vendor / Debtor Statement</h3>
+                  <span style={{ fontSize: 11, background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                    VENDOR / RETAIL CHAIN LEDGER
+                  </span>
+                </div>
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                Upload settlement / ledger statement received from retail chains or debtors (PDF, XLSX, XLS, CSV).
+              </p>
+              <input
+                ref={fileVendorRef}
+                type="file"
+                accept=".pdf,.xlsx,.xls,.csv"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'vendor'); e.target.value = ''; }}
+              />
+              <button
+                className="btn"
+                onClick={() => fileVendorRef.current?.click()}
+                disabled={uploading}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
+              >
+                {uploading ? 'Processing Statement...' : '📤 Select Vendor Statement'}
+              </button>
+            </div>
+
+            {/* Card 2: Tally Statement Upload */}
+            <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>📊</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>2. Upload Tally Statement</h3>
+                  <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                    TALLY INTERNAL LEDGER
+                  </span>
+                </div>
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                Upload internal Tally ledger or sales/receipt register (XLSX, XLS, CSV, PDF).
+              </p>
+              <input
+                ref={fileTallyRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.pdf"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'tally'); e.target.value = ''; }}
+              />
+              <button
+                className="btn"
+                onClick={() => fileTallyRef.current?.click()}
+                disabled={uploading}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              >
+                {uploading ? 'Processing Statement...' : '📤 Select Tally Statement'}
+              </button>
+            </div>
+
+            {/* Card 3: Bank / Payment Advice Upload */}
+            <div className="card" style={{ borderLeft: '4px solid #8b5cf6' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>🏦</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>3. Upload Bank Statement / Advice</h3>
+                  <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                    BANK ACCOUNT STATEMENT
+                  </span>
+                </div>
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                Upload bank statement or payment advice (Excel, CSV, PDF).
+              </p>
+              <input
+                ref={fileBankRef}
+                type="file"
+                accept=".xlsx,.xls,.csv,.pdf"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'bank'); e.target.value = ''; }}
+              />
+              <button
+                className="btn"
+                onClick={() => fileBankRef.current?.click()}
+                disabled={uploading}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}
+              >
+                {uploading ? 'Processing Statement...' : '📤 Select Bank Statement'}
+              </button>
+            </div>
+
           </div>
 
           {uploadResult && (
             <div style={{ padding: 20, borderRadius: 12, background: uploadResult.error ? '#fee2e2' : '#d1fae5', color: uploadResult.error ? '#dc2626' : '#065f46', fontSize: 14, marginBottom: 24 }}>
               {uploadResult.error ? `❌ ${uploadResult.error}` :
-                `✅ Uploaded ${uploadResult.total} transactions · Matched: ${uploadResult.matched} · Partial: ${uploadResult.partial} · Unmatched: ${uploadResult.unmatched}`}
+                `✅ Uploaded ${uploadResult.total || 0} transactions · Matched: ${uploadResult.matched || 0} · Partial: ${uploadResult.partial || 0} · Unmatched: ${uploadResult.unmatched || 0}`}
             </div>
           )}
 
-          {/* Previous uploads */}
+          {/* Batches Table */}
           {batches.length > 0 && (
             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>Previous Uploads</div>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>Uploaded Statement Batches</div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                    {['File Name', 'Date', 'Rows', 'Matched', 'Unmatched', 'Credit Total'].map(h => (
+                    {['File Name', 'Statement Type', 'Upload Date', 'Rows', 'Matched', 'Unmatched', 'Total Amount'].map(h => (
                       <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {batches.slice(0, 10).map(b => (
+                  {batches.slice(0, 15).map(b => (
                     <tr key={b.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{b.fileName}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                          {b.notes || 'BANK STATEMENT'}
+                        </span>
+                      </td>
                       <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{new Date(b.uploadedAt).toLocaleDateString('en-IN')}</td>
                       <td style={{ padding: '10px 14px' }}>{b.rowCount}</td>
                       <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: 600 }}>{b.matchedCount}</td>
@@ -202,122 +319,103 @@ export default function ReconciliationPage() {
               {chains.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <div style={{ flex: 1 }} />
-            <span className="muted" style={{ fontSize: 13 }}>{filteredRows.length} transactions</span>
+            <span className="muted" style={{ fontSize: 13 }}>Showing {filteredRows.length} rows</span>
           </div>
 
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            {loading ? <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div> :
-              filteredRows.length === 0 ? (
-                <div style={{ padding: 48, textAlign: 'center' }}>
-                  <p className="muted">No transactions. Upload a bank statement first.</p>
-                  <button onClick={() => setTab('upload')} className="btn" style={{ marginTop: 12 }}>Upload Statement</button>
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                        {['Date', 'Narration', 'Credit', 'Chain', 'Status', 'Matched To', 'Matched Amt', 'Pending'].map(h => (
-                          <th key={h} style={{ padding: '10px 12px', textAlign: h === 'Credit' || h === 'Matched Amt' || h === 'Pending' ? 'right' : 'left', fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{h}</th>
-                        ))}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Date</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Chain</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>PO / Invoice #</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Description</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Amount</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Set-Off / Matched</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Pending / Diff</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRows.map(row => {
+                    const st = STATUS[row.matchStatus as keyof typeof STATUS] || STATUS.UNMATCHED;
+                    const amt = row.creditAmount > 0 ? row.creditAmount : row.debitAmount;
+                    return (
+                      <tr key={row.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                          {row.txnDate ? new Date(row.txnDate).toLocaleDateString('en-IN') : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          {row.chainName ? (
+                            <span style={{ background: (CHAIN_COLORS[row.chainName] || '#64748b') + '20', color: CHAIN_COLORS[row.chainName] || '#64748b', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                              {row.chainName}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontWeight: 600 }}>
+                          {row.matchedPoNumber ? `PO: ${row.matchedPoNumber}` : row.matchedInvoiceNo ? `INV: ${row.matchedInvoiceNo}` : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.narration}>
+                          {row.narration}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>
+                          ₹{amt.toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
+                          ₹{row.matchedAmount.toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: row.pendingAmount > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
+                          ₹{row.pendingAmount.toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                            {st.label}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredRows.map(row => {
-                        const st = STATUS[row.matchStatus as keyof typeof STATUS] || STATUS.UNMATCHED;
-                        return (
-                          <tr key={row.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                              {row.txnDate ? new Date(row.txnDate).toLocaleDateString('en-IN') : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.narration}>{row.narration}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
-                              {row.creditAmount > 0 ? `₹${row.creditAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              {row.chainName ? <span style={{ background: (CHAIN_COLORS[row.chainName] || '#999') + '22', color: CHAIN_COLORS[row.chainName] || '#999', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{row.chainName}</span> : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span style={{ background: st.bg, color: st.color, padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>{st.label}</span>
-                            </td>
-                            <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11 }}>
-                              {row.matchedInvoiceNo || row.matchedPoNumber || '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                              {row.matchedAmount > 0 ? `₹${row.matchedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}
-                            </td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: row.pendingAmount > 0 ? '#dc2626' : '#10b981' }}>
-                              {row.pendingAmount > 0 ? `₹${row.pendingAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '✓'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {/* DASHBOARD TAB */}
       {tab === 'dashboard' && (
-        <div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
-            {/* Chain-wise outstanding */}
-            <div className="card">
-              <h3 style={{ marginTop: 0, marginBottom: 20 }}>📊 Chain-wise Outstanding</h3>
-              {chainStats.length === 0 ? <p className="muted">No data yet. Upload a bank statement first.</p> :
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {chainStats.map(cs => (
-                    <div key={cs.chain}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: CHAIN_COLORS[cs.chain] || '#333' }}>{cs.chain}</span>
-                        <span style={{ fontSize: 13 }}>
-                          <span style={{ color: '#dc2626', fontWeight: 700 }}>₹{cs.pending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                          <span className="muted"> pending</span>
-                        </span>
-                      </div>
-                      <div style={{ background: 'var(--bg-secondary)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${cs.total > 0 ? Math.min(100, (cs.received / cs.total) * 100) : 0}%`, background: CHAIN_COLORS[cs.chain] || '#3b82f6', borderRadius: 6, transition: 'width 0.5s' }} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        <span>Received: ₹{cs.received.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                        <span>Total: ₹{cs.total.toLocaleString('en-IN', { maximumFractionDigits: 0 })} · {cs.txns} txns</span>
-                      </div>
-                    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div className="card">
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>📊 Chain-wise Payment & Outstanding Overview</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
+                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Chain Name</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Transactions</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Total Claimed / Received</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Matched & Set-Off</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Outstanding / Pending</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chainStats.map(s => (
+                    <tr key={s.chain} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 700 }}>{s.chain}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>{s.txns}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>₹{s.total.toLocaleString('en-IN')}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>₹{s.received.toLocaleString('en-IN')}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#dc2626', fontWeight: 700 }}>₹{s.pending.toLocaleString('en-IN')}</td>
+                    </tr>
                   ))}
-                </div>}
-            </div>
-
-            {/* Match status breakdown */}
-            <div className="card">
-              <h3 style={{ marginTop: 0, marginBottom: 20 }}>🎯 Match Status</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {Object.entries(STATUS).map(([key, st]) => {
-                  const count = rows.filter(r => r.matchStatus === key).length;
-                  const pct = rows.length > 0 ? ((count / rows.length) * 100).toFixed(1) : '0';
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ background: st.bg, color: st.color, padding: '4px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, minWidth: 120, textAlign: 'center' }}>{st.label}</span>
-                      <div style={{ flex: 1, background: 'var(--bg-secondary)', borderRadius: 6, height: 10, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: st.color, borderRadius: 6, opacity: 0.7, transition: 'width 0.5s' }} />
-                      </div>
-                      <span style={{ fontSize: 14, fontWeight: 700, minWidth: 40, textAlign: 'right' }}>{count}</span>
-                      <span className="muted" style={{ fontSize: 12, minWidth: 40 }}>{pct}%</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ marginTop: 20, padding: '14px', background: 'var(--bg-secondary)', borderRadius: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Total Outstanding</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#dc2626' }}>₹{(summary.totalPending || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-                <div className="muted" style={{ fontSize: 12 }}>across {summary.totalUnmatched + summary.totalPartial} unresolved transactions</div>
-              </div>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }

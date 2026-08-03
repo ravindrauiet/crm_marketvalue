@@ -181,6 +181,26 @@ export default function PurchaseBillsPage() {
     loadBills();
   }
 
+  async function handleDeleteBill(id: string, name?: string) {
+    if (!confirm(`Delete purchase bill "${name || 'selected'}"?`)) return;
+    const res = await fetch(`/api/purchase-bills?id=${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      loadBills();
+    } else {
+      alert('Delete failed');
+    }
+  }
+
+  async function handleResetAllBills() {
+    if (!confirm('⚠️ Are you sure you want to clear/delete ALL purchase bills?')) return;
+    const res = await fetch('/api/purchase-bills?resetAll=true', { method: 'DELETE' });
+    if (res.ok) {
+      loadBills();
+    } else {
+      alert('Reset failed');
+    }
+  }
+
   const stats = {
     total: bills.length,
     review: bills.filter(b => b.status === 'EXTRACTED').length,
@@ -214,11 +234,18 @@ export default function PurchaseBillsPage() {
       </div>
 
       {/* Action Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <h3 style={{ margin: 0 }}>Upload Purchase Invoices</h3>
-        <button onClick={(e) => { e.stopPropagation(); downloadSampleBill(); }} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
-          📥 Download Sample Format (.xlsx)
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {bills.length > 0 && (
+            <button onClick={handleResetAllBills} className="btn secondary" style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: 13 }}>
+              🗑️ Clear / Reset All Bills
+            </button>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); downloadSampleBill(); }} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
+            📥 Download Sample Format (.xlsx)
+          </button>
+        </div>
       </div>
 
       {/* Upload Zone */}
@@ -287,6 +314,9 @@ export default function PurchaseBillsPage() {
                     {(bill.status === 'PENDING' || bill.status === 'PROCESSING') && (
                       <button onClick={() => retryExtract(bill)} className="btn secondary" style={{ fontSize: 12, padding: '5px 12px' }}>🔄 Extract</button>
                     )}
+                    <button onClick={() => handleDeleteBill(bill.id, bill.supplierName || bill.fileName)} className="btn secondary" style={{ fontSize: 12, padding: '5px 10px', color: '#dc2626' }}>
+                      🗑️
+                    </button>
                   </div>
                 </div>
 

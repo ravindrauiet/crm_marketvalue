@@ -1,112 +1,280 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
+import pdf from 'pdf-parse';
 
-// POST /api/reconciliation/upload
-// Upload bank statement (Excel/CSV), auto-match with invoices
+export const runtime = 'nodejs';
+
+function cleanVal(v: any): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
+
+function extractPoAndInvoice(text: string) {
+  let poNumber = '';
+  let invoiceNumber = '';
+
+  if (!text) return { poNumber, invoiceNumber };
+
+  // Extract PO Number (e.g. PO-2024-001, IRA27601427, 8Q4RMHAU, FSMWG06739499)
+  const poMatch = text.match(/(?:PO\s*(?:Number|No|#)?|Purchase\s*Order\s*(?:Number|No|#)?)\s*[:=\s#-]*([A-Za-z0-9\-_]{5,30})/i);
+  if (poMatch && poMatch[1] && !['NUMBER', 'DATE', 'DETAILS', 'ORDER', 'EXPIRED'].includes(poMatch[1].toUpperCase())) {
+    poNumber = poMatch[1].trim();
+  }
+
+  // Extract Invoice Number (e.g. INV-1002, FK-9948, 2025/0814, K00681/26-27)
+  const invMatch = text.match(/(?:INV\b|Invoice\b|Bill\b|Inv\s*No\b|Invoice\s*No\b)\s*[:=\s#-]*([A-Za-z0-9\/\-_]{4,30})/i);
+  if (invMatch && invMatch[1] && !['NUMBER', 'DATE', 'DETAILS', 'BILL'].includes(invMatch[1].toUpperCase())) {
+    invoiceNumber = invMatch[1].trim();
+  }
+
+  return { poNumber, invoiceNumber };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const statementType = String(formData.get('statementType') || 'bank').toLowerCase(); // 'vendor' | 'tally' | 'bank'
 
     if (!file) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const fileNameLower = file.name.toLowerCase();
+    const mimeTypeLower = (file.type || '').toLowerCase();
 
-    // Parse Excel/CSV
-    const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    let normalizedRows: any[] = [];
 
-    if (rawRows.length === 0) {
-      return NextResponse.json({ error: 'No data rows found in file' }, { status: 400 });
-    }
+    // A. Check if PDF -> Parse text
+    if (mimeTypeLower.includes('pdf') || fileNameLower.endsWith('.pdf')) {
+      try {
+        const pdfData = await pdf(buffer);
+        const text = pdfData.text || '';
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // Normalize column names – handle different bank statement formats
-    const normalizeRow = (row: any) => {
-      const keys = Object.keys(row);
-      const find = (patterns: string[]) => {
-        for (const pattern of patterns) {
-          const k = keys.find(k => k.toLowerCase().includes(pattern.toLowerCase()));
-          if (k) return row[k];
+        for (const line of lines) {
+          const dateMatch = line.match(/([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/);
+          const numbers = line.match(/([0-9,]+\.[0-9]{2})/g) || [];
+
+          if (dateMatch && numbers.length > 0 && numbers[0]) {
+            const creditAmount = parseFloat(numbers[0].replace(/,/g, '')) || 0;
+            const balance = numbers.length > 1 ? parseFloat(numbers[1].replace(/,/g, '')) : 0;
+            const { poNumber, invoiceNumber } = extractPoAndInvoice(line);
+
+            normalizedRows.push({
+              dateRaw: dateMatch[1],
+              narration: line,
+              debitAmount: 0,
+              creditAmount,
+              balance,
+              poNumber,
+              invoiceNumber,
+              bankRef: '',
+            });
+          }
         }
-        return null;
-      };
-
-      const dateRaw = find(['date', 'txn date', 'transaction date', 'value date', 'posting date']);
-      const narration = find(['narration', 'description', 'particulars', 'remarks', 'detail', 'transaction description']);
-      const debit = find(['debit', 'withdrawal', 'dr', 'amount dr']);
-      const credit = find(['credit', 'deposit', 'cr', 'amount cr']);
-      const balance = find(['balance', 'closing balance']);
-      const ref = find(['ref', 'chq', 'cheque', 'reference', 'txn ref', 'transaction id']);
-
-      return {
-        dateRaw,
-        narration: String(narration || ''),
-        debitAmount: parseFloat(String(debit).replace(/[^0-9.]/g, '')) || 0,
-        creditAmount: parseFloat(String(credit).replace(/[^0-9.]/g, '')) || 0,
-        balance: parseFloat(String(balance).replace(/[^0-9.]/g, '')) || 0,
-        bankRef: String(ref || ''),
-      };
-    };
-
-    const normalizedRows = rawRows.map(normalizeRow).filter(r => r.creditAmount > 0 || r.debitAmount > 0);
-
-    if (normalizedRows.length === 0) {
-      return NextResponse.json({ error: 'No valid transactions found. Check column names (Date, Narration, Credit/Debit).' }, { status: 400 });
+      } catch (pdfErr: any) {
+        console.warn('PDF Parse warning:', pdfErr.message);
+      }
     }
 
-    // Fetch all invoices for matching
-    const invoices = await prisma.invoice.findMany({
-      select: { id: true, invoiceNumber: true, totalAmount: true, status: true, customer: { select: { name: true, company: true } } },
-    });
+    // B. Check if Excel / CSV
+    if (normalizedRows.length === 0) {
+      const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawData = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 });
 
-    const pos = await prisma.chainPurchaseOrder.findMany({
-      select: { id: true, poNumber: true, totalAmount: true, chainName: true }
-    });
+      if (rawData.length > 0) {
+        let headerRowIdx = -1;
+        let colMap: Record<string, number> = {};
 
-    // Auto-matching logic
-    const autoMatch = (row: { narration: string; creditAmount: number }) => {
-      const narr = row.narration.toLowerCase();
-      const amt = row.creditAmount;
+        const kwScore = (str: string) => {
+          const s = str.toLowerCase();
+          let score = 0;
+          if (/date|posting|value/i.test(s)) score += 3;
+          if (/narration|particulars|description|remarks|vch/i.test(s)) score += 3;
+          if (/debit|dr|withdrawal/i.test(s)) score += 3;
+          if (/credit|cr|deposit/i.test(s)) score += 3;
+          if (/balance/i.test(s)) score += 2;
+          if (/po|order/i.test(s)) score += 2;
+          if (/invoice|bill/i.test(s)) score += 2;
+          return score;
+        };
 
-      // Try to match by invoice number
-      for (const inv of invoices) {
-        if (narr.includes(inv.invoiceNumber.toLowerCase())) {
-          const diff = Math.abs(amt - inv.totalAmount);
-          const isPartial = diff > 0.5 && diff < inv.totalAmount;
-          return {
-            matchStatus: diff < 0.5 ? 'MATCHED' : isPartial ? 'PARTIAL' : 'UNMATCHED',
-            matchedInvoiceNo: inv.invoiceNumber,
-            matchedAmount: Math.min(amt, inv.totalAmount),
-            pendingAmount: Math.max(0, inv.totalAmount - amt),
-            chainName: inv.customer?.company || inv.customer?.name || null,
-          };
+        let maxScore = 0;
+        for (let i = 0; i < Math.min(rawData.length, 25); i++) {
+          const row = rawData[i];
+          if (!row || !Array.isArray(row)) continue;
+          let totalScore = 0;
+          row.forEach(cell => { if (cell) totalScore += kwScore(String(cell)); });
+          if (totalScore >= 4 && totalScore > maxScore) {
+            maxScore = totalScore;
+            headerRowIdx = i;
+          }
+        }
+
+        if (headerRowIdx === -1) headerRowIdx = 0;
+
+        const headerRow = rawData[headerRowIdx] || [];
+        headerRow.forEach((cell: any, idx: number) => {
+          if (cell !== null && cell !== undefined) {
+            const key = String(cell).trim().toLowerCase();
+            if (key) colMap[key] = idx;
+          }
+        });
+
+        const getIdx = (...terms: string[]) => {
+          for (const term of terms) {
+            const exact = Object.keys(colMap).find(k => k === term.toLowerCase());
+            if (exact !== undefined) return colMap[exact];
+          }
+          for (const term of terms) {
+            const partial = Object.keys(colMap).find(k => k.includes(term.toLowerCase()));
+            if (partial !== undefined) return colMap[partial];
+          }
+          return -1;
+        };
+
+        const dateIdx = getIdx('date', 'txn date', 'posting date', 'value date');
+        const narrIdx = getIdx('narration', 'particulars', 'description', 'remarks', 'details', 'vch no');
+        const debitIdx = getIdx('debit', 'dr', 'withdrawal');
+        const creditIdx = getIdx('credit', 'cr', 'deposit');
+        const balIdx = getIdx('balance', 'closing balance');
+        const refIdx = getIdx('ref', 'cheque', 'reference', 'txn ref');
+        const poColIdx = getIdx('po number', 'po no', 'po #', 'order no', 'po');
+        const invColIdx = getIdx('invoice number', 'invoice no', 'inv no', 'bill no', 'invoice');
+
+        for (let r = headerRowIdx + 1; r < rawData.length; r++) {
+          const row = rawData[r];
+          if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+          const dateRaw = dateIdx >= 0 ? row[dateIdx] : '';
+          const narration = narrIdx >= 0 ? cleanVal(row[narrIdx]) : row.map(cleanVal).join(' ');
+          const debitStr = debitIdx >= 0 ? cleanVal(row[debitIdx]) : '0';
+          const creditStr = creditIdx >= 0 ? cleanVal(row[creditIdx]) : '0';
+          const balStr = balIdx >= 0 ? cleanVal(row[balIdx]) : '0';
+          const bankRef = refIdx >= 0 ? cleanVal(row[refIdx]) : '';
+
+          const debitAmount = parseFloat(debitStr.replace(/[^0-9.]/g, '')) || 0;
+          const creditAmount = parseFloat(creditStr.replace(/[^0-9.]/g, '')) || 0;
+          const balance = parseFloat(balStr.replace(/[^0-9.]/g, '')) || 0;
+
+          if (debitAmount === 0 && creditAmount === 0 && !narration) continue;
+
+          let colPo = poColIdx >= 0 ? cleanVal(row[poColIdx]) : '';
+          let colInv = invColIdx >= 0 ? cleanVal(row[invColIdx]) : '';
+
+          const textExtracted = extractPoAndInvoice(narration);
+          const poNumber = colPo || textExtracted.poNumber;
+          const invoiceNumber = colInv || textExtracted.invoiceNumber;
+
+          normalizedRows.push({
+            dateRaw,
+            narration,
+            debitAmount,
+            creditAmount,
+            balance,
+            bankRef,
+            poNumber,
+            invoiceNumber,
+          });
         }
       }
+    }
 
-      // Try to match by PO number
-      for (const po of pos) {
-        if (narr.includes(po.poNumber.toLowerCase())) {
+    if (normalizedRows.length === 0) {
+      return NextResponse.json({ error: 'No valid statement rows found in file' }, { status: 400 });
+    }
+
+    // Fetch database records for matching & set-off
+    const [invoices, chainPOs, purchaseBills, existingRecos] = await Promise.all([
+      prisma.invoice.findMany({ select: { invoiceNumber: true, totalAmount: true, status: true } }),
+      prisma.chainPurchaseOrder.findMany({ select: { poNumber: true, totalAmount: true, chainName: true } }),
+      prisma.purchaseBill.findMany({ select: { invoiceNumber: true, totalAmount: true, supplierName: true } }),
+      prisma.paymentReco.findMany({ where: { matchStatus: { in: ['UNMATCHED', 'PARTIAL'] } } }),
+    ]);
+
+    // Matching & Set-off logic
+    const autoMatch = (row: any) => {
+      const narr = row.narration.toLowerCase();
+      const amt = row.creditAmount > 0 ? row.creditAmount : row.debitAmount;
+      const poNum = row.poNumber ? row.poNumber.toLowerCase() : '';
+      const invNum = row.invoiceNumber ? row.invoiceNumber.toLowerCase() : '';
+
+      // 1. Match by PO Number
+      if (poNum || narr) {
+        const po = chainPOs.find(p => (poNum && p.poNumber.toLowerCase() === poNum) || (p.poNumber && narr.includes(p.poNumber.toLowerCase())));
+        if (po) {
           const diff = Math.abs(amt - po.totalAmount);
           return {
-            matchStatus: diff < 0.5 ? 'MATCHED' : 'PARTIAL',
+            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
             matchedPoNumber: po.poNumber,
             matchedAmount: Math.min(amt, po.totalAmount),
             pendingAmount: Math.max(0, po.totalAmount - amt),
+            deductionAmount: diff >= 1 ? diff : 0,
             chainName: po.chainName,
           };
         }
       }
 
-      // Try to identify chain by narration keywords
+      // 2. Match by Invoice Number
+      if (invNum || narr) {
+        const inv = invoices.find(i => (invNum && i.invoiceNumber.toLowerCase() === invNum) || (i.invoiceNumber && narr.includes(i.invoiceNumber.toLowerCase())));
+        if (inv) {
+          const diff = Math.abs(amt - inv.totalAmount);
+          return {
+            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
+            matchedInvoiceNo: inv.invoiceNumber,
+            matchedAmount: Math.min(amt, inv.totalAmount),
+            pendingAmount: Math.max(0, inv.totalAmount - amt),
+            deductionAmount: diff >= 1 ? diff : 0,
+          };
+        }
+
+        const bill = purchaseBills.find(b => (invNum && b.invoiceNumber?.toLowerCase() === invNum) || (b.invoiceNumber && narr.includes(b.invoiceNumber.toLowerCase())));
+        if (bill) {
+          const diff = Math.abs(amt - bill.totalAmount);
+          return {
+            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
+            matchedInvoiceNo: bill.invoiceNumber || undefined,
+            matchedAmount: Math.min(amt, bill.totalAmount),
+            pendingAmount: Math.max(0, bill.totalAmount - amt),
+            deductionAmount: diff >= 1 ? diff : 0,
+            chainName: bill.supplierName || undefined,
+          };
+        }
+      }
+
+      // 3. Cross set-off with existing Tally/VendorReco rows in DB
+      if (poNum || invNum) {
+        const reco = existingRecos.find(r => 
+          (poNum && r.matchedPoNumber?.toLowerCase() === poNum) ||
+          (invNum && r.matchedInvoiceNo?.toLowerCase() === invNum) ||
+          (poNum && r.narration?.toLowerCase().includes(poNum)) ||
+          (invNum && r.narration?.toLowerCase().includes(invNum))
+        );
+        if (reco) {
+          const recoAmt = reco.creditAmount > 0 ? reco.creditAmount : reco.debitAmount;
+          const diff = Math.abs(amt - recoAmt);
+          return {
+            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
+            matchedPoNumber: reco.matchedPoNumber || (poNum ? poNum.toUpperCase() : undefined),
+            matchedInvoiceNo: reco.matchedInvoiceNo || (invNum ? invNum.toUpperCase() : undefined),
+            matchedAmount: Math.min(amt, recoAmt),
+            pendingAmount: Math.max(0, Math.abs(amt - recoAmt)),
+            deductionAmount: diff >= 1 ? diff : 0,
+            chainName: reco.chainName || undefined,
+          };
+        }
+      }
+
+      // 4. Fallback chain identification
       const chainKeywords = [
         { key: 'flipkart', chain: 'FLIPKART' },
         { key: 'amazon', chain: 'AMAZON' },
         { key: 'zepto', chain: 'ZEPTO' },
         { key: 'blinkit', chain: 'BLINKIT' },
-        { key: 'grofers', chain: 'BLINKIT' },
         { key: 'swiggy', chain: 'SWIGGY' },
         { key: 'bigbasket', chain: 'BIGBASKET' },
         { key: 'dmart', chain: 'DMART' },
@@ -120,24 +288,25 @@ export async function POST(req: NextRequest) {
       return { matchStatus: 'UNMATCHED', pendingAmount: amt };
     };
 
-    // Create batch record first, get its id from MongoDB
+    // Create RecoBatch record
     const batch = await prisma.recoBatch.create({
       data: {
         fileName: file.name,
         rowCount: normalizedRows.length,
         totalCredit: normalizedRows.reduce((s, r) => s + r.creditAmount, 0),
         totalDebit: normalizedRows.reduce((s, r) => s + r.debitAmount, 0),
+        notes: `Type: ${statementType.toUpperCase()}`
       }
     });
 
-    // Create rows
     const recoRows = normalizedRows.map(row => {
       const match = autoMatch(row);
       let txnDate: Date | null = null;
       if (row.dateRaw) {
         txnDate = row.dateRaw instanceof Date ? row.dateRaw : new Date(row.dateRaw);
-        if (isNaN(txnDate.getTime())) txnDate = null;
+        if (txnDate && isNaN(txnDate.getTime())) txnDate = null;
       }
+
       return {
         batchId: batch.id,
         txnDate,
@@ -147,11 +316,13 @@ export async function POST(req: NextRequest) {
         balance: row.balance,
         bankRef: row.bankRef,
         matchStatus: match.matchStatus || 'UNMATCHED',
-        matchedInvoiceNo: match.matchedInvoiceNo || null,
-        matchedPoNumber: match.matchedPoNumber || null,
+        matchedInvoiceNo: match.matchedInvoiceNo || (row.invoiceNumber ? row.invoiceNumber.toUpperCase() : null),
+        matchedPoNumber: match.matchedPoNumber || (row.poNumber ? row.poNumber.toUpperCase() : null),
         matchedAmount: match.matchedAmount || 0,
-        pendingAmount: match.pendingAmount || row.creditAmount,
+        pendingAmount: match.pendingAmount || (row.creditAmount > 0 ? row.creditAmount : row.debitAmount),
+        deductionAmount: match.deductionAmount || 0,
         chainName: match.chainName || null,
+        notes: `Source: ${statementType.toUpperCase()}`
       };
     });
 
@@ -173,8 +344,9 @@ export async function POST(req: NextRequest) {
       partial: partialCount,
       unmatched: recoRows.length - matchedCount - partialCount,
     });
+
   } catch (err: any) {
-    console.error('Reconciliation upload error:', err);
+    console.error('❌ [RECO UPLOAD ERROR]', err);
     return NextResponse.json({ error: 'Upload failed: ' + err.message }, { status: 500 });
   }
 }

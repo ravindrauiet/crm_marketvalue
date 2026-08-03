@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
           ...(status ? { matchStatus: status } : {}),
         },
         orderBy: { txnDate: 'desc' },
-        take: 500,
+        take: 1000,
       }),
       prisma.recoBatch.findMany({ orderBy: { uploadedAt: 'desc' } })
     ]);
@@ -31,5 +31,41 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch reconciliation data' }, { status: 500 });
+  }
+}
+
+// DELETE /api/reconciliation - Clear all reconciliation data or specific batch
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const batchId = searchParams.get('batchId');
+    const resetAll = searchParams.get('resetAll');
+
+    if (resetAll === 'true') {
+      const [recoRes, batchRes] = await Promise.all([
+        prisma.paymentReco.deleteMany({}),
+        prisma.recoBatch.deleteMany({})
+      ]);
+      return NextResponse.json({
+        success: true,
+        message: `Cleared ${recoRes.count} reconciliation entries and ${batchRes.count} batches`
+      });
+    }
+
+    if (batchId) {
+      const [recoRes] = await Promise.all([
+        prisma.paymentReco.deleteMany({ where: { batchId } }),
+        prisma.recoBatch.delete({ where: { id: batchId } })
+      ]);
+      return NextResponse.json({
+        success: true,
+        message: `Deleted batch ${batchId} and ${recoRes.count} rows`
+      });
+    }
+
+    return NextResponse.json({ error: 'batchId or resetAll parameter required' }, { status: 400 });
+  } catch (err: any) {
+    console.error('❌ [RECO DELETE ERROR]', err);
+    return NextResponse.json({ error: 'Failed to delete reconciliation data: ' + err.message }, { status: 500 });
   }
 }
