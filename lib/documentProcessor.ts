@@ -70,11 +70,13 @@ export async function processFileWithAI(
     // Determine extraction method based on file type
     let extractionResult;
 
-    // Check if it's an Excel file
+    // Check if it's an Excel or CSV file
     if (file.mimetype.includes('excel') ||
       file.mimetype.includes('spreadsheet') ||
+      file.mimetype.includes('csv') ||
       file.filename.endsWith('.xlsx') ||
-      file.filename.endsWith('.xls')) {
+      file.filename.endsWith('.xls') ||
+      file.filename.endsWith('.csv')) {
 
       console.log(`\n=== Processing Excel File: ${file.filename} (Vendor: ${vendor}) ===`);
       console.log('Using deterministic Excel extractor (bypassing AI)...');

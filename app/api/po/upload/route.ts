@@ -29,10 +29,11 @@ export async function POST(req: NextRequest) {
 
     const isPdf = name.endsWith('.pdf') || mimeType.includes('pdf');
     const isCsv = name.endsWith('.csv') || mimeType.includes('csv');
+    const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls') || mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('sheet');
 
-    if (!isPdf && !isCsv) {
+    if (!isPdf && !isCsv && !isExcel) {
       console.error(`❌ [PO UPLOAD API] Error: File format not allowed. Name: ${file.name}`);
-      return NextResponse.json({ error: 'Only .pdf and .csv files are supported. Please upload a PDF or CSV document.' }, { status: 400 });
+      return NextResponse.json({ error: 'Only .pdf, .csv, and .xlsx/.xls files are supported. Please upload a PDF, CSV, or Excel document.' }, { status: 400 });
     }
 
     const bytes = await file.arrayBuffer();
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
 
     let extractedInfo: any = { poNumber: '', poDate: '', deliveryDate: '', items: [], rawDocumentInfo: null };
 
-    if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv') || mimeType.includes('excel') || mimeType.includes('spreadsheet')) {
-      console.log(`📊 [PO UPLOAD API] Extracting Excel PO with deterministic extractor...`);
+    if (isExcel || isCsv) {
+      console.log(`📊 [PO UPLOAD API] Extracting Excel/CSV PO with deterministic extractor...`);
       const excelResult = await extractFromExcel(filepath, chainName.toLowerCase());
       extractedInfo.rawDocumentInfo = excelResult.rawDocumentInfo || null;
       extractedInfo.poNumber = excelResult.rawDocumentInfo?.documentNumber || '';

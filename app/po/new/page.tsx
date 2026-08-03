@@ -237,9 +237,10 @@ export default function NewPOPage() {
 
     const isPdf = name.endsWith('.pdf') || mime.includes('pdf');
     const isCsv = name.endsWith('.csv') || mime.includes('csv');
+    const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls') || mime.includes('excel') || mime.includes('spreadsheet') || mime.includes('sheet');
 
-    if (!isPdf && !isCsv) {
-      setError('Only .pdf and .csv files are supported. Please upload a PDF or CSV document.');
+    if (!isPdf && !isCsv && !isExcel) {
+      setError('Only .pdf, .csv, and .xlsx/.xls files are supported. Please upload a PDF, CSV, or Excel document.');
       return;
     }
 
@@ -248,7 +249,7 @@ export default function NewPOPage() {
     const objectUrl = URL.createObjectURL(file);
     let fType: 'pdf' | 'image' | 'excel' | 'doc' = 'doc';
     if (isPdf) fType = 'pdf';
-    else if (isCsv) fType = 'excel';
+    else if (isCsv || isExcel) fType = 'excel';
 
     // Show preview immediately while AI parses in background
     setUploadedFile({
@@ -406,7 +407,7 @@ export default function NewPOPage() {
           <input
             ref={fileRef}
             type="file"
-            accept=".pdf,.csv"
+            accept=".pdf,.csv,.xlsx,.xls"
             style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); e.target.value = ''; }}
           />
@@ -618,10 +619,10 @@ export default function NewPOPage() {
                   {uploading ? 'Extracting PO Details with AI...' : 'Drag & drop PO document here, or click to browse'}
                 </h3>
                 <p className="muted" style={{ fontSize: 12, margin: '0 0 12px 0' }}>
-                  Supports PDF (.pdf) and CSV (.csv) documents only
+                  Supports PDF (.pdf), CSV (.csv), and Excel (.xlsx, .xls) documents
                 </p>
                 <div style={{ display: 'inline-flex', gap: 6 }}>
-                  {['.PDF', '.CSV'].map(ext => (
+                  {['.PDF', '.CSV', '.XLSX', '.XLS'].map(ext => (
                     <span key={ext} style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
                       {ext}
                     </span>

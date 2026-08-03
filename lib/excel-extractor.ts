@@ -1,280 +1,225 @@
-
 import * as XLSX from 'xlsx';
 import { readFileSync } from 'fs';
-import { ExtractionResult, ExtractedProduct, RawDocumentInfo } from './ai';
+import { ExtractionResult, ExtractedProduct } from './ai';
+
+function cleanVal(v: any): string {
+  if (v === null || v === undefined) return '';
+  return String(v).trim();
+}
 
 /**
- * Deterministically extract product information from Excel files without using AI.
- * This ensures 100% accuracy for known formats and reduces costs.
+ * Deterministically extract product & PO header information from Excel (.xlsx, .xls) and CSV (.csv) files.
+ * Provides maximum accuracy for tabular PO documents.
  */
 export async function extractFromExcel(
-    filePath: string,
-    vendor: string = 'default'
+  filePath: string,
+  vendor: string = 'default'
 ): Promise<ExtractionResult> {
-    // Read the file
-    const buf = readFileSync(filePath);
-    const wb = XLSX.read(buf, { type: 'buffer' });
+  const buf = readFileSync(filePath);
+  const wb = XLSX.read(buf, { type: 'buffer' });
 
-    // We'll primarily look at the first sheet, but could scan others if needed
-    const sheetName = wb.SheetNames[0];
-    const sheet = wb.Sheets[sheetName];
+  if (!wb.SheetNames || wb.SheetNames.length === 0) {
+    throw new Error('Excel/CSV file appears to be empty or unreadable');
+  }
 
-    // Convert to JSON with header:1 option to get raw arrays first to detect headers
-    // Then we can use sheet_to_json with appropriate options
-    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+  const sheetName = wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
 
-    if (!rawData || rawData.length === 0) {
-        throw new Error('Excel file appears to be empty');
+  if (!rawData || rawData.length === 0) {
+    throw new Error('Excel/CSV sheet appears to be empty');
+  }
+
+  // 1. Find header row by scoring row contents for column keywords
+  let headerRowIdx = -1;
+  let colMap: Record<string, number> = {};
+
+  const kwScore = (str: string) => {
+    const s = str.toLowerCase();
+    let score = 0;
+    if (/sku|code|asin|fsn|ean|article|material|barcode|item\s*code|item\s*no/i.test(s)) score += 3;
+    if (/desc|title|name|item|product|material\s*desc/i.test(s)) score += 3;
+    if (/qty|quantity|units|outstanding|order\s*qty/i.test(s)) score += 3;
+    if (/price|cost|rate|mrp|amount|value|taxable/i.test(s)) score += 2;
+    return score;
+  };
+
+  let maxScore = 0;
+  for (let i = 0; i < Math.min(rawData.length, 35); i++) {
+    const row = rawData[i];
+    if (!row || !Array.isArray(row)) continue;
+
+    let totalScore = 0;
+    row.forEach(cell => {
+      if (cell) totalScore += kwScore(String(cell));
+    });
+
+    if (totalScore >= 5 && totalScore > maxScore) {
+      maxScore = totalScore;
+      headerRowIdx = i;
     }
+  }
 
-    // Initialize result structure
-    const result: ExtractionResult = {
-        rawDocumentInfo: {
-            documentType: 'Purchase Order (Excel)',
-            vendorName: vendor !== 'default' ? vendor.toUpperCase() : undefined,
-        },
-        products: [],
-        metadata: {
-            totalItems: 0,
-            method: 'DETERMINISTIC_EXCEL_PARSER'
+  if (headerRowIdx === -1) {
+    headerRowIdx = rawData.findIndex(r => r && Array.isArray(r) && r.length > 1) || 0;
+  }
+
+  const headerRow = rawData[headerRowIdx] || [];
+  headerRow.forEach((cell: any, idx: number) => {
+    if (cell !== null && cell !== undefined) {
+      const key = String(cell).trim().toLowerCase();
+      if (key) colMap[key] = idx;
+    }
+  });
+
+  // 2. Extract Document Metadata
+  const metadata = extractDocMetadata(rawData, filePath, vendor, headerRowIdx, colMap);
+
+  // 3. Map Columns
+  const getIdx = (...terms: string[]) => {
+    for (const term of terms) {
+      const exact = Object.keys(colMap).find(k => k === term.toLowerCase());
+      if (exact !== undefined) return colMap[exact];
+    }
+    for (const term of terms) {
+      const partial = Object.keys(colMap).find(k => k.includes(term.toLowerCase()));
+      if (partial !== undefined) return colMap[partial];
+    }
+    return -1;
+  };
+
+  const eanIdx = getIdx('ean/upc code', 'ean', 'barcode', 'upc', 'ean code');
+  const skuIdx = getIdx('sku code', 'asin', 'fsn/isbn13', 'materialcode', 'article', 'sku', 'code', 'material', 'hsn', 'item code');
+  const nameIdx = getIdx('description', 'title', 'sku desc', 'item description', 'product name', 'name', 'item', 'vertical', 'material description');
+  const qtyIdx = getIdx('quantity outstanding', 'quantity', 'qty', 'po qty', 'case quantity', 'units', 'order qty');
+  const priceIdx = getIdx('landing cost', 'basic cost', 'unit cost', 'supplier price', 'unitprice', 'unit price', 'price', 'rate', 'mrp', 'taxable value');
+  const brandIdx = getIdx('brand');
+
+  const products: ExtractedProduct[] = [];
+
+  // 4. Parse Products
+  for (let r = headerRowIdx + 1; r < rawData.length; r++) {
+    const row = rawData[r];
+    if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+    const rowStr = row.map(cleanVal).join(' ').toLowerCase();
+    if (rowStr.includes('total') || rowStr.includes('(count)') || rowStr.includes('buyer signature') || rowStr.includes('subtotal')) continue;
+
+    const rawSku = skuIdx >= 0 ? cleanVal(row[skuIdx]) : '';
+    const rawEan = eanIdx >= 0 ? cleanVal(row[eanIdx]) : '';
+    const rawName = nameIdx >= 0 ? cleanVal(row[nameIdx]) : '';
+    const rawQty = qtyIdx >= 0 ? cleanVal(row[qtyIdx]) : '0';
+    const rawPrice = priceIdx >= 0 ? cleanVal(row[priceIdx]) : '0';
+    const rawBrand = brandIdx >= 0 ? cleanVal(row[brandIdx]) : '';
+
+    const sku = rawSku || rawEan || '';
+    const ean = rawEan || (rawSku.length === 13 && /^\d+$/.test(rawSku) ? rawSku : '');
+    const name = rawName || rawSku || '';
+    const qty = parseFloat(rawQty.replace(/[^0-9.]/g, '')) || 0;
+    const price = parseFloat(rawPrice.replace(/[^0-9.]/g, '')) || 0;
+
+    if ((sku || name) && (qty > 0 || price > 0 || name.length > 3)) {
+      products.push({
+        sku,
+        ean,
+        eanCode: ean,
+        name,
+        quantity: qty,
+        price,
+        totalPrice: Number((qty * price).toFixed(2)),
+        brand: rawBrand || undefined,
+        group: vendor !== 'default' ? `${vendor.toUpperCase()} PO` : 'PO Item',
+      });
+    }
+  }
+
+  const result: ExtractionResult = {
+    rawDocumentInfo: {
+      documentType: 'Purchase Order (Spreadsheet)',
+      vendorName: metadata.vendorName || (vendor !== 'default' ? vendor.toUpperCase() : undefined),
+      documentNumber: metadata.poNumber || undefined,
+      documentDate: metadata.poDate || undefined,
+      deliveryDate: metadata.deliveryDate || undefined,
+      allVisibleText: rawData.slice(0, headerRowIdx).map(r => r.map(cleanVal).filter(Boolean).join(' ')).filter(Boolean).join('\n'),
+      lineItemsSummary: products.map(p => `${p.sku || p.ean}: ${p.name} (Qty: ${p.quantity}, Rate: ₹${p.price})`).join('\n')
+    },
+    products,
+    metadata: {
+      totalItems: products.length,
+      method: 'UNIVERSAL_EXCEL_PARSER',
+      processedDate: new Date().toISOString()
+    }
+  };
+
+  return result;
+}
+
+function extractDocMetadata(rows: any[][], filePath: string, vendor: string, headerRowIdx: number, colMap: Record<string, number>) {
+  let poNumber = '';
+  let poDate = '';
+  let deliveryDate = '';
+  let vendorName = '';
+
+  // 1. Scan top rows for key-value text pairs
+  for (let r = 0; r < Math.min(rows.length, 25); r++) {
+    const row = rows[r];
+    if (!row || !Array.isArray(row)) continue;
+
+    for (let c = 0; c < row.length; c++) {
+      const cellStr = cleanVal(row[c]);
+      if (!cellStr) continue;
+
+      if (!poNumber) {
+        const m = cellStr.match(/(?:PO\s*(?:Number|No|#)?|Purchase\s*Order\s*(?:Number|No|#)?)\s*[:=\s#]\s*([A-Za-z0-9\-_]{4,30})/i);
+        if (m && m[1] && !['NUMBER', 'DATE', 'DETAILS', 'ORDER', 'EXPIRED'].includes(m[1].toUpperCase())) {
+          poNumber = m[1];
         }
+      }
+
+      if (!poDate) {
+        const m = cellStr.match(/(?:PO\s*Date|Order\s*Date|Date)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
+        if (m && m[1]) poDate = m[1];
+      }
+
+      if (!deliveryDate) {
+        const m = cellStr.match(/(?:Delivery\s*Date|Appointment\s*Date|PO\s*Expiry\s*date|Required\s*by\s*Date|Window\s*end)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
+        if (m && m[1]) deliveryDate = m[1];
+      }
+
+      if (!vendorName) {
+        const m = cellStr.match(/(?:Vendor|Supplier|Billed\s*By)\s*[:=\s]\s*([A-Za-z0-9\s\-_]{3,40})/i);
+        if (m && m[1]) vendorName = m[1];
+      }
+    }
+  }
+
+  // 2. Fallback to column data from first row if table header exists
+  if (headerRowIdx >= 0 && headerRowIdx + 1 < rows.length) {
+    const firstDataRow = rows[headerRowIdx + 1] || [];
+    const getColVal = (...terms: string[]) => {
+      for (const term of terms) {
+        const key = Object.keys(colMap).find(k => k === term.toLowerCase() || k.includes(term.toLowerCase()));
+        if (key !== undefined && colMap[key] !== undefined) {
+          const val = cleanVal(firstDataRow[colMap[key]]);
+          if (val) return val;
+        }
+      }
+      return '';
     };
 
-    // Select strategy based on vendor
-    switch (vendor.toLowerCase()) {
-        case 'amazon':
-            return parseAmazonExcel(sheet, result);
-        case 'zepto':
-            return parseZeptoExcel(sheet, result);
-        case 'bigbasket':
-            return parseBigBasketExcel(sheet, result);
-        default:
-            return parseGenericExcel(sheet, result);
-    }
-}
+    if (!poNumber) poNumber = getColVal('po number', 'po #', 'po no', 'po');
+    if (!poDate) poDate = getColVal('po date', 'order date');
+    if (!deliveryDate) deliveryDate = getColVal('window end', 'delivery date', 'required by date', 'expected date');
+    if (!vendorName) vendorName = getColVal('vendor name', 'vendor', 'supplier');
+  }
 
-/**
- * Parser for Amazon Purchase Orders
- * Structure: PO, Vendor, Ship to location, ASIN, Title, Window end, Quantity Outstanding, Unit Cost...
- */
-function parseAmazonExcel(sheet: XLSX.WorkSheet, result: ExtractionResult): ExtractionResult {
-    const data = XLSX.utils.sheet_to_json<any>(sheet);
+  // 3. Fallback from filename (strip path and timestamp if present)
+  if (!poNumber) {
+    const baseName = filePath.split(/[/\\]/).pop() || '';
+    const cleanFn = baseName.replace(/^[0-9]+_/, '');
+    const fnMatch = cleanFn.match(/([A-Za-z0-9\-_]{6,25})/);
+    if (fnMatch) poNumber = fnMatch[1];
+  }
 
-    if (data.length > 0) {
-        // Extract header info from first row
-        const firstRow = data[0];
-        result.rawDocumentInfo.documentNumber = firstRow['PO'] || firstRow['PO Number'];
-        result.rawDocumentInfo.vendorName = firstRow['Vendor'];
-        result.rawDocumentInfo.shippingAddress = firstRow['Ship to location'];
-        result.rawDocumentInfo.deliveryDate = firstRow['Window end'];
-    }
-
-    result.products = data.map(row => {
-        // skip empty rows or summary rows
-        if (!row['ASIN'] && !row['Title']) return null;
-
-        const qty = Number(row['Quantity Outstanding'] || row['Quantity'] || 0);
-        const unitCost = Number(row['Unit Cost'] || 0);
-
-        return {
-            sku: String(row['ASIN'] || '').trim(),
-            name: String(row['Title'] || '').trim(),
-            quantity: qty,
-            price: unitCost,
-            totalPrice: Number(row['Total cost'] || (qty * unitCost)),
-            brand: extractBrandFromName(row['Title']),
-            group: 'Amazon PO'
-        };
-    }).filter(p => p !== null && p.sku) as ExtractedProduct[];
-
-    return finalizeResult(result);
-}
-
-/**
- * Parser for Zepto Purchase Orders
- * Structure: PoNumber, BatchID, Sku, SkuDesc, Brand, Quantity, UnitBaseCost...
- */
-function parseZeptoExcel(sheet: XLSX.WorkSheet, result: ExtractionResult): ExtractionResult {
-    const data = XLSX.utils.sheet_to_json<any>(sheet);
-
-    if (data.length > 0) {
-        const firstRow = data[0];
-        result.rawDocumentInfo.documentNumber = firstRow['PoNumber'];
-        result.rawDocumentInfo.documentDate = firstRow['PoDate'];
-        result.rawDocumentInfo.vendorName = firstRow['VendorName'];
-        result.rawDocumentInfo.shippingAddress = firstRow['StoreName'] + ' - ' + firstRow['DeliveryLocation'];
-    }
-
-    result.products = data.map(row => {
-        if (!row['Sku'] && !row['MaterialCode']) return null;
-
-        return {
-            sku: String(row['MaterialCode'] || row['Sku'] || '').trim(), // Prefer MaterialCode for readability if available
-            name: String(row['SkuDesc'] || row['Item Description'] || '').trim(),
-            brand: String(row['Brand'] || '').trim(),
-            quantity: Number(row['Quantity'] || 0),
-            price: Number(row['UnitBaseCost'] || row['LandingCost'] || 0),
-            totalPrice: Number(row['TotalAmount'] || 0),
-            group: 'Zepto PO',
-            description: row['Sku'] ? `UUID: ${row['Sku']}` : undefined
-        };
-    }).filter(p => p !== null && p.sku) as ExtractedProduct[];
-
-    return finalizeResult(result);
-}
-
-/**
- * Parser for BigBasket Purchase Orders
- * Based on observed headers in prompts: EAN, Item Description, PO Qty, MRP
- */
-function parseBigBasketExcel(sheet: XLSX.WorkSheet, result: ExtractionResult): ExtractionResult {
-    // BigBasket often has header blocks before the table
-    // We need to find the "Item" or "EAN" row
-    const rawParams: XLSX.Sheet2JSONOpts = { header: 1 };
-    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, rawParams);
-
-    let headerRowIndex = -1;
-    let headerMap: Record<string, number> = {};
-
-    // Find header row
-    for (let i = 0; i < Math.min(rows.length, 20); i++) {
-        const row = rows[i];
-        if (!row) continue;
-
-        const rowStr = row.join(' ').toLowerCase();
-        if ((rowStr.includes('ean') || rowStr.includes('article')) && rowStr.includes('qty')) {
-            headerRowIndex = i;
-            row.forEach((cell: any, idx: number) => {
-                headerMap[String(cell).toLowerCase().trim()] = idx;
-            });
-            break;
-        }
-    }
-
-    if (headerRowIndex === -1) {
-        // Fallback to generic if we can't find specific header
-        return parseGenericExcel(sheet, result);
-    }
-
-    // Attempt to extract document info from rows above header
-    for (let i = 0; i < headerRowIndex; i++) {
-        const rowText = (rows[i] || []).join(' ');
-        if (rowText.includes('PO No')) result.rawDocumentInfo.documentNumber = extractValue(rowText, 'PO No');
-        if (rowText.includes('Vendor')) result.rawDocumentInfo.vendorName = extractValue(rowText, 'Vendor');
-    }
-
-    // Parse products
-    const products: ExtractedProduct[] = [];
-    const getCol = (row: any[], name: string) => {
-        // Try exact match first, then partial
-        let idx = headerMap[name];
-        if (idx === undefined) {
-            const key = Object.keys(headerMap).find(k => k.includes(name));
-            if (key) idx = headerMap[key];
-        }
-        return idx !== undefined ? row[idx] : undefined;
-    };
-
-    for (let i = headerRowIndex + 1; i < rows.length; i++) {
-        const row = rows[i];
-        if (!row || row.length === 0) continue;
-
-        const ean = getCol(row, 'ean') || getCol(row, 'article');
-        const name = getCol(row, 'description') || getCol(row, 'item');
-        const qty = getCol(row, 'qty') || getCol(row, 'quantity');
-        const price = getCol(row, 'rate') || getCol(row, 'cost') || getCol(row, 'mrp');
-
-        if (ean && name) {
-            products.push({
-                sku: String(ean).trim(),
-                name: String(name).trim(),
-                quantity: Number(qty || 0),
-                price: Number(price || 0),
-                group: 'BigBasket PO'
-            });
-        }
-    }
-
-    result.products = products;
-    return finalizeResult(result);
-}
-
-
-/**
- * Generic Excel Parser with header detection heuristics
- */
-function parseGenericExcel(sheet: XLSX.WorkSheet, result: ExtractionResult): ExtractionResult {
-    const data = XLSX.utils.sheet_to_json<any>(sheet);
-
-    if (data.length === 0) return finalizeResult(result);
-
-    // Analyze first row keys to map fields
-    const sampleRow = data[0];
-    const keys = Object.keys(sampleRow);
-
-    const mapField = (term: string) => keys.find(k => k.toLowerCase().includes(term));
-
-    const skuField = keys.find(k => /sku|code|asin|ean|article|material/i.test(k));
-    const nameField = keys.find(k => /name|title|desc|item/i.test(k));
-    const qtyField = keys.find(k => /qty|quantity|stock|units/i.test(k));
-    const priceField = keys.find(k => /price|cost|rate|mrp|amount/i.test(k));
-    const brandField = mapField('brand');
-
-    if (!skuField || !nameField) {
-        // If strict mapping fails, try using raw string search in a "dumb" mode or return empty
-        // For now, let's just log and return what we have to be safe
-        console.warn('Generic Excel Parser: Could not identify SKU or Name columns automatically.');
-    }
-
-    result.products = data.map(row => {
-        // If we couldn't find fields, try safe defaults
-        const sku = skuField ? row[skuField] : (row['SKU'] || row['Code']);
-        const name = nameField ? row[nameField] : (row['Name'] || row['Description']);
-
-        if (!sku && !name) return null;
-
-        return {
-            sku: String(sku || 'UNKNOWN').trim(),
-            name: String(name || 'Unknown Product').trim(),
-            quantity: qtyField ? Number(row[qtyField] || 0) : 0,
-            price: priceField ? Number(row[priceField] || 0) : 0,
-            brand: brandField ? String(row[brandField] || '').trim() : undefined,
-            description: 'Extracted via Generic Excel Parser'
-        };
-    }).filter(p => p !== null && p.sku !== 'UNKNOWN') as ExtractedProduct[];
-
-    return finalizeResult(result);
-}
-
-// Helpers
-
-function extractBrandFromName(name: string): string | undefined {
-    if (!name) return undefined;
-    // Heuristic: First word is often the brand
-    return name.split(' ')[0];
-}
-
-function extractValue(text: string, label: string): string {
-    const parts = text.split(label);
-    if (parts.length > 1) {
-        return parts[1].split(/[,;]/)[0].replace(/[:]/g, '').trim();
-    }
-    return '';
-}
-
-function finalizeResult(result: ExtractionResult): ExtractionResult {
-    result.metadata = {
-        ...result.metadata,
-        totalItems: result.products.length,
-        processedDate: new Date().toISOString()
-    };
-
-    // Create summary text for rawDocumentInfo
-    const productSummary = result.products.map(p =>
-        `${p.sku}: ${p.name} (Qty: ${p.quantity})`
-    ).join('\n');
-
-    result.rawDocumentInfo.lineItemsSummary = productSummary;
-
-    return result;
+  return { poNumber, poDate, deliveryDate, vendorName };
 }
