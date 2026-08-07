@@ -45,28 +45,36 @@ export async function POST(req: NextRequest) {
 
     let extractedInfo: any = { poNumber: '', poDate: '', deliveryDate: '', items: [], rawDocumentInfo: null };
 
-    if (isExcel || isCsv) {
-      console.log(`📊 [PO UPLOAD API] Extracting Excel/CSV PO with deterministic extractor...`);
+    // Primary: Extract using AI (extractProductsWithAI) for maximum intelligence across all formats (Excel, PDF, CSV, Word)
+    try {
+      console.log(`🤖 [PO UPLOAD API] Extracting PO using AI (${process.env.OPENAI_MODEL || 'gpt-4o-mini'})...`);
+      const aiResult = await extractProductsWithAI(filepath, mimeType, chainName.toLowerCase());
+      if (aiResult && aiResult.products && aiResult.products.length > 0) {
+        extractedInfo.rawDocumentInfo = aiResult.rawDocumentInfo || null;
+        extractedInfo.poNumber = aiResult.rawDocumentInfo?.documentNumber || '';
+        extractedInfo.poDate = aiResult.rawDocumentInfo?.documentDate || '';
+        extractedInfo.deliveryDate = aiResult.rawDocumentInfo?.deliveryDate || '';
+        extractedInfo.items = (aiResult.products || []).map(p => ({
+          chainItemCode: p.sku || '',
+          chainItemName: p.name || '',
+          eanCode: p.ean || p.eanCode || (p.description?.includes('EAN:') ? p.description.split('EAN:')[1]?.trim() : ''),
+          quantityPcs: p.quantity || 0,
+          unitPrice: p.price || 0,
+        }));
+      }
+    } catch (aiErr: any) {
+      console.warn(`⚠️ [PO UPLOAD API] AI Extraction notice:`, aiErr.message);
+    }
+
+    // Fallback: If AI returns no items and file is Excel/CSV, use deterministic Excel parser
+    if ((!extractedInfo.items || extractedInfo.items.length === 0) && (isExcel || isCsv)) {
+      console.log(`📊 [PO UPLOAD API] Fallback: Extracting Excel/CSV PO with deterministic extractor...`);
       const excelResult = await extractFromExcel(filepath, chainName.toLowerCase());
       extractedInfo.rawDocumentInfo = excelResult.rawDocumentInfo || null;
       extractedInfo.poNumber = excelResult.rawDocumentInfo?.documentNumber || '';
       extractedInfo.poDate = excelResult.rawDocumentInfo?.documentDate || '';
       extractedInfo.deliveryDate = excelResult.rawDocumentInfo?.deliveryDate || '';
       extractedInfo.items = (excelResult.products || []).map(p => ({
-        chainItemCode: p.sku || '',
-        chainItemName: p.name || '',
-        eanCode: p.ean || p.eanCode || (p.description?.includes('EAN:') ? p.description.split('EAN:')[1]?.trim() : ''),
-        quantityPcs: p.quantity || 0,
-        unitPrice: p.price || 0,
-      }));
-    } else {
-      console.log(`🤖 [PO UPLOAD API] Extracting PDF/Image PO using AI (${process.env.OPENAI_MODEL || 'gpt-4o'})...`);
-      const aiResult = await extractProductsWithAI(filepath, mimeType, chainName.toLowerCase());
-      extractedInfo.rawDocumentInfo = aiResult.rawDocumentInfo || null;
-      extractedInfo.poNumber = aiResult.rawDocumentInfo?.documentNumber || '';
-      extractedInfo.poDate = aiResult.rawDocumentInfo?.documentDate || '';
-      extractedInfo.deliveryDate = aiResult.rawDocumentInfo?.deliveryDate || '';
-      extractedInfo.items = (aiResult.products || []).map(p => ({
         chainItemCode: p.sku || '',
         chainItemName: p.name || '',
         eanCode: p.ean || p.eanCode || (p.description?.includes('EAN:') ? p.description.split('EAN:')[1]?.trim() : ''),

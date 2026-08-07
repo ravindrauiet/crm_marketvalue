@@ -160,35 +160,44 @@ function extractDocMetadata(rows: any[][], filePath: string, vendor: string, hea
   let deliveryDate = '';
   let vendorName = '';
 
-  // 1. Scan top rows for key-value text pairs
-  for (let r = 0; r < Math.min(rows.length, 25); r++) {
+  // 1. Scan top rows for joined row string and key-value text pairs
+  for (let r = 0; r < Math.min(rows.length, 30); r++) {
     const row = rows[r];
     if (!row || !Array.isArray(row)) continue;
 
-    for (let c = 0; c < row.length; c++) {
-      const cellStr = cleanVal(row[c]);
-      if (!cellStr) continue;
+    const rowStr = row.map(cleanVal).filter(Boolean).join(' ');
 
-      if (!poNumber) {
-        const m = cellStr.match(/(?:PO\s*(?:Number|No|#)?|Purchase\s*Order\s*(?:Number|No|#)?)\s*[:=\s#]\s*([A-Za-z0-9\-_]{4,30})/i);
-        if (m && m[1] && !['NUMBER', 'DATE', 'DETAILS', 'ORDER', 'EXPIRED'].includes(m[1].toUpperCase())) {
-          poNumber = m[1];
+    // Extract PO Number
+    if (!poNumber) {
+      const m = rowStr.match(/(?:PO\s*(?:Number|No|#)?|Purchase\s*Order\s*(?:Number|No|#)?)\s*[:=\s#]\s*([A-Za-z0-9\-_]{6,30})/i);
+      if (m && m[1] && !['NUMBER', 'DATE', 'DETAILS', 'ORDER', 'EXPIRED', 'EXPIRY'].includes(m[1].toUpperCase())) {
+        poNumber = m[1];
+      }
+    }
+
+    // Extract PO Date / Order Date
+    if (!poDate) {
+      const m = rowStr.match(/(?:PO\s*Date|Order\s*Date|Document\s*Date)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
+      if (m && m[1]) poDate = m[1];
+    }
+
+    // Extract Delivery / Expiry Date
+    if (!deliveryDate) {
+      const m = rowStr.match(/(?:Delivery\s*Date|Appointment\s*Date|PO\s*Expiry|Required\s*by\s*Date|Window\s*end)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
+      if (m && m[1]) deliveryDate = m[1];
+    }
+
+    // Extract Vendor / Supplier Name
+    if (!vendorName) {
+      for (let c = 0; c < row.length; c++) {
+        const cell = cleanVal(row[c]);
+        if (/^(supplier|vendor|billed\s*by)\s*(name)?$/i.test(cell)) {
+          const nextVal = cleanVal(row[c + 1]) || cleanVal(row[c + 2]);
+          if (nextVal && nextVal.length > 2 && !/^(address|gstin|state|contact|email|_)$/i.test(nextVal)) {
+            vendorName = nextVal;
+            break;
+          }
         }
-      }
-
-      if (!poDate) {
-        const m = cellStr.match(/(?:PO\s*Date|Order\s*Date|Date)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
-        if (m && m[1]) poDate = m[1];
-      }
-
-      if (!deliveryDate) {
-        const m = cellStr.match(/(?:Delivery\s*Date|Appointment\s*Date|PO\s*Expiry\s*date|Required\s*by\s*Date|Window\s*end)\s*[:=\s]\s*([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/i);
-        if (m && m[1]) deliveryDate = m[1];
-      }
-
-      if (!vendorName) {
-        const m = cellStr.match(/(?:Vendor|Supplier|Billed\s*By)\s*[:=\s]\s*([A-Za-z0-9\s\-_]{3,40})/i);
-        if (m && m[1]) vendorName = m[1];
       }
     }
   }

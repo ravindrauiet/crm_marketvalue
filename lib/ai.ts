@@ -399,6 +399,37 @@ VISHAL MEGA MART / AIRPLAZA RETAIL SPECIFIC INSTRUCTIONS:
    - M.R.P (e.g. 155.00, 260.00) -> mrp
    - NET VALUE (e.g. 1505.76, 1894.32) -> totalPrice`,
 
+    flipkart: `${baseInstructions}
+
+FLIPKART-SPECIFIC INSTRUCTIONS (PDF & Excel/CSV Format):
+Flipkart PO documents come in PDF and Excel/Spreadsheet format with clean tabular headers.
+
+## 1. HEADER FIELDS (for rawDocumentInfo):
+- PO Number: Look for "PURCHASE ORDER #" or "PO#" (e.g. "FDGN07421951", "FDGN08123456") -> poNumber
+- PO Date: "ORDER DATE" (e.g. "27-12-25" or "27/12/2025") -> poDate
+- PO Expiry / Required By Date: "PO Expiry" or "Required by Date" (e.g. "05-01-26" or "2026-01-05") -> deliveryDate
+- Supplier / Vendor Name: "SUPPLIER NAME" (e.g. "Glomin overseas(grocery_glomin_del)") -> vendorName
+- Purchaser Entity: "Flipkart India Private Limited" -> buyerName
+- Shipping Address: "SHIPPED TO ADDRESS" -> shippingAddress
+
+## 2. TABLE COLUMNS & PRODUCT MAPPING:
+- FSN / ISBN13 (e.g. "PAPFBYBZ8WMAHZCC", "PCKEUC4PWEJ4C3GM") -> MUST be set as 'sku' (Flipkart FSN / Item Code)
+- Ean / Barcode (13-digit EAN starting 890, e.g. "8906001052920") -> MUST be set as 'ean' (EAN / Barcode)
+- Title / Item Description (e.g. "MOTHER'S RECIPE Ginger Garlic Paste 500 g") -> MUST be set as 'name'
+- Brand (e.g. "MOTHER'S RECIPE") -> 'brand'
+- Quantity / Pending Quantity (integer e.g. 160, 144, 72) -> 'quantity'
+- Supplier Price / Unit Cost (decimal e.g. 65.45, 112.85, 78.73) -> 'price'
+- Supplier MRP (decimal e.g. 145.00, 219.00) -> 'mrp'
+- Total Amount (decimal e.g. 10472.00, 16250.40) -> 'totalPrice'
+
+## 3. EXTRACTION RULES:
+- sku: FSN code (16-character alphanumeric like "PAPFBYBZ8WMAHZCC")
+- ean: 13-digit EAN barcode starting with 890
+- name: Full product Title as written
+- brand: Brand name
+- quantity: Order Quantity (PCS)
+- price: Supplier Price per unit (without tax/GST additions if separated)`,
+
     default: baseInstructions
   };
 
