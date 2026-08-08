@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { uploadToImageKit } from '@/lib/imagekit';
+import { saveBufferToUploads, publicPathForStoredFile } from '@/lib/fileStorage';
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,17 +47,16 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-
-    const base64Data = buffer.toString('base64');
-    const dataUri = `data:${file.type || 'application/octet-stream'};base64,${base64Data}`;
+    const { storedName } = await saveBufferToUploads(file.name, buffer);
 
     // Upload to ImageKit.io
     const ikRes = await uploadToImageKit(buffer, file.name, '/purchase-bills');
+    const fileUrl = ikRes?.url || publicPathForStoredFile(storedName);
 
     const bill = await prisma.purchaseBill.create({
       data: {
         status: 'PENDING',
-        filePath: dataUri,
+        filePath: fileUrl,
         fileName: file.name,
         mimeType: file.type,
         imagekitUrl: ikRes?.url || null,
