@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
     const status = req.nextUrl.searchParams.get('status');
     const orders = await prisma.chainPurchaseOrder.findMany({
       where: {
-        ...(chain ? { chainName: chain } : {}),
+        ...(chain ? { chainName: { equals: chain.toUpperCase(), mode: 'insensitive' } } : {}),
         ...(status ? { status } : {}),
       },
       include: { items: true },
-      orderBy: { poDate: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(orders);
   } catch (err) {
@@ -100,7 +100,7 @@ function parseFlexibleDate(val: any): Date {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { poNumber, chainName, poDate, appointmentDate, deliveryDate, notes, filePath, fileName, rawDocumentInfo, items } = body;
+    const { poNumber, chainName, poDate, appointmentDate, deliveryDate, notes, filePath, fileName, imagekitUrl, rawDocumentInfo, items } = body;
 
     if (!poNumber || !chainName) {
       return NextResponse.json({ error: 'poNumber and chainName are required' }, { status: 400 });
@@ -177,6 +177,7 @@ export async function POST(req: NextRequest) {
         notes: notes || null,
         filePath: filePath || null,
         fileName: fileName || null,
+        imagekitUrl: imagekitUrl || null,
         rawDocumentInfo: typeof rawDocumentInfo === 'object' ? JSON.stringify(rawDocumentInfo) : (rawDocumentInfo || null),
         items: { create: enrichedItems }
       },

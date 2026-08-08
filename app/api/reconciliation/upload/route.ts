@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { uploadToImageKit } from '@/lib/imagekit';
 import * as XLSX from 'xlsx';
 import pdf from 'pdf-parse';
 
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(bytes);
     const fileNameLower = file.name.toLowerCase();
     const mimeTypeLower = (file.type || '').toLowerCase();
+
+    // Upload statement file to ImageKit.io
+    const ikRes = await uploadToImageKit(buffer, file.name, '/reconciliation');
 
     let normalizedRows: any[] = [];
 
@@ -295,6 +299,7 @@ export async function POST(req: NextRequest) {
         rowCount: normalizedRows.length,
         totalCredit: normalizedRows.reduce((s, r) => s + r.creditAmount, 0),
         totalDebit: normalizedRows.reduce((s, r) => s + r.debitAmount, 0),
+        imagekitUrl: ikRes?.url || null,
         notes: `Type: ${statementType.toUpperCase()}`
       }
     });

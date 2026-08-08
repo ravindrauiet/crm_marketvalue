@@ -10,6 +10,7 @@ export type RecordRow = {
     id: string;
     filename: string;
     mimetype: string;
+    imagekitUrl?: string | null;
     extractionStatus?: string;
     rawDocumentInfo?: string | null;
     extractedData?: string | null;
@@ -97,11 +98,33 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
                 {r.files.length === 0 && <span className="muted" style={{ fontSize: 13 }}>No files attached</span>}
                 {r.files.map(f => (
                   <div key={f.id} style={{ marginBottom: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 16 }}>
                         {f.mimetype.includes('pdf') ? '📄' : f.mimetype.includes('spreadsheet') || f.mimetype.includes('excel') ? '📊' : '📁'}
                       </span>
                       <span style={{ fontSize: 13, color: 'var(--text)' }}>{f.filename}</span>
+                      {f.imagekitUrl && (
+                        <a
+                          href={f.imagekitUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 11,
+                            color: '#0284c7',
+                            background: 'rgba(2, 132, 199, 0.1)',
+                            padding: '2px 8px',
+                            borderRadius: 12,
+                            textDecoration: 'none',
+                            fontWeight: 500,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}
+                          title="Open file on ImageKit.io CDN"
+                        >
+                          ☁️ ImageKit
+                        </a>
+                      )}
                       {(f.rawDocumentInfo || f.extractedData) && (
                         <button
                           onClick={() => setExpandedId(expandedId === f.id ? null : f.id)}

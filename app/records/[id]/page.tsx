@@ -45,7 +45,30 @@ export default async function RecordDetail({ params }: { params: { id: string } 
           <div key={f.id} className="card" style={{ marginBottom: 24 }}>
             {/* File Header */}
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{f.filename}</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{f.filename}</h4>
+                {f.imagekitUrl && (
+                  <a
+                    href={f.imagekitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 12,
+                      padding: '4px 12px',
+                      borderRadius: 16,
+                      background: 'rgba(2, 132, 199, 0.1)',
+                      color: '#0284c7',
+                      fontWeight: 500,
+                      textDecoration: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    ☁️ View on ImageKit.io
+                  </a>
+                )}
+              </div>
               <ExtractionStatus fileId={f.id} status={f.extractionStatus} />
             </div>
 

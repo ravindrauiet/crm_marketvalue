@@ -20,6 +20,8 @@ model File {
   mimetype         String
   sizeBytes        Int
   path             String
+  imagekitUrl      String?
+  imagekitFileId   String?
   createdAt        DateTime @default(now())
   record           Record   @relation(fields: [recordId], references: [id], onDelete: Cascade)
   recordId         String   @db.ObjectId
@@ -306,6 +308,7 @@ model ChainPurchaseOrder {
   planningNote    String?
   filePath        String?  // path/data URI of uploaded PO file
   fileName        String?  // original filename of PO file
+  imagekitUrl     String?  // ImageKit.io CDN URL
   rawDocumentInfo String?  // JSON string containing all 16 extracted AI document fields
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -346,6 +349,7 @@ model PurchaseBill {
   filePath        String?  // uploaded file path
   fileName        String?
   mimeType        String?
+  imagekitUrl     String?  // ImageKit.io CDN URL
   rawExtractedData String? // JSON string from OCR
   verifiedData    String? // JSON string after user verification
   tallyXmlContent String? // generated Tally XML
@@ -417,5 +421,6 @@ model RecoBatch {
   unmatchedCount Int   @default(0)
   totalCredit Float    @default(0)
   totalDebit  Float    @default(0)
+  imagekitUrl String?  // ImageKit.io CDN URL
   notes       String?
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { uploadToImageKit } from '@/lib/imagekit';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
         status: true,
         fileName: true,
         mimeType: true,
+        imagekitUrl: true,
         isPostedToTally: true,
         duplicateOf: true,
         errorMessage: true,
@@ -48,12 +50,16 @@ export async function POST(req: NextRequest) {
     const base64Data = buffer.toString('base64');
     const dataUri = `data:${file.type || 'application/octet-stream'};base64,${base64Data}`;
 
+    // Upload to ImageKit.io
+    const ikRes = await uploadToImageKit(buffer, file.name, '/purchase-bills');
+
     const bill = await prisma.purchaseBill.create({
       data: {
         status: 'PENDING',
         filePath: dataUri,
         fileName: file.name,
         mimeType: file.type,
+        imagekitUrl: ikRes?.url || null,
       }
     });
 

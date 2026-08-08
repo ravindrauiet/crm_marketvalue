@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { saveBufferToUploads } from '@/lib/fileStorage';
 import { extractProductsWithAI } from '@/lib/ai';
 import { extractFromExcel } from '@/lib/excel-extractor';
+import { uploadToImageKit } from '@/lib/imagekit';
 import { unlinkSync } from 'fs';
 
 // POST /api/po/upload
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const { filepath } = await saveBufferToUploads(file.name, buffer);
+
+    // Upload to ImageKit.io
+    const ikRes = await uploadToImageKit(buffer, file.name, '/po-documents');
 
     const base64Data = buffer.toString('base64');
     const dataUri = `data:${mimeType};base64,${base64Data}`;
@@ -192,6 +196,7 @@ export async function POST(req: NextRequest) {
       detectedChain: activeChain,
       fileName: file.name,
       filePath: dataUri,
+      imagekitUrl: ikRes?.url || null,
       rawDocumentInfo: extractedInfo.rawDocumentInfo,
       items: finalItems,
     });

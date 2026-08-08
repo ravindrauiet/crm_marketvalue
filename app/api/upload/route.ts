@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { saveBufferToUploads } from '@/lib/fileStorage';
 import { processFileWithAI } from '@/lib/documentProcessor';
+import { uploadToImageKit } from '@/lib/imagekit';
 
 export const runtime = 'nodejs';
 
@@ -33,18 +34,23 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(arrayBuf);
     const { filepath, storedName } = await saveBufferToUploads(f.name, buffer);
 
+    // Upload to ImageKit.io
+    const ikRes = await uploadToImageKit(buffer, f.name, '/crm-documents');
+
     const file = await prisma.file.create({
       data: {
         filename: f.name,
         mimetype: f.type || 'application/octet-stream',
         sizeBytes: buffer.byteLength,
         path: filepath,
+        imagekitUrl: ikRes?.url || null,
+        imagekitFileId: ikRes?.fileId || null,
         recordId: record.id,
         extractionStatus: 'PENDING'
       }
     });
 
-    console.log(`  📄 [FILE CREATED] File ID: ${file.id} | Name: "${f.name}" | Size: ${(buffer.byteLength / 1024).toFixed(2)} KB | Path: ${filepath}`);
+    console.log(`  📄 [FILE CREATED] File ID: ${file.id} | Name: "${f.name}" | ImageKit: ${file.imagekitUrl || 'N/A'}`);
     fileIds.push(file.id);
   }
 

@@ -13,6 +13,7 @@ export async function listRecords() {
       id: f.id,
       filename: f.filename,
       mimetype: f.mimetype,
+      imagekitUrl: f.imagekitUrl,
       extractionStatus: f.extractionStatus,
       rawDocumentInfo: f.rawDocumentInfo,
       extractedData: f.extractedData
@@ -31,6 +32,7 @@ export async function getRecord(id: string) {
       id: f.id,
       filename: f.filename,
       mimetype: f.mimetype,
+      imagekitUrl: f.imagekitUrl,
       extractionStatus: f.extractionStatus,
       rawDocumentInfo: f.rawDocumentInfo,  // ALL document information
       extractedData: f.extractedData,       // Structured product data

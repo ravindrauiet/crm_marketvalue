@@ -7,7 +7,7 @@ export default function UploadForm({
   onSuccess
 }: {
   preselectedVendor?: string;
-  onSuccess?: () => void;
+  onSuccess?: (createdId?: string) => void;
 }) {
   const router = useRouter();
   const [files, setFiles] = useState<FileList | null>(null);
@@ -57,6 +57,7 @@ export default function UploadForm({
             appointmentDate: extractData.appointmentDate || null,
             filePath: extractData.filePath || null,
             fileName: file.name,
+            imagekitUrl: extractData.imagekitUrl || null,
             rawDocumentInfo: extractData.rawDocumentInfo || null,
             items: (extractData.items || []).map((i: any) => ({
               chainItemCode: i.chainItemCode || '',
@@ -89,16 +90,19 @@ export default function UploadForm({
             throw new Error(createErr.error || `Failed to save PO ${poPayload.poNumber}`);
           }
 
+          const createdPoData = await createRes.json();
           createdCount++;
+
+          if (onSuccess) {
+            onSuccess(createdPoData?.id);
+          }
         }
 
         setSuccessMsg(`✅ Successfully processed and created ${createdCount} Purchase Order(s) for ${activeVendor}!`);
         setFiles(null);
         setLoading(false);
 
-        if (onSuccess) {
-          onSuccess();
-        } else {
+        if (!onSuccess) {
           router.refresh();
           router.push('/po');
         }
