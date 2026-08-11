@@ -669,3 +669,303 @@ CRITICAL EXTRACTION RULES:
   }
 }
 
+// Types for Payment Reconciliation Extraction
+export type ExtractedRecoRecord = {
+  txnDate?: string;
+  docNo?: string;
+  refDocNo?: string;
+  poNumber?: string;
+  invoiceNumber?: string;
+  narration?: string;
+  debitAmount?: number;
+  creditAmount?: number;
+  balance?: number;
+  bankRef?: string;
+  chequeNo?: string;
+  tdsAmount?: number;
+  netAmount?: number;
+  deductionReason?: string;
+};
+
+export type ExtractedRecoSummary = {
+  chainName?: string;
+  paymentRefNo?: string;
+  paymentDate?: string;
+  payeeName?: string;
+  remitterName?: string;
+  totalAmount?: number;
+  currency?: string;
+  rawTextPreview?: string;
+};
+
+export type RecoExtractionResult = {
+  summary: ExtractedRecoSummary;
+  records: ExtractedRecoRecord[];
+};
+
+/**
+ * Get Retail Chain / Bank specific extraction prompt instructions for Reconciliation Payment Advices
+ */
+function getRecoVendorSpecificInstructions(text: string, vendorParam: string = ''): string {
+  const upperText = (vendorParam + ' ' + text).toUpperCase();
+
+  let chainName = 'OTHER';
+  if (upperText.includes('RELIANCE')) chainName = 'RELIANCE';
+  else if (upperText.includes('AMAZON')) chainName = 'AMAZON';
+  else if (upperText.includes('BLINK COMMERCE') || upperText.includes('BLINKIT')) chainName = 'BLINKIT';
+  else if (upperText.includes('ZEPTO')) chainName = 'ZEPTO';
+  else if (upperText.includes('HSBC')) chainName = 'HSBC';
+  else if (upperText.includes('SWIGGY') || upperText.includes('SCOOTSY')) chainName = 'SWIGGY';
+  else if (upperText.includes('FLIPKART')) chainName = 'FLIPKART';
+  else if (upperText.includes('BIGBASKET') || upperText.includes('INNOVATIVE RETAIL')) chainName = 'BIGBASKET';
+  else if (upperText.includes('DMART') || upperText.includes('AVENUE SUPERMARTS')) chainName = 'DMART';
+
+  const chainRules: Record<string, string> = {
+    RELIANCE: `
+RELIANCE RETAIL PAYMENT ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: Look for "Reliance Retail Limited", "Doc.number" (e.g., "4200240402/2026"), "Date", "Firm GLOMIN OVERSEAS".
+2. Set "chainName": "RELIANCE", "paymentRefNo": Doc.number (e.g. "4200240402/2026").
+3. Details Table Columns:
+   - "Inv./Ref. Doc.No." (e.g. "GO/2627/2604") -> Set as "refDocNo" AND "invoiceNumber".
+   - "Doc. No." (e.g. "12543306", "4370518540") -> Set as "docNo".
+   - "Doc. Date" -> Set as "txnDate".
+   - "Inv./Ref Doc. Amt." (e.g. 14665.00) -> Set as "creditAmount".
+   - "Payment Amount" (e.g. 14,651.03) -> Set as "netAmount".
+   - "(TDS Amount 13.97- )" or "GST TAX HOLD" -> Extract TDS into "tdsAmount", and hold/deduction into "debitAmount" or "deductionReason". Negative values like "698.21-" are deduction hold amounts.`,
+
+    AMAZON: `
+AMAZON EFT REMITTANCE ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: "EFT Remittance Advice", "Amazon Retail India Private Limited", "Payment number" (e.g. "366196323"), "Payment date", "Payment amount".
+2. Set "chainName": "AMAZON", "paymentRefNo": Payment number (e.g. "366196323").
+3. Table Columns:
+   - "Invoice Number" (e.g. "GO/2627/801SCR", "GO/2627/802SCR") -> Set as "refDocNo" AND "invoiceNumber".
+   - "Invoice Date" (e.g. "2026-05-12") -> Set as "txnDate".
+   - "Amount Paid" (e.g. 6892.92, 20240) -> Set as "netAmount" AND "creditAmount".
+   - "Invoice Description" -> Set as "narration".`,
+
+    BLINKIT: `
+BLINKIT PAYMENT ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: "Payment advice from Blinkit", "Dear SPAR TRADING COMPANY", "UTR Details" (e.g. "HDFCR52026081094356513").
+2. Set "chainName": "BLINKIT", "paymentRefNo": UTR number.
+3. Invoice Break-up Table:
+   - "Invoice Reference" (e.g. "SPAR/2627/360") -> Set as "refDocNo" AND "invoiceNumber".
+   - "Invoice Date" (e.g. "Jul 21, 2026") -> Set as "txnDate".
+   - "Total Amount" (e.g. 84257.49) -> Set as "creditAmount".
+   - "TDS Deducted" (e.g. 83.7) -> Set as "tdsAmount".
+   - "Net Payable" (e.g. 84173.79) -> Set as "netAmount".
+4. Credit Note / Debit Note Adjusted Table:
+   - "CN/DN Reference" (e.g. "D53839DN26070304") -> Set as "refDocNo".
+   - "CN/DN Description" (e.g. "Discrepancy Note") -> Set as "narration".
+   - "CN/DN Amount" (e.g. 4771.22) -> Set as "debitAmount", netAmount = -4771.22.
+5. Adjustment Details Table:
+   - "Invoice Reference", "Amount", "Adjustment Type" (e.g. "Variance") -> Extract as deduction/adjustment line item.`,
+
+    ZEPTO: `
+ZEPTO LIMITED PAYMENT ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: "ZEPTO LIMITED Payment Advice", "Payment Ref No." (e.g. "20260811-R11L1"), "Payment Doc" (e.g. "2000078524").
+2. Set "chainName": "ZEPTO", "paymentRefNo": Payment Ref No.
+3. Details Table:
+   - "Type of Document" (e.g. "Credit Memo", "Invoice Payment") -> Set as "narration".
+   - "Doc No" (e.g. "1700104153", "1900550538") -> Set as "docNo".
+   - "Ref Doc" (e.g. "GO/2627/2172_QD", "GO/2627/2156") -> Set as "refDocNo" AND "invoiceNumber".
+   - "Amount" (e.g. -8749.65, 259037.66) -> Set as "creditAmount".
+   - "TDS" (e.g. 8.33, 246.69) -> Set as "tdsAmount".
+   - "Payment Amt." (e.g. -8741.32, 258790.97) -> Set as "netAmount".`,
+
+    HSBC: `
+HSBC PAYMENT ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: "HSBC Payment Advice", "Advice reference no", "Customer reference", "Remittance amount", "Remitter to beneficiary information".
+2. Set "chainName": "HSBC", "paymentRefNo": Advice reference no or Instruction reference.
+3. Details Table:
+   - "Document Number" (e.g. "GO/2627/2172_QD", "GO/2627/2156") -> Set as "refDocNo" AND "invoiceNumber".
+   - "Amount" -> Set as "creditAmount".
+   - "Date" -> Set as "txnDate".
+   - "TDS/Deduction Amount" -> Set as "tdsAmount".
+   - "Net Amount" -> Set as "netAmount".
+   - "Narration/Inv No" (CREDIT NOTE / INVOICE) -> Set as "narration".`,
+
+    SWIGGY: `
+SWIGGY / INSTAMART SETTLEMENT SPECIAL INSTRUCTIONS:
+1. Header Info: "Swiggy Payment Advice", "Order ID", "Instamart".
+2. Set "chainName": "SWIGGY".
+3. Extract Order ID, Invoice Number, TCS/TDS, Net Payable Amount.`,
+
+    FLIPKART: `
+FLIPKART SETTLEMENT SPECIAL INSTRUCTIONS:
+1. Header Info: "Flipkart Settlement / Payment Advice", "NEFT/UTR Ref".
+2. Set "chainName": "FLIPKART".
+3. Extract Invoice ID, Order ID, Sale Amount, Commission/Fee Deductions, TDS, Net Settlement Amount.`,
+
+    DMART: `
+DMART PAYMENT ADVICE SPECIAL INSTRUCTIONS:
+1. Header Info: "Avenue Supermarts", "DMart Payment Advice".
+2. Set "chainName": "DMART".
+3. Extract Bill No / Invoice No, Bill Date, Gross Bill Amount, Deduction Amount, Net Paid Amount.`,
+
+    BIGBASKET: `
+BIGBASKET SETTLEMENT SPECIAL INSTRUCTIONS:
+1. Header Info: "Innovative Retail Concepts", "BigBasket Settlement Advice".
+2. Set "chainName": "BIGBASKET".
+3. Extract Invoice Number, Invoice Date, Total Invoice Value, Deductions, Net Payment Amount.`,
+
+    OTHER: `
+GENERIC FINANCIAL STATEMENT SPECIAL INSTRUCTIONS:
+1. Auto-detect retail chain or bank from document text.
+2. Extract all settlement / invoice line items, dates, reference document / invoice numbers, PO numbers, gross amounts, TDS/deductions, and net payment amounts.`
+  };
+
+  return chainRules[chainName] || chainRules.OTHER;
+}
+
+/**
+ * Extract Payment Advice / Remittance Advice / Bank Statement records using AI
+ */
+export async function extractRecoWithAI(
+  filePath: string,
+  mimetype: string,
+  statementType: string = 'bank',
+  chainNameParam: string = 'OTHER'
+): Promise<RecoExtractionResult> {
+  console.log(`🤖 [AI RECO EXTRACT] Starting AI extraction for file: "${filePath}" | Type: ${statementType} | Chain Hint: ${chainNameParam}`);
+
+  try {
+    const text = await extractTextFromFile(filePath, mimetype);
+
+    if (!text || text.trim().length === 0) {
+      console.warn(`⚠️ [AI RECO EXTRACT] Extracted file text is empty for ${filePath}`);
+      return {
+        summary: { chainName: chainNameParam !== 'OTHER' ? chainNameParam : 'OTHER', totalAmount: 0 },
+        records: [],
+      };
+    }
+
+    const truncatedText = text.length > 20000 ? text.substring(0, 20000) + '...\n[Truncated]' : text;
+    const chainInstructions = getRecoVendorSpecificInstructions(text, chainNameParam + ' ' + statementType);
+
+    const prompt = `You are an expert financial AI assistant specialized in parsing payment advice documents, remittance advices, vendor ledgers, and bank statements from various retail chains (such as Reliance Retail, Amazon, Blinkit, Zepto, Swiggy, Flipkart, HSBC, DMart, BigBasket, etc.).
+
+Analyze the document text below and extract:
+1. Document-level summary ("summary")
+2. All settlement / payment advice / statement line items ("records")
+
+${chainInstructions}
+
+CRITICAL EXTRACTION RULES:
+1. Detect Retail Chain / Remitter ("chainName"): RELIANCE, AMAZON, BLINKIT, ZEPTO, HSBC, SWIGGY, FLIPKART, BIGBASKET, DMART, or OTHER.
+2. Payment Reference / UTR / Advice Ref ("paymentRefNo"): e.g. "4200240402/2026", "366196323", "HDFCR52026081094356513", "HSBCN52026081175956016", "20260811-R11L1".
+3. Payee / Beneficiary Name ("payeeName"): e.g. "GLOMIN OVERSEAS", "SPAR TRADING COMPANY".
+4. Remitter / Paying Company ("remitterName"): e.g. "Reliance Retail Limited", "Amazon Retail", "Blink Commerce", "Zepto Limited", "HSBC".
+5. Extract EVERY settlement row from tables.
+   - txnDate: Date of transaction/invoice/doc (Format YYYY-MM-DD)
+   - docNo: Internal doc number / Sr No
+   - refDocNo: Invoice / Reference doc number (e.g. "GO/2627/2604", "SPAR/2627/360", "GO/2627/801SCR", "GO/2627/2156")
+   - poNumber: PO Number if present
+   - invoiceNumber: Invoice Number if present
+   - narration: Description / type of doc (e.g. "Invoice Payment", "Credit Memo", "TDS Amount", "GST TAX HOLD", "Variance", "Discrepancy Note")
+   - creditAmount: Gross / Base invoice amount or deposit amount
+   - debitAmount: Deduction / Debit / Discount amount if any
+   - tdsAmount: TDS tax deducted amount
+   - netAmount: Net settlement/payment amount (positive for payments, negative for credit notes/holds)
+   - deductionReason: Deduction reason if any
+
+Return ONLY valid JSON matching this schema:
+{
+  "summary": {
+    "chainName": "RELIANCE | AMAZON | BLINKIT | ZEPTO | HSBC | SWIGGY | FLIPKART | BIGBASKET | DMART | OTHER",
+    "paymentRefNo": "string",
+    "paymentDate": "string",
+    "payeeName": "string",
+    "remitterName": "string",
+    "totalAmount": number,
+    "currency": "INR"
+  },
+  "records": [
+    {
+      "txnDate": "string",
+      "docNo": "string",
+      "refDocNo": "string",
+      "poNumber": "string",
+      "invoiceNumber": "string",
+      "narration": "string",
+      "debitAmount": number,
+      "creditAmount": number,
+      "balance": number,
+      "bankRef": "string",
+      "chequeNo": "string",
+      "tdsAmount": number,
+      "netAmount": number,
+      "deductionReason": "string"
+    }
+  ]
+}
+
+Document Text:
+${truncatedText}`;
+
+    const modelToUse = process.env.OPENAI_MODEL === 'gpt-4o-mini' || !process.env.OPENAI_MODEL
+      ? 'gpt-4o-mini'
+      : (process.env.USE_SLOW_MODEL ? process.env.OPENAI_MODEL : 'gpt-4o-mini');
+
+    const completion = await openai.chat.completions.create({
+      model: modelToUse,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a high-precision accounting AI specialized in extracting tabular remittance advice data and payment reconciliation details. Always return strict valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 4000,
+      response_format: { type: 'json_object' }
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '{}';
+    const result = JSON.parse(responseText) as RecoExtractionResult;
+
+    const summary = result.summary || {};
+    const records = Array.isArray(result.records) ? result.records : [];
+
+    console.log(`✅ [AI RECO EXTRACT SUCCESS] Chain: "${summary.chainName}" | Ref: "${summary.paymentRefNo}" | Records Extracted: ${records.length}`);
+
+    return {
+      summary: {
+        chainName: summary.chainName || 'OTHER',
+        paymentRefNo: summary.paymentRefNo || '',
+        paymentDate: summary.paymentDate || '',
+        payeeName: summary.payeeName || '',
+        remitterName: summary.remitterName || '',
+        totalAmount: typeof summary.totalAmount === 'number' ? summary.totalAmount : parseFloat(String(summary.totalAmount || '0')) || 0,
+        currency: summary.currency || 'INR',
+        rawTextPreview: text.substring(0, 300),
+      },
+      records: records.map(r => ({
+        txnDate: r.txnDate || '',
+        docNo: r.docNo || '',
+        refDocNo: r.refDocNo || r.invoiceNumber || '',
+        poNumber: r.poNumber || '',
+        invoiceNumber: r.invoiceNumber || r.refDocNo || '',
+        narration: r.narration || '',
+        debitAmount: typeof r.debitAmount === 'number' ? r.debitAmount : parseFloat(String(r.debitAmount || '0')) || 0,
+        creditAmount: typeof r.creditAmount === 'number' ? r.creditAmount : parseFloat(String(r.creditAmount || '0')) || 0,
+        balance: typeof r.balance === 'number' ? r.balance : parseFloat(String(r.balance || '0')) || 0,
+        bankRef: r.bankRef || '',
+        chequeNo: r.chequeNo || '',
+        tdsAmount: typeof r.tdsAmount === 'number' ? r.tdsAmount : parseFloat(String(r.tdsAmount || '0')) || 0,
+        netAmount: typeof r.netAmount === 'number' ? r.netAmount : parseFloat(String(r.netAmount || '0')) || 0,
+        deductionReason: r.deductionReason || '',
+      })),
+    };
+  } catch (err: any) {
+    console.error(`❌ [AI RECO EXTRACT ERROR]`, err.message || err);
+    return {
+      summary: { chainName: 'OTHER', totalAmount: 0 },
+      records: [],
+    };
+  }
+}
+
+
