@@ -445,18 +445,18 @@ export async function extractProductsWithAI(
   vendor: string = 'default'
 ): Promise<ExtractionResult> {
   try {
-    // Extract text content from file
-    const documentText = await extractTextFromFile(filePath, mimetype);
+    let documentText = '';
+    try {
+      documentText = await extractTextFromFile(filePath, mimetype);
+    } catch {}
 
-    if (!documentText || documentText.trim().length === 0) {
-      throw new Error('No text content found in document');
-    }
+    const isLowText = !documentText || documentText.trim().length < 30;
 
     // Truncate if too long (OpenAI has token limits)
     const maxLength = 50000; // Approximate character limit
 
     // Clean up split EAN barcodes in PDF text (e.g. "EAN: \n 890600105 \n 3453" -> "EAN: 8906001053453")
-    const cleanedText = documentText
+    const cleanedText = (documentText || '')
       .replace(/EAN:\s*(\d{7,10})\s*[\r\n]+\s*(\d{3,6})/gi, 'EAN: $1$2')
       .replace(/(\b890\d{5,8})\s*[\r\n]+\s*(\d{3,6}\b)/g, '$1$2');
 
@@ -464,14 +464,14 @@ export async function extractProductsWithAI(
     const eanMap: Record<string, string> = {};
     const eanRegex = /(B[0-9A-Z]{9}|[A-Z0-9]{6,15})\s*EAN:\s*(\d{7,10})\s*(\d{3,6})/gi;
     let eMatch;
-    while ((eMatch = eanRegex.exec(documentText)) !== null) {
+    while ((eMatch = eanRegex.exec(documentText || '')) !== null) {
       const code = eMatch[1].toUpperCase().trim();
       const ean = eMatch[2] + eMatch[3];
       eanMap[code] = ean;
     }
     // Also match single-line EANs (e.g. EAN: 8906001053453)
     const singleEanRegex = /(B[0-9A-Z]{9}|[A-Z0-9]{6,15})\s*EAN:\s*(\d{13})/gi;
-    while ((eMatch = singleEanRegex.exec(documentText)) !== null) {
+    while ((eMatch = singleEanRegex.exec(documentText || '')) !== null) {
       const code = eMatch[1].toUpperCase().trim();
       eanMap[code] = eMatch[2];
     }
@@ -824,27 +824,29 @@ export async function extractRecoWithAI(
   filePath: string,
   mimetype: string,
   statementType: string = 'bank',
-  chainNameParam: string = 'OTHER'
+  chainNameParam: string = 'OTHER',
+  imagekitUrl?: string | null
 ): Promise<RecoExtractionResult> {
   console.log(`🤖 [AI RECO EXTRACT] Starting AI extraction for file: "${filePath}" | Type: ${statementType} | Chain Hint: ${chainNameParam}`);
 
   try {
-    const text = await extractTextFromFile(filePath, mimetype);
+    let text = '';
+    try {
+      text = await extractTextFromFile(filePath, mimetype);
+    } catch {}
 
-    if (!text || text.trim().length === 0) {
-      console.warn(`⚠️ [AI RECO EXTRACT] Extracted file text is empty for ${filePath}`);
-      return {
-        summary: { chainName: chainNameParam !== 'OTHER' ? chainNameParam : 'OTHER', totalAmount: 0 },
-        records: [],
-      };
+    const isLowText = !text || text.trim().length < 30;
+
+    if (isLowText) {
+      console.warn(`📷 [AI RECO EXTRACT] PDF/Image text length is low (${text?.length || 0} chars). Using Vision OCR mode...`);
     }
 
-    const truncatedText = text.length > 20000 ? text.substring(0, 20000) + '...\n[Truncated]' : text;
-    const chainInstructions = getRecoVendorSpecificInstructions(text, chainNameParam + ' ' + statementType);
+    const truncatedText = text && text.length > 20000 ? text.substring(0, 20000) + '...\n[Truncated]' : (text || '');
+    const chainInstructions = getRecoVendorSpecificInstructions(truncatedText, chainNameParam + ' ' + statementType);
 
-    const prompt = `You are an expert financial AI assistant specialized in parsing payment advice documents, remittance advices, vendor ledgers, and bank statements from various retail chains (such as Reliance Retail, Amazon, Blinkit, Zepto, Swiggy, Flipkart, HSBC, DMart, BigBasket, etc.).
+    const promptText = `You are an expert financial AI assistant specialized in parsing payment advice documents, remittance advices, vendor ledgers, and bank statements from various retail chains (such as Reliance Retail, Amazon, Blinkit, Zepto, Swiggy, Flipkart, HSBC, DMart, BigBasket, etc.).
 
-Analyze the document text below and extract:
+Analyze the document text/image below and extract:
 1. Document-level summary ("summary")
 2. All settlement / payment advice / statement line items ("records")
 
@@ -897,14 +899,13 @@ Return ONLY valid JSON matching this schema:
       "deductionReason": "string"
     }
   ]
-}
-
-Document Text:
-${truncatedText}`;
+}`;
 
     const modelToUse = process.env.OPENAI_MODEL === 'gpt-4o-mini' || !process.env.OPENAI_MODEL
       ? 'gpt-4o-mini'
       : (process.env.USE_SLOW_MODEL ? process.env.OPENAI_MODEL : 'gpt-4o-mini');
+
+    let userContent: any = promptText + '\n\nDocument Text:\n' + truncatedText;
 
     const completion = await openai.chat.completions.create({
       model: modelToUse,
@@ -915,7 +916,7 @@ ${truncatedText}`;
         },
         {
           role: 'user',
-          content: prompt
+          content: userContent
         }
       ],
       temperature: 0.1,

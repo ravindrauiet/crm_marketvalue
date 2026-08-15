@@ -36,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}>CRM Marketplace</a>
             <nav className="row" style={{ gap: 6 }}>
               <a className="btn secondary" href="/po" style={{ fontSize: 13, padding: '7px 12px' }}>📦 POs</a>
+              <a className="btn secondary" href="/po/reconciliation-report" style={{ fontSize: 13, padding: '7px 12px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>📊 Fill Rate Report</a>
               <a className="btn secondary" href="/shortfall" style={{ fontSize: 13, padding: '7px 12px' }}>⚡ Shortfall</a>
               <a className="btn secondary" href="/purchase-bills" style={{ fontSize: 13, padding: '7px 12px' }}>🧾 Bills OCR</a>
               <a className="btn secondary" href="/reconciliation" style={{ fontSize: 13, padding: '7px 12px' }}>💰 Reco</a>

@@ -67,10 +67,13 @@ export async function POST(req: NextRequest) {
     let normalizedRows: any[] = [];
     let aiSummary: any = { chainName: chainNameHint !== 'OTHER' ? chainNameHint : 'OTHER', totalAmount: 0 };
 
+    const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls') || mimeTypeLower.includes('excel') || mimeTypeLower.includes('spreadsheet');
+    const isCsv = fileNameLower.endsWith('.csv') || mimeTypeLower.includes('csv');
+
     // 1. Try AI Extraction for PDF, DOC, Images, and complex Payment Advices
     try {
       console.log(`🤖 [RECO UPLOAD API] Running AI Extraction for Reconciliation Statement...`);
-      const aiResult = await extractRecoWithAI(filepath, mimeTypeLower, statementType, chainNameHint);
+      const aiResult = await extractRecoWithAI(filepath, mimeTypeLower, statementType, chainNameHint, ikRes?.url);
       if (aiResult && aiResult.records && aiResult.records.length > 0) {
         aiSummary = aiResult.summary || {};
         console.log(`✅ [RECO UPLOAD API] AI Extracted ${aiResult.records.length} records. Chain: "${aiSummary.chainName}"`);
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
         for (const line of lines) {
+          if (/%%EOF|startxref|xref|trailer|endobj|\/Root|\/Info|\/Title|\/Producer|00000\d{5}/i.test(line)) continue;
           const dateMatch = line.match(/([0-9]{1,4}[\/\.-][0-9]{1,2}[\/\.-][0-9]{1,4}|[0-9]{1,2}[\/-][A-Za-z]{3}[\/-][0-9]{2,4})/);
           const numbers = line.match(/([0-9,]+\.[0-9]{2})/g) || [];
 
@@ -127,8 +131,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Fallback: Check if Excel / CSV table
-    if (normalizedRows.length === 0) {
+    // 3. Fallback: Check if Excel / CSV table (ONLY for actual Excel / CSV files)
+    if (normalizedRows.length === 0 && (isExcel || isCsv)) {
       try {
         console.log(`📊 [RECO UPLOAD API] Fallback Excel/CSV parsing...`);
         const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });

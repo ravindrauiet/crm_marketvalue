@@ -200,6 +200,9 @@ export default function POPage() {
               ⚡ Shortfall ({selectedIds.size})
             </Link>
           )}
+          <Link href="/po/reconciliation-report" className="btn" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
+            📊 Fill Rate & Reco Report
+          </Link>
           <Link href="/po/new" className="btn" style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', whiteSpace: 'nowrap' }}>
             + New PO
           </Link>
