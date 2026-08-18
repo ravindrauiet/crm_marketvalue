@@ -17,7 +17,10 @@ export default async function HomePage() {
             <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#0969da,#8b5cf6)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
               FMCG Distributor System
             </div>
-            <h1 style={{ marginTop: 0, marginBottom: 10, fontSize: '32px' }}>BhavishCRM</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 0, marginBottom: 10 }}>
+              <img src="/image.webp" alt="Glomin Overseas Logo" style={{ height: '42px', width: '42px', objectFit: 'contain', borderRadius: '8px' }} />
+              <h1 style={{ margin: 0, fontSize: '32px' }}>Glomin Overseas</h1>
+            </div>
             <p className="muted" style={{ marginTop: 0, marginBottom: 20, fontSize: '15px', lineHeight: '1.7' }}>
               Automate your FMCG distribution operations — from chain PO tracking to shortfall calculation, OCR bill import, payment reconciliation, and Tally sync.
             </p>

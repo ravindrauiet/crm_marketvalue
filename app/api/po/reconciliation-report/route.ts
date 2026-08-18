@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
       if (po.notes && po.notes.includes('Location:')) {
         return po.notes.split('Location:')[1].split('|')[0].trim();
       }
-      return po.chainName === 'RELIANCE' ? 'DADRI (SAAH)' : (po.chainName === 'SWIGGY' ? 'DLHY GGNFC5' : (po.chainName === 'ZEPTO' ? 'FBD-DRY-MH' : 'MAIN DC'));
+      return po.chainName === 'RELIANCE' ? 'DADRI (SAAH)' : (po.chainName === 'SWIGGY' ? 'DLHY GGNFC5' : (po.chainName === 'ZEPTO' ? 'FBD-DRY-MH' : (po.chainName === 'CITYMALL' ? 'Gurugram' : (po.chainName === 'DEERIKA' ? 'Sohna, Gurgaon' : 'MAIN DC'))));
     };
 
     // Build Reconciled PO List
@@ -230,6 +230,34 @@ export async function GET(req: NextRequest) {
       const fillRateValuePct = poValue > 0 ? Math.min(100, parseFloat(((billedValue / poValue) * 100).toFixed(2))) : 0;
       const fillRateQtyPct = poQty > 0 ? Math.min(100, parseFloat(((deliveredQty / poQty) * 100).toFixed(2))) : 0;
 
+      // Build Payment Installments History & Multi-Payment Accumulation
+      const paymentInstallments = matchingRecos.map((r, idx) => {
+        const pAmt = r.creditAmount > 0 ? r.creditAmount : (r.matchedAmount || r.debitAmount || 0);
+        return {
+          installmentNo: idx + 1,
+          paymentDate: r.txnDate ? r.txnDate.toISOString().split('T')[0] : (po.poDate ? po.poDate.toISOString().split('T')[0] : ''),
+          bankRef: r.bankRef || r.chequeNo || 'EFT Remittance',
+          narration: r.narration || `Payment Installment #${idx + 1}`,
+          amountPaid: pAmt,
+          tdsAmount: r.deductionAmount || 0,
+          matchedInvoiceNo: r.matchedInvoiceNo || invoiceNoStr,
+          batchId: r.batchId,
+        };
+      });
+
+      const totalPaymentsReceived = paymentInstallments.length > 0
+        ? paymentInstallments.reduce((s, p) => s + p.amountPaid, 0)
+        : (isDeliveredStatus ? billedValue : 0);
+
+      const netPendingBalance = Math.max(0, poValue - totalPaymentsReceived);
+
+      let setOffStatus: 'FULLY_SET_OFF' | 'PARTIAL_PAID' | 'UNPAID' = 'UNPAID';
+      if (totalPaymentsReceived >= poValue * 0.98 || (poValue > 0 && netPendingBalance < 1)) {
+        setOffStatus = 'FULLY_SET_OFF';
+      } else if (totalPaymentsReceived > 0) {
+        setOffStatus = 'PARTIAL_PAID';
+      }
+
       // Auto-Generate Remarks
       let remarks = 'Full Delivered';
       const shortItems = itemDetails.filter(i => i.shortageQtyPcs > 0 || i.deliveredQtyPcs === 0);
@@ -254,6 +282,11 @@ export async function GET(req: NextRequest) {
         location: dcLocation,
         poValueInRs: poValue,
         deliveryValueInRs: billedValue,
+        totalPaymentsReceived,
+        netPendingBalance,
+        setOffStatus,
+        paymentInstallments,
+        installmentCount: paymentInstallments.length,
         poQtyPcs: poQty,
         deliveredQtyPcs: deliveredQty,
         invoiceNo: invoiceNoStr,

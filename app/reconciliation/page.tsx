@@ -58,6 +58,8 @@ const CHAIN_COLORS: Record<string, string> = {
   SWIGGY: '#FC8019',
   BIGBASKET: '#84C225',
   DMART: '#E91B23',
+  CITYMALL: '#E11D48',
+  DEERIKA: '#CA8A04',
   OTHER: '#64748b',
 };
 

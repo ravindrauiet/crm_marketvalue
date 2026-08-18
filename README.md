@@ -1,4 +1,4 @@
-# BhavishCRM - AI-Powered Document Processing & Stock Management
+# Glomin Overseas - AI-Powered Document Processing & Stock Management
 
 A lightweight CRM/ERP system with AI-powered document extraction for managing records, products, and stock inventory.
 

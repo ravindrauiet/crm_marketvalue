@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'VISHAL', 'OTHER'];
+const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
 
 const CHAIN_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   FLIPKART: { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
@@ -13,6 +13,8 @@ const CHAIN_COLORS: Record<string, { bg: string; text: string; border: string }>
   SWIGGY: { bg: '#fff7ed', text: '#ea580c', border: '#ffedd5' },
   BIGBASKET: { bg: '#f7fee7', text: '#4d7c0f', border: '#d9f99d' },
   DMART: { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
+  CITYMALL: { bg: '#fff1f2', text: '#e11d48', border: '#fecdd3' },
+  DEERIKA: { bg: '#fefce8', text: '#ca8a04', border: '#fef08a' },
   VISHAL: { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' },
   OTHER: { bg: '#f8fafc', text: '#475569', border: '#e2e8f0' },
 };

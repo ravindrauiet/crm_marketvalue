@@ -110,6 +110,8 @@ export async function POST(req: NextRequest) {
     else if (fullDocText.includes('BIGBASKET') || fullDocText.includes('INNOVATIVE RETAIL')) activeChain = 'BIGBASKET';
     else if (fullDocText.includes('AVENUE SUPERMARTS') || fullDocText.includes('DMART')) activeChain = 'DMART';
     else if (fullDocText.includes('AIRPLAZA') || fullDocText.includes('VISHAL MEGA MART')) activeChain = 'VISHAL';
+    else if (fullDocText.includes('CITYMALL') || fullDocText.includes('CMUNITY')) activeChain = 'CITYMALL';
+    else if (fullDocText.includes('DEERIKA') || fullDocText.includes('DJT RETAILERS') || fullDocText.includes('DJTR/')) activeChain = 'DEERIKA';
 
     console.log(`ℹ️ [PO UPLOAD API] Input Chain: "${chainName}" | Auto-Detected Chain: "${activeChain}"`);
 

@@ -2,8 +2,11 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'BhavishCRM – FMCG Distributor System',
-  description: 'FMCG distributor operations: PO management, shortfall automation, OCR bill import, payment reconciliation'
+  title: 'Glomin Overseas – FMCG Distributor System',
+  description: 'FMCG distributor operations: PO management, shortfall automation, OCR bill import, payment reconciliation',
+  icons: {
+    icon: '/image.webp',
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -29,11 +32,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               fontWeight: 700,
               letterSpacing: '-0.02em',
               fontSize: '20px',
-              background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>CRM Marketplace</a>
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              textDecoration: 'none'
+            }}>
+              <img src="/image.webp" alt="Glomin Overseas Logo" style={{ height: '32px', width: '32px', objectFit: 'contain', borderRadius: '6px' }} />
+              <span style={{
+                background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text'
+              }}>Glomin Overseas</span>
+            </a>
             <nav className="row" style={{ gap: 6 }}>
               <a className="btn secondary" href="/po" style={{ fontSize: 13, padding: '7px 12px' }}>📦 POs</a>
               <a className="btn secondary" href="/po/reconciliation-report" style={{ fontSize: 13, padding: '7px 12px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>📊 Fill Rate Report</a>
@@ -64,8 +75,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Brand Section */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '18px', color: '#fff', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  BhavishCRM <span style={{ fontSize: '10px', padding: '2px 6px', background: '#374151', borderRadius: '4px', color: '#9ca3af' }}>v1.0</span>
+                <div style={{ fontWeight: 700, fontSize: '18px', color: '#fff', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img src="/image.webp" alt="Glomin Overseas Logo" style={{ height: '28px', width: '28px', objectFit: 'contain', borderRadius: '6px' }} />
+                  <span>Glomin Overseas</span>
+                  <span style={{ fontSize: '10px', padding: '2px 6px', background: '#374151', borderRadius: '4px', color: '#9ca3af' }}>v1.0</span>
                 </div>
                 <p style={{ marginTop: 8, color: '#9ca3af', lineHeight: 1.6, maxWidth: '240px' }}>
                   Enterprise-grade management for orders, intelligent billing, and automated inventory tracking.
@@ -117,7 +130,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             color: '#6b7280',
             fontSize: '13px'
           }}>
-            <div>© {new Date().getFullYear()} BhavishCRM Suite. All rights reserved.</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <img src="/image.webp" alt="Glomin Overseas Logo" style={{ height: '18px', width: '18px', objectFit: 'contain', opacity: 0.8 }} />
+              <span>© {new Date().getFullYear()} Glomin Overseas Suite. All rights reserved.</span>
+            </div>
             <div style={{ display: 'flex', gap: 24 }}>
               <span>Privacy Policy</span>
               <span>Terms of Service</span>

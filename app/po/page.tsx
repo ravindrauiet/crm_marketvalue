@@ -17,8 +17,8 @@ type PO = {
   items: POItem[];
 };
 
-const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'EASTERN', 'RELIANCE', 'VISHAL', 'OTHER'];
-const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', EASTERN: '#E41E26', RELIANCE: '#005CB9', VISHAL: '#0055A5', OTHER: '#64748b' };
+const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'EASTERN', 'RELIANCE', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
+const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', EASTERN: '#E41E26', RELIANCE: '#005CB9', CITYMALL: '#E11D48', DEERIKA: '#CA8A04', VISHAL: '#0055A5', OTHER: '#64748b' };
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   ACTIVE: { label: '🟢 Active', color: '#16a34a', bg: '#dcfce7' },
   PLANNED: { label: '🔵 Planned', color: '#2563eb', bg: '#dbeafe' },
@@ -36,6 +36,8 @@ const suppliers = [
   { id: 'bigbasket', name: 'BigBasket', color: '#689F38' },
   { id: 'eastern', name: 'Eastern', color: '#E41E26' },
   { id: 'reliance', name: 'Reliance Retail', color: '#005CB9' },
+  { id: 'citymall', name: 'CityMall (Cmunity)', color: '#E11D48' },
+  { id: 'deerika', name: 'Deerika (DJT Retailers)', color: '#CA8A04' },
   { id: 'vishal', name: 'Vishal Mega Mart', color: '#0055A5' },
 ];
 
@@ -531,7 +533,7 @@ export default function POPage() {
                                   <div><strong>6. Vendor Address:</strong> {info.vendorAddress || 'N/A'}</div>
                                   <div><strong>7. Vendor Contact:</strong> {info.vendorContact || 'N/A'}</div>
                                   <div><strong>8. Vendor GSTIN:</strong> {info.vendorGST || 'N/A'}</div>
-                                  <div><strong>9. Buyer Name:</strong> {info.buyerName || 'Bhavish CRM'}</div>
+                                  <div><strong>9. Buyer Name:</strong> {info.buyerName || 'Glomin Overseas'}</div>
                                   <div><strong>10. Buyer Address:</strong> {info.buyerAddress || 'N/A'}</div>
                                   <div><strong>11. Buyer GSTIN:</strong> {info.buyerGST || 'N/A'}</div>
                                   <div><strong>12. Shipping Address:</strong> {info.shippingAddress || 'N/A'}</div>

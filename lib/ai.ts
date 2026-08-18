@@ -430,6 +430,53 @@ Flipkart PO documents come in PDF and Excel/Spreadsheet format with clean tabula
 - quantity: Order Quantity (PCS)
 - price: Supplier Price per unit (without tax/GST additions if separated)`,
 
+    citymall: `${baseInstructions}
+
+CITYMALL-SPECIFIC INSTRUCTIONS (CityMall / Cmunity Innovations Private Limited):
+CityMall PO documents come in PDF and Excel format with header "CITYMALL" or "CMUNITY INNOVATIONS PRIVATE LIMITED".
+
+## 1. HEADER FIELDS (for rawDocumentInfo):
+- PO Number: Look for "Purchase Order PO-XXXXXXX" or "PO-" (e.g. "PO-1429635" or "1429635") -> poNumber
+- PO Date: "Purchase Order Date" (e.g. "25-07-2026") -> poDate
+- PO Expiry Date: "Purchase Order Expiry Date" (e.g. "04-08-2026") -> deliveryDate
+- Expected Delivery Date: "Purchase Order Expected Delivery Date" (e.g. "01-08-2026")
+- Buyer Entity: "CMUNITY INNOVATIONS PRIVATE LIMITED" (CityMall) -> buyerName
+- Vendor Name: "GLOMIN OVERSEAS" -> vendorName
+- Delivery Address: Begampur Khatola, Gurugram, Haryana 122001 -> shippingAddress
+
+## 2. TABLE COLUMNS & PRODUCT MAPPING:
+- Article Id (e.g. "CM03397745", "CM03397746") -> MUST be set as 'sku' (CityMall Article Id)
+- Article Name (e.g. "Khushi's Pasta Magic 50 g") -> MUST be set as 'name'
+- HSN Code (e.g. "7129020", "9042219") -> 'hsnCode'
+- MRP (₹) (e.g. 79.00, 109.00) -> 'mrp'
+- Base Cost Price (₹) (e.g. 30.10, 55.36) -> MUST be set as 'price'
+- Quantity (e.g. 128, 150) -> 'quantity'
+- Total Amount (₹) (e.g. 4045.44, 8719.20) -> 'totalPrice'`,
+
+    deerika: `${baseInstructions}
+
+DEERIKA-SPECIFIC INSTRUCTIONS (Deerika / DJT Retailers Private Limited):
+Deerika PO documents come in PDF and Excel format with header "DEERIKA" or "DJT RETAILERS PRIVATE LIMITED".
+
+## 1. HEADER FIELDS (for rawDocumentInfo):
+- PO Number: Look for "Purchase Order Number DJTR/XXXXXXXX" or "DJTR/" or "PO Number" (e.g. "DJTR/26105592" or "26105592") -> poNumber
+- PO Date: "Purchase Order Date" (e.g. "11-Jun-2026") -> poDate
+- PO Expiry Date: "PO Expiry Date" (e.g. "21-June-2026") -> deliveryDate
+- Buyer Entity: "DJT RETAILERS PRIVATE LIMITED" (Deerika) -> buyerName
+- Vendor Name: "GLOMIN OVERSEAS" -> vendorName
+- Shipping Address: Emporiun Industrial Parks, Sohna, Gurgaon, 122102 -> shippingAddress
+
+## 2. TABLE COLUMNS & PRODUCT MAPPING:
+- Item Code / Product Description / Barcode column contains Code, Name, and Barcode (e.g. "102793 / Khushi'S Garlic Magic 50G /890802173017")
+  - Item Code (e.g. "102793", "102801") -> MUST be set as 'sku' (Deerika Item Code)
+  - Product Description (e.g. "Khushi'S Garlic Magic 50G") -> MUST be set as 'name'
+  - EAN / Barcode (e.g. "890802173017") -> MUST be set as 'ean'
+- HSN / SAC Code (e.g. "0712.90.20", "0910.91.00") -> 'hsnCode'
+- Quantity (e.g. 768.00, 512.00) -> 'quantity'
+- Unit Price [INR] (e.g. 30.10, 55.36) -> MUST be set as 'price'
+- MRP [INR] (e.g. 79, 109, 199) -> 'mrp'
+- Gross Total [INR] or Total [INR] (e.g. 24272.64, 16181.76) -> 'totalPrice'`,
+
     default: baseInstructions
   };
 

@@ -20,6 +20,17 @@ type ItemDetail = {
   itemRemark: string;
 };
 
+type PaymentInstallment = {
+  installmentNo: number;
+  paymentDate: string;
+  bankRef: string;
+  narration: string;
+  amountPaid: number;
+  tdsAmount: number;
+  matchedInvoiceNo: string;
+  batchId: string;
+};
+
 type ReportRow = {
   id: string;
   accountName: string;
@@ -35,6 +46,11 @@ type ReportRow = {
   location: string;
   poValueInRs: number;
   deliveryValueInRs: number;
+  totalPaymentsReceived: number;
+  netPendingBalance: number;
+  setOffStatus: 'FULLY_SET_OFF' | 'PARTIAL_PAID' | 'UNPAID';
+  paymentInstallments: PaymentInstallment[];
+  installmentCount: number;
   poQtyPcs: number;
   deliveredQtyPcs: number;
   invoiceNo: string;
@@ -59,7 +75,7 @@ type ReportSummary = {
   overallQtyFillRatePct: number;
 };
 
-const CHAINS = ['ALL', 'RELIANCE', 'SWIGGY', 'ZEPTO', 'BIGBASKET', 'BLINKIT', 'FLIPKART', 'DMART', 'VISHAL', 'OTHER'];
+const CHAINS = ['ALL', 'RELIANCE', 'SWIGGY', 'ZEPTO', 'BIGBASKET', 'BLINKIT', 'FLIPKART', 'DMART', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
 const BRANDS = ['ALL', 'HEALTHY HUNGER', 'MARVEL', 'EASTERN', "MOTHER'S RECIPE", 'DILBAHAR', 'GENERAL'];
 const STATUSES = ['ALL', 'Y - PO Delivered', 'PO Closed', 'Open / Pending', 'Partially Billed'];
 
@@ -83,8 +99,9 @@ export default function POFillRateReportPage() {
   const [search, setSearch] = useState('');
 
   // UI View States
-  const [activeTab, setActiveTab] = useState<'summary' | 'item_detail'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'item_detail' | 'installments'>('summary');
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<'items' | 'payments'>('items');
 
   // Available Filter Options from Server
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
@@ -137,8 +154,12 @@ export default function POFillRateReportPage() {
       'PO Exp Month': r.poExpMonth,
       'PO Status': r.poStatus,
       'Location': r.location,
-      'PO Value (Rs.)': r.poValueInRs,
-      'Delivery / Invoice Value (Rs.)': r.deliveryValueInRs,
+      'PO Due Value (Rs.)': r.poValueInRs,
+      'Billed Value (Rs.)': r.deliveryValueInRs,
+      'Payments Received (Rs.)': r.totalPaymentsReceived,
+      'Net Pending Balance (Rs.)': r.netPendingBalance,
+      'Set-Off Status': r.setOffStatus === 'FULLY_SET_OFF' ? 'FULLY SET OFF' : (r.setOffStatus === 'PARTIAL_PAID' ? 'PARTIALLY PAID' : 'UNPAID'),
+      'Installments Count': r.installmentCount,
       'PO Qty (Pcs)': r.poQtyPcs,
       'Delivered Qty (Pcs)': r.deliveredQtyPcs,
       'Invoice No': r.invoiceNo,
@@ -172,7 +193,39 @@ export default function POFillRateReportPage() {
       });
     });
 
-    // Sheet 3: KPI Executive Summary
+    // Sheet 3: Multi-Installment Payment Remittances History
+    const paymentInstallmentSheetData: any[] = [];
+    rows.forEach(r => {
+      if (r.paymentInstallments && r.paymentInstallments.length > 0) {
+        r.paymentInstallments.forEach(inst => {
+          paymentInstallmentSheetData.push({
+            'PO Number': r.poNumber,
+            'Account / Chain': r.accountName,
+            'Installment #': inst.installmentNo,
+            'Payment Arrival Date': inst.paymentDate,
+            'Bank Ref / UTR': inst.bankRef,
+            'Matched Invoice No': inst.matchedInvoiceNo,
+            'Amount Paid (Rs.)': inst.amountPaid,
+            'TDS / Deduction (Rs.)': inst.tdsAmount,
+            'Narration / Description': inst.narration,
+          });
+        });
+      } else {
+        paymentInstallmentSheetData.push({
+          'PO Number': r.poNumber,
+          'Account / Chain': r.accountName,
+          'Installment #': '—',
+          'Payment Arrival Date': '—',
+          'Bank Ref / UTR': 'No payment received yet',
+          'Matched Invoice No': r.invoiceNo,
+          'Amount Paid (Rs.)': 0,
+          'TDS / Deduction (Rs.)': 0,
+          'Narration / Description': 'Pending Payment',
+        });
+      }
+    });
+
+    // Sheet 4: KPI Executive Summary
     const kpiSummaryData = summary ? [
       { Metric: 'Total POs Count', Value: summary.totalPOs },
       { Metric: 'Delivered POs Count', Value: summary.deliveredPOs },
@@ -189,10 +242,12 @@ export default function POFillRateReportPage() {
     const wb = XLSX.utils.book_new();
     const wsPOs = XLSX.utils.json_to_sheet(poSummarySheetData);
     const wsItems = XLSX.utils.json_to_sheet(itemDetailSheetData);
+    const wsPayments = XLSX.utils.json_to_sheet(paymentInstallmentSheetData);
     const wsKPI = XLSX.utils.json_to_sheet(kpiSummaryData);
 
     XLSX.utils.book_append_sheet(wb, wsPOs, 'PO Summary Report');
     XLSX.utils.book_append_sheet(wb, wsItems, 'Item Level Breakdown');
+    XLSX.utils.book_append_sheet(wb, wsPayments, 'Payment Installments');
     XLSX.utils.book_append_sheet(wb, wsKPI, 'Fill Rate Summary');
 
     const filename = `PO_Fill_Rate_Reconciliation_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
@@ -222,6 +277,26 @@ export default function POFillRateReportPage() {
     return list;
   }, [rows]);
 
+  // Flattened payments for Payment Installments Tab
+  const allPaymentInstallments = useMemo(() => {
+    const list: any[] = [];
+    rows.forEach(r => {
+      if (r.paymentInstallments && r.paymentInstallments.length > 0) {
+        r.paymentInstallments.forEach(inst => {
+          list.push({
+            ...inst,
+            poNumber: r.poNumber,
+            accountName: r.accountName,
+            poValue: r.poValueInRs,
+            netPendingBalance: r.netPendingBalance,
+            setOffStatus: r.setOffStatus
+          });
+        });
+      }
+    });
+    return list;
+  }, [rows]);
+
   return (
     <div className="container" style={{ paddingTop: 32, paddingBottom: 64 }}>
       {/* Printable Style Header */}
@@ -243,10 +318,10 @@ export default function POFillRateReportPage() {
             <Link href="/po" style={{ color: 'var(--primary)', textDecoration: 'none' }}>📦 PO Management</Link> › Fill Rate & Reco Report
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
-            📊 PO Fill Rate & Billing Reconciliation Report
+            📊 PO Fill Rate & Multi-Payment Reconciliation Report
           </h1>
           <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: 14 }}>
-            Reconcile Chain POs against GLOMIN Actual Billed Sales Invoices • Brand & Chain Tabs • Item-Level Shortage Remarks
+            Reconcile Chain POs against GLOMIN Billed Invoices • Track 3-4 Multi-Installment Bank Remittances & Set-Off Status
           </p>
         </div>
 
@@ -494,6 +569,21 @@ export default function POFillRateReportPage() {
         >
           🔍 Item Level Detail Breakdown ({allItemRows.length} items)
         </button>
+        <button
+          onClick={() => setActiveTab('installments')}
+          style={{
+            padding: '10px 20px',
+            fontSize: 14,
+            fontWeight: activeTab === 'installments' ? 700 : 500,
+            color: activeTab === 'installments' ? '#2563eb' : '#64748b',
+            borderBottom: activeTab === 'installments' ? '3px solid #2563eb' : 'none',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          💳 Payment Installments & Remittances ({allPaymentInstallments.length})
+        </button>
       </div>
 
       {loading ? (
@@ -510,7 +600,7 @@ export default function POFillRateReportPage() {
         </div>
       ) : activeTab === 'summary' ? (
 
-        /* TAB 1: PO LEVEL SUMMARY REPORT TABLE (Matching Client Example 1 & 2) */
+        /* TAB 1: PO LEVEL SUMMARY REPORT TABLE (Matching Client Example 1 & 2 + Multi-Payment Set-Off) */
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
@@ -523,9 +613,9 @@ export default function POFillRateReportPage() {
                 <th style={{ padding: '10px 12px' }}>Exp Month</th>
                 <th style={{ padding: '10px 12px' }}>PO Status</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO Value (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Billed Value (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO Qty</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Delivered</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Payments Recd (₹)</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Pending Bal (₹)</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Set-Off Status</th>
                 <th style={{ padding: '10px 12px' }}>Invoice No</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }}>Fill Rate %</th>
                 <th style={{ padding: '10px 12px' }}>REMARKS</th>
@@ -537,6 +627,8 @@ export default function POFillRateReportPage() {
                 const isExpanded = expandedPoId === r.id;
                 const isDelivered = r.poStatus.includes('Delivered');
                 const isClosed = r.poStatus.includes('Closed');
+                const isSetOff = r.setOffStatus === 'FULLY_SET_OFF';
+                const isPartialPaid = r.setOffStatus === 'PARTIAL_PAID';
 
                 return (
                   <>
@@ -592,15 +684,28 @@ export default function POFillRateReportPage() {
                       </td>
 
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
-                        ₹{r.deliveryValueInRs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        ₹{r.totalPaymentsReceived.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        {r.installmentCount > 1 && (
+                          <div style={{ fontSize: 10, color: '#2563eb', fontWeight: 500 }}>({r.installmentCount} payments)</div>
+                        )}
                       </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        {r.poQtyPcs}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: r.netPendingBalance > 0 ? '#b91c1c' : '#64748b' }}>
+                        ₹{r.netPendingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
-                        {r.deliveredQtyPcs}
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: 12,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          background: isSetOff ? '#dcfce7' : (isPartialPaid ? '#fef3c7' : '#fee2e2'),
+                          color: isSetOff ? '#15803d' : (isPartialPaid ? '#b45309' : '#b91c1c'),
+                          border: isSetOff ? '1px solid #bbf7d0' : (isPartialPaid ? '1px solid #fde68a' : '1px solid #fecaca')
+                        }}>
+                          {isSetOff ? '✅ Set-Off (100%)' : (isPartialPaid ? `🟡 Partial (${r.installmentCount} Paid)` : '🔴 Unpaid')}
+                        </span>
                       </td>
 
                       <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11, color: '#0f172a' }}>
@@ -637,54 +742,131 @@ export default function POFillRateReportPage() {
                             cursor: 'pointer'
                           }}
                         >
-                          {isExpanded ? '▲ Hide' : '▼ Items'}
+                          {isExpanded ? '▲ Hide' : '▼ Expand'}
                         </button>
                       </td>
                     </tr>
 
-                    {/* EXPANDABLE ITEM LEVEL BREAKDOWN SUB-ROW */}
+                    {/* EXPANDABLE SUB-ROW: LINE ITEMS & PAYMENT INSTALLMENTS HISTORY */}
                     {isExpanded && (
                       <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                        <td colSpan={15} style={{ padding: '12px 16px' }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 8 }}>
-                            📦 Line Item Breakdown for PO #{r.poNumber} ({r.accountName} - {r.brand})
+                        <td colSpan={15} style={{ padding: '16px 20px' }}>
+                          
+                          {/* Sub-Tabs Selector */}
+                          <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid #cbd5e1', marginBottom: 12 }}>
+                            <button
+                              onClick={() => setSubTab('items')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                fontWeight: subTab === 'items' ? 700 : 500,
+                                color: subTab === 'items' ? '#2563eb' : '#64748b',
+                                borderBottom: subTab === 'items' ? '2px solid #2563eb' : 'none',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📦 Line Items ({r.itemDetails.length})
+                            </button>
+                            <button
+                              onClick={() => setSubTab('payments')}
+                              style={{
+                                padding: '6px 14px',
+                                fontSize: 12,
+                                fontWeight: subTab === 'payments' ? 700 : 500,
+                                color: subTab === 'payments' ? '#2563eb' : '#64748b',
+                                borderBottom: subTab === 'payments' ? '2px solid #2563eb' : 'none',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              💳 Payment Remittance & Installments ({r.paymentInstallments.length})
+                            </button>
                           </div>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, background: '#fff', border: '1px solid #cbd5e1' }}>
-                            <thead>
-                              <tr style={{ background: '#e2e8f0', color: '#334155' }}>
-                                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Item Code</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Chain Item Description</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Tally Item Name</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Brand</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'right' }}>PO Qty</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'right' }}>Billed Qty</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'right' }}>Shortage</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'right' }}>Unit Rate</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'center' }}>Item Fill Rate %</th>
-                                <th style={{ padding: '6px 10px', textAlign: 'left' }}>Item Remark / Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {r.itemDetails.map(item => (
-                                <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                  <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 600 }}>{item.chainItemCode}</td>
-                                  <td style={{ padding: '6px 10px' }}>{item.chainItemName}</td>
-                                  <td style={{ padding: '6px 10px', color: '#2563eb' }}>{item.tallyItemName || '—'}</td>
-                                  <td style={{ padding: '6px 10px', fontWeight: 600 }}>{item.brandName}</td>
-                                  <td style={{ padding: '6px 10px', textAlign: 'right' }}>{item.poQtyPcs}</td>
-                                  <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{item.deliveredQtyPcs}</td>
-                                  <td style={{ padding: '6px 10px', textAlign: 'right', color: item.shortageQtyPcs > 0 ? '#b91c1c' : '#475569' }}>{item.shortageQtyPcs}</td>
-                                  <td style={{ padding: '6px 10px', textAlign: 'right' }}>₹{item.unitPrice}</td>
-                                  <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: item.itemFillRatePct >= 90 ? '#16a34a' : '#d97706' }}>
-                                    {item.itemFillRatePct}%
-                                  </td>
-                                  <td style={{ padding: '6px 10px', color: item.itemRemark.includes('Short') || item.itemRemark.includes('NOT BILLED') ? '#b91c1c' : '#16a34a' }}>
-                                    {item.itemRemark}
-                                  </td>
+
+                          {/* Sub-Tab 1: Line Items Breakdown */}
+                          {subTab === 'items' ? (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, background: '#fff', border: '1px solid #cbd5e1' }}>
+                              <thead>
+                                <tr style={{ background: '#e2e8f0', color: '#334155' }}>
+                                  <th style={{ padding: '6px 10px', textAlign: 'left' }}>Item Code</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'left' }}>Chain Item Description</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'left' }}>Tally Item Name</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'left' }}>Brand</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'right' }}>PO Qty</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'right' }}>Billed Qty</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'right' }}>Shortage</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'right' }}>Unit Rate</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'center' }}>Item Fill Rate %</th>
+                                  <th style={{ padding: '6px 10px', textAlign: 'left' }}>Item Remark / Status</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                              </thead>
+                              <tbody>
+                                {r.itemDetails.map(item => (
+                                  <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: 600 }}>{item.chainItemCode}</td>
+                                    <td style={{ padding: '6px 10px' }}>{item.chainItemName}</td>
+                                    <td style={{ padding: '6px 10px', color: '#2563eb' }}>{item.tallyItemName || '—'}</td>
+                                    <td style={{ padding: '6px 10px', fontWeight: 600 }}>{item.brandName}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{item.poQtyPcs}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{item.deliveredQtyPcs}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right', color: item.shortageQtyPcs > 0 ? '#b91c1c' : '#475569' }}>{item.shortageQtyPcs}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>₹{item.unitPrice}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: item.itemFillRatePct >= 90 ? '#16a34a' : '#d97706' }}>
+                                      {item.itemFillRatePct}%
+                                    </td>
+                                    <td style={{ padding: '6px 10px', color: item.itemRemark.includes('Short') || item.itemRemark.includes('NOT BILLED') ? '#b91c1c' : '#16a34a' }}>
+                                      {item.itemRemark}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+
+                            /* Sub-Tab 2: Multi-Installment Payment History */
+                            <div>
+                              {r.paymentInstallments.length === 0 ? (
+                                <div style={{ padding: 16, background: '#fff', borderRadius: 6, border: '1px solid #e2e8f0', color: '#64748b' }}>
+                                  ℹ️ No remittance payments recorded yet for PO #{r.poNumber}.
+                                </div>
+                              ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, background: '#fff', border: '1px solid #cbd5e1' }}>
+                                  <thead>
+                                    <tr style={{ background: '#e2e8f0', color: '#334155' }}>
+                                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Installment #</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Payment Arrival Date</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Bank Ref / UTR</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Invoice Number</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Payment Received (₹)</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>TDS / Deduction (₹)</th>
+                                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>Narration / Description</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {r.paymentInstallments.map(inst => (
+                                      <tr key={inst.installmentNo} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>#{inst.installmentNo}</td>
+                                        <td style={{ padding: '6px 10px', fontWeight: 600 }}>{inst.paymentDate}</td>
+                                        <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#2563eb' }}>{inst.bankRef}</td>
+                                        <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{inst.matchedInvoiceNo}</td>
+                                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                                          ₹{inst.amountPaid.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td style={{ padding: '6px 10px', textAlign: 'right', color: '#dc2626' }}>
+                                          ₹{inst.tdsAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td style={{ padding: '6px 10px', color: '#475569' }}>{inst.narration}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          )}
+
                         </td>
                       </tr>
                     )}
@@ -695,7 +877,7 @@ export default function POFillRateReportPage() {
           </table>
         </div>
 
-      ) : (
+      ) : activeTab === 'item_detail' ? (
 
         /* TAB 2: ITEM LEVEL DETAIL BREAKDOWN VIEW */
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -735,6 +917,63 @@ export default function POFillRateReportPage() {
                   <td style={{ padding: '10px 12px', color: item.itemRemark.includes('Short') || item.itemRemark.includes('NOT BILLED') ? '#b91c1c' : '#16a34a', fontSize: 11 }}>
                     {item.itemRemark}
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+      ) : (
+
+        /* TAB 3: PAYMENT INSTALLMENTS & REMITTANCE LEDGER VIEW */
+        <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                <th style={{ padding: '10px 12px' }}>PO Number</th>
+                <th style={{ padding: '10px 12px' }}>Account</th>
+                <th style={{ padding: '10px 12px' }}>Installment #</th>
+                <th style={{ padding: '10px 12px' }}>Payment Arrival Date</th>
+                <th style={{ padding: '10px 12px' }}>Bank Ref / UTR</th>
+                <th style={{ padding: '10px 12px' }}>Invoice Number</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Amount Paid (₹)</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>TDS / Deduction (₹)</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Net Balance Pending (₹)</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Set-Off Status</th>
+                <th style={{ padding: '10px 12px' }}>Narration</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allPaymentInstallments.map((inst, idx) => (
+                <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 700 }}>{inst.poNumber}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{inst.accountName}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 700 }}>#{inst.installmentNo}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600 }}>{inst.paymentDate}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: '#2563eb' }}>{inst.bankRef}</td>
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{inst.matchedInvoiceNo}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                    ₹{inst.amountPaid.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>
+                    ₹{inst.tdsAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
+                    ₹{inst.netPendingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: inst.setOffStatus === 'FULLY_SET_OFF' ? '#dcfce7' : '#fef3c7',
+                      color: inst.setOffStatus === 'FULLY_SET_OFF' ? '#15803d' : '#b45309'
+                    }}>
+                      {inst.setOffStatus === 'FULLY_SET_OFF' ? '✅ Set-Off' : '🟡 Partial'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: '#475569', fontSize: 11 }}>{inst.narration}</td>
                 </tr>
               ))}
             </tbody>

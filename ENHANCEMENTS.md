@@ -249,7 +249,7 @@ Every stock movement is recorded in `StockTransaction`:
 
 **Version**: 2.0.0  
 **Last Updated**: 2024  
-**Author**: BhavishCRM Development Team
+**Author**: Glomin Overseas Development Team
 
 
 
