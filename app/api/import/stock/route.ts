@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
     const kwScore = (str: string) => {
       const s = str.toLowerCase();
       let score = 0;
-      if (/sku|code|asin|fsn|ean|article|material|barcode|item\s*code|product\s*code/i.test(s)) score += 3;
-      if (/desc|title|name|item|product|material\s*desc/i.test(s)) score += 3;
-      if (/qty|quantity|closing|stock|units|pcs|available/i.test(s)) score += 3;
+      if (/sku|code|asin|fsn|ean|article|material|barcode|partnumber|part\s*number|item\s*code|product\s*code/i.test(s)) score += 3;
+      if (/particulars|desc|title|name|item|product|material\s*desc/i.test(s)) score += 3;
+      if (/qty|quantity|closing|stock|units|pcs|pc's|available/i.test(s)) score += 3;
       if (/brand/i.test(s)) score += 2;
       if (/group|category|catg|grp/i.test(s)) score += 2;
       return score;
@@ -64,13 +64,20 @@ export async function POST(req: NextRequest) {
       headerRowIdx = rawData.findIndex(r => r && Array.isArray(r) && r.length > 1) || 0;
     }
 
-    const headerRow = rawData[headerRowIdx] || [];
-    headerRow.forEach((cell: any, idx: number) => {
-      if (cell !== null && cell !== undefined) {
-        const key = String(cell).trim().toLowerCase();
-        if (key) colMap[key] = idx;
+    // Check multi-row headers (headerRowIdx and up to 2 preceding rows)
+    for (let rIdx = Math.max(0, headerRowIdx - 2); rIdx <= headerRowIdx; rIdx++) {
+      const row = rawData[rIdx];
+      if (row && Array.isArray(row)) {
+        row.forEach((cell: any, idx: number) => {
+          if (cell !== null && cell !== undefined) {
+            const key = String(cell).trim().toLowerCase();
+            if (key && colMap[key] === undefined) {
+              colMap[key] = idx;
+            }
+          }
+        });
       }
-    });
+    }
 
     const getIdx = (...terms: string[]) => {
       for (const term of terms) {
@@ -84,11 +91,34 @@ export async function POST(req: NextRequest) {
       return -1;
     };
 
-    const skuIdx = getIdx('sku / code', 'sku', 'code', 'barcode', 'ean', 'item code', 'product code', 'material');
-    const nameIdx = getIdx('product name', 'item description', 'description', 'title', 'name', 'item');
+    let skuIdx = getIdx('sku / code', 'sku', 'partnumber', 'part number', 'code', 'barcode', 'ean', 'item code', 'product code', 'material');
+    let nameIdx = getIdx('particulars', 'product name', 'item description', 'description', 'title', 'name', 'item');
     const brandIdx = getIdx('brand');
     const groupIdx = getIdx('group', 'category', 'catg');
-    const qtyIdx = getIdx('closing quantity (pcs)', 'quantity (pcs)', 'stock quantity', 'closing stock', 'quantity', 'qty', 'pcs', 'stock', 'available');
+    const qtyIdx = getIdx('closing quantity (pcs)', 'quantity (pcs)', 'stock quantity', 'closing stock', 'quantity', 'qty', 'pcs', "pc's", 'stock', 'available');
+
+    // Fallback: analyze sample data rows to find the true item description column
+    let detectedTextCol = -1;
+    for (let r = headerRowIdx + 1; r < Math.min(rawData.length, headerRowIdx + 10); r++) {
+      const row = rawData[r];
+      if (!row || !Array.isArray(row)) continue;
+
+      for (let c = 0; c < row.length; c++) {
+        const cellVal = String(row[c] || '').trim();
+        if (cellVal.length > 5 && !/^\d+$/.test(cellVal) && !cellVal.includes('/PCS') && !cellVal.includes('/KG') && !cellVal.toLowerCase().includes('grand total')) {
+          detectedTextCol = c;
+          break;
+        }
+      }
+      if (detectedTextCol !== -1) break;
+    }
+
+    if (detectedTextCol !== -1) {
+      nameIdx = detectedTextCol;
+    }
+
+    // Fetch active ItemMappings for mapping & enrichment
+    const allMappings = await prisma.itemMapping.findMany({ where: { isActive: true } });
 
     let upserted = 0;
 
@@ -96,24 +126,73 @@ export async function POST(req: NextRequest) {
       const row = rawData[r];
       if (!row || !Array.isArray(row) || row.length === 0) continue;
 
-      const rawSku = skuIdx >= 0 ? cleanVal(row[skuIdx]) : '';
-      const rawName = nameIdx >= 0 ? cleanVal(row[nameIdx]) : '';
-      const rawBrand = brandIdx >= 0 ? cleanVal(row[brandIdx]) : '';
-      const rawGroup = groupIdx >= 0 ? cleanVal(row[groupIdx]) : '';
-      const rawQty = qtyIdx >= 0 ? cleanVal(row[qtyIdx]) : '0';
+      const firstCell = String(row[0] || '').trim().toLowerCase();
+      const secondCell = String(row[1] || '').trim().toLowerCase();
+      if (firstCell.includes('grand total') || secondCell.includes('grand total') || firstCell === 'total' || secondCell === 'total') {
+        continue;
+      }
 
-      const sku = rawSku || rawName;
-      const name = rawName || rawSku;
+      const rawSku = skuIdx >= 0 && row[skuIdx] !== undefined ? cleanVal(row[skuIdx]) : '';
+      const rawName = nameIdx >= 0 && row[nameIdx] !== undefined ? cleanVal(row[nameIdx]) : '';
+      const rawBrand = brandIdx >= 0 && row[brandIdx] !== undefined ? cleanVal(row[brandIdx]) : '';
+      const rawGroup = groupIdx >= 0 && row[groupIdx] !== undefined ? cleanVal(row[groupIdx]) : '';
+      const rawQty = qtyIdx >= 0 && row[qtyIdx] !== undefined ? cleanVal(row[qtyIdx]) : '0';
+
+      let name = rawName;
+      let sku = rawSku;
+
+      if (!name || /^\d+$/.test(name)) {
+        name = rawSku;
+      }
+      if (!sku || sku === name || /^\d+$/.test(sku)) {
+        sku = name;
+      }
+
       if (!sku && !name) continue;
+      if (name.includes('/PCS') || name.includes('/KG') || name.toLowerCase() === 'particulars') continue;
 
-      const quantity = parseFloat(rawQty.replace(/[^0-9.]/g, '')) || 0;
-      const brand = rawBrand || null;
-      const group = rawGroup || null;
+      const quantity = Math.round(parseFloat(rawQty.replace(/[^0-9.-]/g, '')) || 0);
+
+      // Try item mapping matching
+      const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      // 1. Exact / high confidence match
+      let mapping = allMappings.find(m => {
+        const mName = (m.tallyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const mChainName = (m.chainItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const mCompName = (m.companyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const mCompCode = (m.companyItemCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+        if (mName && mName.length > 3 && cleanName === mName) return true;
+        if (mChainName && mChainName.length > 3 && cleanName === mChainName) return true;
+        if (mCompName && mCompName.length > 3 && cleanName === mCompName) return true;
+        if (mCompCode && mCompCode.length > 3 && cleanName === mCompCode) return true;
+        return false;
+      });
+
+      // 2. Partial match if exact match not found
+      if (!mapping) {
+        mapping = allMappings.find(m => {
+          const mName = (m.tallyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const mChainName = (m.chainItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const mCompName = (m.companyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          if (mName && mName.length > 5 && (cleanName.includes(mName) || mName.includes(cleanName))) return true;
+          if (mChainName && mChainName.length > 5 && (cleanName.includes(mChainName) || mChainName.includes(cleanName))) return true;
+          if (mCompName && mCompName.length > 5 && (cleanName.includes(mCompName) || mCompName.includes(cleanName))) return true;
+          return false;
+        });
+      }
+
+      const finalSku = mapping?.tallyItemSku || mapping?.companyItemCode || sku;
+      const finalName = mapping?.tallyItemName || mapping?.companyItemName || name;
+      const finalBrand = mapping?.brandName || rawBrand || (finalName.toLowerCase().includes('eastern') ? 'Eastern' : null);
+      const finalGroup = rawGroup || null;
 
       const product = await prisma.product.upsert({
-        where: { sku: sku.toUpperCase() },
-        update: { name, ...(brand ? { brand } : {}), ...(group ? { group } : {}) },
-        create: { sku: sku.toUpperCase(), name, brand, group }
+        where: { sku: finalSku.toUpperCase() },
+        update: { name: finalName, ...(finalBrand ? { brand: finalBrand } : {}), ...(finalGroup ? { group: finalGroup } : {}) },
+        create: { sku: finalSku.toUpperCase(), name: finalName, brand: finalBrand, group: finalGroup }
       });
 
       const existing = await prisma.stock.findFirst({ where: { productId: product.id, location: 'TOTAL' } });
