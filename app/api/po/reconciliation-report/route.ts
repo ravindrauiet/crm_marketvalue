@@ -258,14 +258,31 @@ export async function GET(req: NextRequest) {
         setOffStatus = 'PARTIAL_PAID';
       }
 
-      // Auto-Generate Remarks
+      // Auto-Generate Remarks 1..4
       let remarks = 'Full Delivered';
+      let remarks1 = 'Full Supplied';
       const shortItems = itemDetails.filter(i => i.shortageQtyPcs > 0 || i.deliveredQtyPcs === 0);
       if (displayStatus === 'PO Closed' && deliveredQty === 0) {
         remarks = 'ITEM NOT BILLED BY DEPO';
+        remarks1 = 'ITEM NOT BILLED BY DEPO';
       } else if (shortItems.length > 0) {
         remarks = shortItems.map(i => `${i.chainItemName} ${i.shortageQtyPcs > 0 ? i.shortageQtyPcs + 'PCS Short' : '0PCS'}`).join(', ');
+        remarks1 = shortItems.map(i => `${i.chainItemName} (${i.shortageQtyPcs > 0 ? i.shortageQtyPcs + ' Pcs Short' : '0 Pcs Billed'})`).join(', ');
       }
+
+      // Remarks 2: PO PRICE NOT CORRECT
+      let remarks2 = 'Price OK';
+      const priceMismatchItems = itemDetails.filter(i => {
+        if (!i.deliveredQtyPcs || !i.billedTotalPrice) return false;
+        const billedRate = i.billedTotalPrice / i.deliveredQtyPcs;
+        return Math.abs(billedRate - i.unitPrice) > 0.01;
+      });
+      if (priceMismatchItems.length > 0) {
+        remarks2 = priceMismatchItems.map(i => `${i.chainItemName} (PO ₹${i.unitPrice} vs Billed ₹${(i.billedTotalPrice / i.deliveredQtyPcs).toFixed(2)})`).join(', ');
+      }
+
+      const remarks3 = '';
+      const remarks4 = '';
 
       return {
         id: po.id,
@@ -295,6 +312,10 @@ export async function GET(req: NextRequest) {
         fillRateQtyPct,
         fillRatePct: fillRateValuePct,
         remarks,
+        remarks1,
+        remarks2,
+        remarks3,
+        remarks4,
         itemDetails
       };
     });

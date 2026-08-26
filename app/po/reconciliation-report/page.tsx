@@ -59,6 +59,10 @@ type ReportRow = {
   fillRateQtyPct: number;
   fillRatePct: number;
   remarks: string;
+  remarks1?: string;
+  remarks2?: string;
+  remarks3?: string;
+  remarks4?: string;
   itemDetails: ItemDetail[];
 };
 
@@ -103,6 +107,19 @@ export default function POFillRateReportPage() {
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'items' | 'payments'>('items');
 
+  // Inline Editable Remarks State (Remarks 1..4)
+  const [editedRemarks, setEditedRemarks] = useState<Record<string, { remarks1?: string; remarks2?: string; remarks3?: string; remarks4?: string }>>({});
+
+  const handleRemarkChange = (poId: string, field: 'remarks1' | 'remarks2' | 'remarks3' | 'remarks4', val: string) => {
+    setEditedRemarks(prev => ({
+      ...prev,
+      [poId]: {
+        ...prev[poId],
+        [field]: val
+      }
+    }));
+  };
+
   // Available Filter Options from Server
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
 
@@ -143,31 +160,34 @@ export default function POFillRateReportPage() {
   const exportToExcel = () => {
     if (!rows || rows.length === 0) return;
 
-    // Sheet 1: PO Level Summary Report (Matching Client Example 1 & 2)
-    const poSummarySheetData = rows.map(r => ({
-      'Account / Chain': r.accountName,
-      'Brand': r.brand,
-      'PO Number': r.poNumber,
-      'FC / DC Location': r.dcLocation,
-      'PO Date': r.poDate,
-      'PO Exp Date': r.poExpDate,
-      'PO Exp Month': r.poExpMonth,
-      'PO Status': r.poStatus,
-      'Location': r.location,
-      'PO Due Value (Rs.)': r.poValueInRs,
-      'Billed Value (Rs.)': r.deliveryValueInRs,
-      'Payments Received (Rs.)': r.totalPaymentsReceived,
-      'Net Pending Balance (Rs.)': r.netPendingBalance,
-      'Set-Off Status': r.setOffStatus === 'FULLY_SET_OFF' ? 'FULLY SET OFF' : (r.setOffStatus === 'PARTIAL_PAID' ? 'PARTIALLY PAID' : 'UNPAID'),
-      'Installments Count': r.installmentCount,
-      'PO Qty (Pcs)': r.poQtyPcs,
-      'Delivered Qty (Pcs)': r.deliveredQtyPcs,
-      'Invoice No': r.invoiceNo,
-      'Invoice Date': r.invoiceDate,
-      'Value Fill Rate %': `${r.fillRateValuePct}%`,
-      'Qty Fill Rate %': `${r.fillRateQtyPct}%`,
-      'REMARKS (Shortage / Missing Items)': r.remarks,
-    }));
+    // Sheet 1: PO Level Summary Report (Matching Client Specification 1-8)
+    const poSummarySheetData = rows.map(r => {
+      const r1 = editedRemarks[r.id]?.remarks1 ?? r.remarks1 ?? r.remarks ?? '';
+      const r2 = editedRemarks[r.id]?.remarks2 ?? r.remarks2 ?? '';
+      const r3 = editedRemarks[r.id]?.remarks3 ?? r.remarks3 ?? '';
+      const r4 = editedRemarks[r.id]?.remarks4 ?? r.remarks4 ?? '';
+
+      return {
+        'Account / Chain': r.accountName,
+        'Brand': r.brand,
+        'PO Number': r.poNumber,
+        'FC / DC Location': r.dcLocation,
+        'PO Date': r.poDate,
+        'PO Exp Month': r.poExpMonth,
+        'PO Status': r.poStatus,
+        'PO Value (Rs.)': r.poValueInRs,
+        'PO Delivered Value (Rs.)': r.deliveryValueInRs,
+        'PO Quantity (Pcs)': r.poQtyPcs,
+        'PO Delivered Qty (Pcs)': r.deliveredQtyPcs,
+        'Invoice Date': r.invoiceDate,
+        'Invoice No': r.invoiceNo,
+        'Fill Rate %': `${r.fillRatePct}%`,
+        'REMARKS 1': r1,
+        'REMARKS 2': r2,
+        'REMARKS 3': r3,
+        'REMARKS 4': r4,
+      };
+    });
 
     // Sheet 2: Item Level Detail Breakdown
     const itemDetailSheetData: any[] = [];
@@ -604,7 +624,7 @@ export default function POFillRateReportPage() {
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+              <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #cbd5e1', textAlign: 'left', fontSize: 12 }}>
                 <th style={{ padding: '10px 12px' }}>Account Name</th>
                 <th style={{ padding: '10px 12px' }}>Brand</th>
                 <th style={{ padding: '10px 12px' }}>PO No</th>
@@ -613,12 +633,16 @@ export default function POFillRateReportPage() {
                 <th style={{ padding: '10px 12px' }}>Exp Month</th>
                 <th style={{ padding: '10px 12px' }}>PO Status</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO Value (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Payments Recd (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>Pending Bal (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'center' }}>Set-Off Status</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERD VALUE</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO QUANTITY</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERD QTY.</th>
+                <th style={{ padding: '10px 12px' }}>INVOICE DATE</th>
                 <th style={{ padding: '10px 12px' }}>Invoice No</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }}>Fill Rate %</th>
-                <th style={{ padding: '10px 12px' }}>REMARKS</th>
+                <th style={{ padding: '10px 12px', minWidth: 150 }}>REMARKS 1</th>
+                <th style={{ padding: '10px 12px', minWidth: 150 }}>REMARKS 2</th>
+                <th style={{ padding: '10px 12px', minWidth: 120 }}>REMARKS 3</th>
+                <th style={{ padding: '10px 12px', minWidth: 120 }}>REMARKS 4</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }} className="no-print">Detail</th>
               </tr>
             </thead>
@@ -627,8 +651,11 @@ export default function POFillRateReportPage() {
                 const isExpanded = expandedPoId === r.id;
                 const isDelivered = r.poStatus.includes('Delivered');
                 const isClosed = r.poStatus.includes('Closed');
-                const isSetOff = r.setOffStatus === 'FULLY_SET_OFF';
-                const isPartialPaid = r.setOffStatus === 'PARTIAL_PAID';
+
+                const r1 = editedRemarks[r.id]?.remarks1 ?? r.remarks1 ?? r.remarks ?? '';
+                const r2 = editedRemarks[r.id]?.remarks2 ?? r.remarks2 ?? '';
+                const r3 = editedRemarks[r.id]?.remarks3 ?? r.remarks3 ?? '';
+                const r4 = editedRemarks[r.id]?.remarks4 ?? r.remarks4 ?? '';
 
                 return (
                   <>
@@ -683,29 +710,24 @@ export default function POFillRateReportPage() {
                         ₹{r.poValueInRs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
-                        ₹{r.totalPaymentsReceived.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                        {r.installmentCount > 1 && (
-                          <div style={{ fontSize: 10, color: '#2563eb', fontWeight: 500 }}>({r.installmentCount} payments)</div>
-                        )}
+                      {/* [1] PO DELIVERED VALUE */}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a', background: '#eff6ff' }}>
+                        ₹{r.deliveryValueInRs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                       </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: r.netPendingBalance > 0 ? '#b91c1c' : '#64748b' }}>
-                        ₹{r.netPendingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      {/* [2] PO QUANTITY */}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, background: '#eff6ff' }}>
+                        {r.poQtyPcs.toLocaleString('en-IN')}
                       </td>
 
-                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: 12,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          background: isSetOff ? '#dcfce7' : (isPartialPaid ? '#fef3c7' : '#fee2e2'),
-                          color: isSetOff ? '#15803d' : (isPartialPaid ? '#b45309' : '#b91c1c'),
-                          border: isSetOff ? '1px solid #bbf7d0' : (isPartialPaid ? '1px solid #fde68a' : '1px solid #fecaca')
-                        }}>
-                          {isSetOff ? '✅ Set-Off (100%)' : (isPartialPaid ? `🟡 Partial (${r.installmentCount} Paid)` : '🔴 Unpaid')}
-                        </span>
+                      {/* [3] PO DELIVERED QTY */}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a', background: '#eff6ff' }}>
+                        {r.deliveredQtyPcs.toLocaleString('en-IN')}
+                      </td>
+
+                      {/* [4] INVOICE DATE */}
+                      <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: '#475569', background: '#eff6ff' }}>
+                        {r.invoiceDate || '—'}
                       </td>
 
                       <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 11, color: '#0f172a' }}>
@@ -726,8 +748,52 @@ export default function POFillRateReportPage() {
                         </span>
                       </td>
 
-                      <td style={{ padding: '10px 12px', color: r.remarks.includes('ITEM NOT BILLED') ? '#b91c1c' : '#475569', fontSize: 11, maxWidth: 260 }}>
-                        {r.remarks}
+                      {/* [5] REMARKS 1 (ITEM NOT SUPPLY FROM BRAND) */}
+                      <td style={{ padding: '6px 8px', background: '#fffbeb' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          value={r1}
+                          onChange={e => handleRemarkChange(r.id, 'remarks1', e.target.value)}
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          placeholder="Shortage/unsupplied..."
+                        />
+                      </td>
+
+                      {/* [6] REMARKS 2 (PO PRICE NOT CORRECT) */}
+                      <td style={{ padding: '6px 8px', background: '#fffbeb' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          value={r2}
+                          onChange={e => handleRemarkChange(r.id, 'remarks2', e.target.value)}
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          placeholder="Price mismatch..."
+                        />
+                      </td>
+
+                      {/* [7] REMARKS 3 (MANUAL FILL) */}
+                      <td style={{ padding: '6px 8px', background: '#fffbeb' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          value={r3}
+                          onChange={e => handleRemarkChange(r.id, 'remarks3', e.target.value)}
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          placeholder="Manual fill..."
+                        />
+                      </td>
+
+                      {/* [8] REMARKS 4 (MANUAL FILL) */}
+                      <td style={{ padding: '6px 8px', background: '#fffbeb' }}>
+                        <input
+                          type="text"
+                          className="input"
+                          value={r4}
+                          onChange={e => handleRemarkChange(r.id, 'remarks4', e.target.value)}
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          placeholder="Manual fill..."
+                        />
                       </td>
 
                       <td style={{ padding: '10px 12px', textAlign: 'center' }} className="no-print">
@@ -750,7 +816,7 @@ export default function POFillRateReportPage() {
                     {/* EXPANDABLE SUB-ROW: LINE ITEMS & PAYMENT INSTALLMENTS HISTORY */}
                     {isExpanded && (
                       <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                        <td colSpan={15} style={{ padding: '16px 20px' }}>
+                        <td colSpan={19} style={{ padding: '16px 20px' }}>
                           
                           {/* Sub-Tabs Selector */}
                           <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid #cbd5e1', marginBottom: 12 }}>
