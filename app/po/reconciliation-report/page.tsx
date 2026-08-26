@@ -120,8 +120,13 @@ export default function POFillRateReportPage() {
     }));
   };
 
-  // Available Filter Options from Server
+  // Available Filter Options & Daily Upload Calendar Tracker States
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  const [uploadedDatesMap, setUploadedDatesMap] = useState<Record<string, { count: number; invoicesCount: number; totalAmount: number }>>({});
+  const [calYear, setCalYear] = useState<number>(2026);
+  const [calMonth, setCalMonth] = useState<number>(6); // July (0-indexed, 6 = July)
+  const [uploadingReport, setUploadingReport] = useState<boolean>(false);
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -145,6 +150,9 @@ export default function POFillRateReportPage() {
       if (data.availableMonths && data.availableMonths.length > 0) {
         setAvailableMonths(data.availableMonths);
       }
+      if (data.uploadedDatesMap) {
+        setUploadedDatesMap(data.uploadedDatesMap);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -155,6 +163,87 @@ export default function POFillRateReportPage() {
   useEffect(() => {
     fetchReport();
   }, [selectedChain, selectedBrand, selectedStatus, selectedMonth, startDate, endDate]);
+
+  const handleDailyUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingReport(true);
+    setUploadStatus(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/po/reconciliation-report/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+      setUploadStatus({ type: 'success', message: data.message || 'Report uploaded successfully!' });
+      await fetchReport();
+    } catch (err: any) {
+      setUploadStatus({ type: 'error', message: err.message });
+    } finally {
+      setUploadingReport(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleQuickImport = async () => {
+    setUploadingReport(true);
+    setUploadStatus(null);
+    try {
+      const res = await fetch('/api/po/reconciliation-report/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quickImport: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Quick import failed');
+
+      setUploadStatus({ type: 'success', message: data.message || 'Quick import completed!' });
+      await fetchReport();
+    } catch (err: any) {
+      setUploadStatus({ type: 'error', message: err.message });
+    } finally {
+      setUploadingReport(false);
+    }
+  };
+
+  const calendarDays = useMemo(() => {
+    const totalDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay(); // 0 = Sun, 1 = Mon ...
+    const startOffset = (firstDayOfWeek + 6) % 7; // Mon start
+
+    const days: Array<{
+      dateNumber: number;
+      dateKey: string;
+      isCurrentMonth: boolean;
+      uploadedData?: { count: number; invoicesCount: number; totalAmount: number };
+    }> = [];
+
+    for (let i = 0; i < startOffset; i++) {
+      days.push({ dateNumber: 0, dateKey: `prev-${i}`, isCurrentMonth: false });
+    }
+
+    for (let d = 1; d <= totalDaysInMonth; d++) {
+      const mStr = String(calMonth + 1).padStart(2, '0');
+      const dStr = String(d).padStart(2, '0');
+      const dateKey = `${calYear}-${mStr}-${dStr}`;
+      days.push({
+        dateNumber: d,
+        dateKey,
+        isCurrentMonth: true,
+        uploadedData: uploadedDatesMap[dateKey]
+      });
+    }
+
+    return days;
+  }, [calYear, calMonth, uploadedDatesMap]);
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Export to Multi-Sheet Excel Workbook (.xlsx)
   const exportToExcel = () => {
@@ -508,6 +597,195 @@ export default function POFillRateReportPage() {
             {brand === 'ALL' ? '🌐 All Brands' : `🏷️ ${brand}`}
           </button>
         ))}
+      </div>
+
+      {/* DAILY TALLY REPORT UPLOAD & CALENDAR TRACKER CARD */}
+      <div className="card no-print" style={{ padding: 20, marginBottom: 24, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10 }}>
+        
+        {/* Card Header & Toolbar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+              📅 Daily Tally Sales Report Upload & Calendar Tracker
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
+              Upload daily Tally Excel sales reports (e.g. <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>Tally/SALE REPORT_JULY_.xls</code>) to reconcile PO Fill Rates & check daily upload ticks (✓).
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* File Upload Button */}
+            <label className="btn primary" style={{ cursor: uploadingReport ? 'not-allowed' : 'pointer', fontSize: 12, padding: '7px 14px', background: '#2563eb', color: '#fff', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span>{uploadingReport ? '⏳ Uploading & Reconciling...' : '📤 Upload Daily Tally Excel (.xls/.xlsx)'}</span>
+              <input
+                type="file"
+                accept=".xls,.xlsx,.csv"
+                onChange={handleDailyUpload}
+                disabled={uploadingReport}
+                style={{ display: 'none' }}
+              />
+            </label>
+
+            {/* Quick Import Tally/SALE REPORT_JULY_.xls */}
+            <button
+              onClick={handleQuickImport}
+              disabled={uploadingReport}
+              className="btn"
+              style={{
+                fontSize: 12,
+                padding: '7px 14px',
+                background: '#059669',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 6,
+                cursor: uploadingReport ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6
+              }}
+            >
+              ⚡ Quick Import (Tally/SALE REPORT_JULY_.xls)
+            </button>
+          </div>
+        </div>
+
+        {/* Status Notification Banner */}
+        {uploadStatus && (
+          <div style={{
+            padding: '10px 14px',
+            marginBottom: 16,
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            background: uploadStatus.type === 'success' ? '#dcfce7' : '#fef2f2',
+            color: uploadStatus.type === 'success' ? '#166534' : '#991b1b',
+            border: uploadStatus.type === 'success' ? '1px solid #bbf7d0' : '1px solid #fecaca',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>{uploadStatus.type === 'success' ? '✅' : '❌'} {uploadStatus.message}</span>
+            <button onClick={() => setUploadStatus(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'inherit' }}>✕</button>
+          </div>
+        )}
+
+        {/* Month Navigation & Legend Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '8px 12px', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              onClick={() => {
+                if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); }
+                else { setCalMonth(m => m - 1); }
+              }}
+              style={{ padding: '4px 10px', fontSize: 12, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, cursor: 'pointer' }}
+            >
+              ◀ Prev
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>
+              📆 {monthNames[calMonth]} {calYear}
+            </span>
+            <button
+              onClick={() => {
+                if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); }
+                else { setCalMonth(m => m + 1); }
+              }}
+              style={{ padding: '4px 10px', fontSize: 12, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Next ▶
+            </button>
+            <button
+              onClick={() => { setCalYear(2026); setCalMonth(6); }}
+              style={{ padding: '4px 10px', fontSize: 11, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 4, cursor: 'pointer' }}
+            >
+              Jul 2026
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 16, fontSize: 11, fontWeight: 600 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#15803d' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+              ✓ Uploaded (Reconciled)
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }}></span>
+              ⏳ Pending Upload
+            </span>
+          </div>
+        </div>
+
+        {/* Days Grid Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+          <div>Mon</div>
+          <div>Tue</div>
+          <div>Wed</div>
+          <div>Thu</div>
+          <div>Fri</div>
+          <div>Sat</div>
+          <div>Sun</div>
+        </div>
+
+        {/* Days Grid Cells */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+          {calendarDays.map((day, idx) => {
+            if (!day.isCurrentMonth) {
+              return <div key={idx} style={{ minHeight: 52, background: '#f8fafc', borderRadius: 6, border: '1px dashed #e2e8f0' }}></div>;
+            }
+
+            const isUploaded = !!day.uploadedData;
+            const stats = day.uploadedData;
+
+            return (
+              <div
+                key={day.dateKey}
+                style={{
+                  minHeight: 56,
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  border: isUploaded ? '1px solid #86efac' : '1px solid #e2e8f0',
+                  background: isUploaded ? '#f0fdf4' : '#fff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: isUploaded ? '#166534' : '#334155' }}>
+                    {day.dateNumber}
+                  </span>
+
+                  {isUploaded ? (
+                    <span style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: '1px 5px',
+                      borderRadius: 10,
+                      background: '#22c55e',
+                      color: '#fff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 2
+                    }}>
+                      ✓ Uploaded
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>⏳ Pending</span>
+                  )}
+                </div>
+
+                {isUploaded && stats ? (
+                  <div style={{ fontSize: 10, color: '#15803d', marginTop: 4, fontWeight: 600 }}>
+                    <div>{stats.invoicesCount} Invoices</div>
+                    <div style={{ fontSize: 9, color: '#047857' }}>₹{stats.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 9, color: '#cbd5e1', marginTop: 4 }}>No report</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
       </div>
 
       {/* KPI Executive Summary Cards */}

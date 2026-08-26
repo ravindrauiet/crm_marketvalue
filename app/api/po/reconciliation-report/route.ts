@@ -368,6 +368,20 @@ export async function GET(req: NextRequest) {
     summary.overallValueFillRatePct = summary.totalPOValue > 0 ? parseFloat(((summary.totalBilledValue / summary.totalPOValue) * 100).toFixed(2)) : 0;
     summary.overallQtyFillRatePct = summary.totalPOQty > 0 ? parseFloat(((summary.totalDeliveredQty / summary.totalPOQty) * 100).toFixed(2)) : 0;
 
+    // Build Upload Tracker Map for Daily Calendar (YYYY-MM-DD -> stats)
+    const uploadedDatesMap: Record<string, { count: number; invoicesCount: number; totalAmount: number }> = {};
+    purchaseBills.forEach(b => {
+      if (b.invoiceDate) {
+        const dStr = b.invoiceDate.toISOString().split('T')[0];
+        if (!uploadedDatesMap[dStr]) {
+          uploadedDatesMap[dStr] = { count: 0, invoicesCount: 0, totalAmount: 0 };
+        }
+        uploadedDatesMap[dStr].invoicesCount += 1;
+        uploadedDatesMap[dStr].count += (b.items ? b.items.length : 1);
+        uploadedDatesMap[dStr].totalAmount += (b.totalAmount || 0);
+      }
+    });
+
     // List of unique brands & chains for dropdown filters
     const availableBrands = Array.from(new Set(reportRows.map(r => r.brand)));
     const availableChains = Array.from(new Set(reportRows.map(r => r.accountName)));
@@ -379,7 +393,8 @@ export async function GET(req: NextRequest) {
       rows: reportRows,
       availableBrands,
       availableChains,
-      availableMonths
+      availableMonths,
+      uploadedDatesMap
     });
 
   } catch (err: any) {
