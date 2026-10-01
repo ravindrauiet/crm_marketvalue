@@ -216,8 +216,8 @@ export default function NewOrderPage() {
                     required
                     style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg)' }}
                   >
-                    <option value="SALE">💰 Sales Order (Out)</option>
-                    <option value="PURCHASE">📦 Purchase Order (In)</option>
+                    <option value="SALE">Sales Order (Out)</option>
+                    <option value="PURCHASE">Purchase Order (In)</option>
                   </select>
                   <p className="muted" style={{ fontSize: '12px', marginTop: 4 }}>
                     {orderType === 'SALE' ? 'Deducts from inventory' : 'Adds to inventory'}
@@ -250,7 +250,7 @@ export default function NewOrderPage() {
               <div style={{ position: 'relative', marginBottom: 24 }}>
                 <input
                   type="text"
-                  placeholder="🔍 Search products by name or SKU..."
+                  placeholder="Search products by name or SKU..."
                   value={searchProduct}
                   onChange={(e) => setSearchProduct(e.target.value)}
                   style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--primary)', outline: 'none', fontSize: '16px' }}
@@ -312,7 +312,7 @@ export default function NewOrderPage() {
               {/* Items Table */}
               {items.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 0', opacity: 0.5 }}>
-                  <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
+                  <div style={{ fontSize: 48, marginBottom: 16 }}></div>
                   <div>Map products here to build your order</div>
                 </div>
               ) : (

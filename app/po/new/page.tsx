@@ -348,7 +348,7 @@ export default function NewPOPage() {
   });
 
   return (
-    <div className="container fade-in" style={{ maxWidth: uploadedFile && viewLayout === 'split' ? 1680 : 1100, transition: 'all 0.3s ease' }}>
+    <div className="container fade-in" style={{ maxWidth: uploadedFile && viewLayout === 'split' ? 1680 : 1440, transition: 'all 0.3s ease' }}>
       
       {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -356,8 +356,8 @@ export default function NewPOPage() {
           <Link href="/po" style={{ color: 'var(--text-secondary)', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
             ← Back to Purchase Orders
           </Link>
-          <h1 style={{ marginTop: 6, marginBottom: 4, fontSize: 28, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', display: 'flex', alignItems: 'center', gap: 10 }}>
-            📦 Create Final Purchase Order (Manual)
+          <h1 className="page-title">
+            Create Final Purchase Order (Manual)
           </h1>
           <p className="muted" style={{ margin: 0, fontSize: 13 }}>
             Manually enter PO header details and line items based on shortfall analysis to issue final order to company
@@ -418,14 +418,14 @@ export default function NewPOPage() {
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
             className="btn"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', fontSize: 13, padding: '9px 16px' }}
+            style={{ background: '#1d4ed8', fontSize: 13, padding: '9px 16px' }}
           >
             {uploading ? (
               <>
                 <span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Extracting AI...
               </>
             ) : (
-              <>📎 {uploadedFile ? 'Re-upload Reference Doc' : 'Auto-fill from Doc (Optional)'}</>
+              <>{uploadedFile ? 'Re-upload Reference Doc' : 'Auto-fill from Doc (Optional)'}</>
             )}
           </button>
         </div>
@@ -433,14 +433,15 @@ export default function NewPOPage() {
 
       {error && (
         <div style={{ padding: '14px 18px', background: '#fee2e2', color: '#dc2626', borderRadius: 12, marginBottom: 20, fontSize: 14, border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>⚠️</span> <span>{error}</span>
+          <span></span> <span>{error}</span>
         </div>
       )}
 
       {/* Main Grid Layout */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: uploadedFile && viewLayout === 'split' ? 'minmax(380px, 0.75fr) minmax(640px, 1.5fr)' : '1fr',
+        // minmax(0, …) lets the wide items table scroll inside its column instead of stretching the page
+        gridTemplateColumns: uploadedFile && viewLayout === 'split' ? 'minmax(0, 0.75fr) minmax(0, 1.5fr)' : 'minmax(0, 1fr)',
         gap: 24,
         alignItems: 'start'
       }}>
@@ -451,10 +452,10 @@ export default function NewPOPage() {
             <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--primary)', boxShadow: 'var(--shadow-md)', background: 'var(--panel)' }}>
               
               {/* Document Header Bar */}
-              <div style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '12px 16px', background: '#0f172a', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
                   <span style={{ fontSize: 20 }}>
-                    {uploadedFile.fileType === 'pdf' ? '📄' : uploadedFile.fileType === 'image' ? '🖼️' : '📊'}
+                    {uploadedFile.fileType === 'pdf' ? '' : uploadedFile.fileType === 'image' ? '' : ''}
                   </span>
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -477,7 +478,7 @@ export default function NewPOPage() {
                       <button type="button" title="Zoom Out" onClick={() => setImageZoom(z => Math.max(0.5, z - 0.25))} style={{ background: '#334155', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>-</button>
                       <span style={{ fontSize: 11, color: '#cbd5e1' }}>{Math.round(imageZoom * 100)}%</span>
                       <button type="button" title="Zoom In" onClick={() => setImageZoom(z => Math.min(3, z + 0.25))} style={{ background: '#334155', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>+</button>
-                      <button type="button" title="Rotate" onClick={() => setImageRotation(r => (r + 90) % 360)} style={{ background: '#334155', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄</button>
+                      <button type="button" title="Rotate" onClick={() => setImageRotation(r => (r + 90) % 360)} style={{ background: '#334155', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}></button>
                     </>
                   )}
                   <button
@@ -486,7 +487,7 @@ export default function NewPOPage() {
                     onClick={() => setIsFullScreenPreview(true)}
                     style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                   >
-                    ⛶ Fullscreen
+                    Fullscreen
                   </button>
                   <a
                     href={uploadedFile.filePath}
@@ -494,7 +495,7 @@ export default function NewPOPage() {
                     style={{ background: '#334155', color: '#fff', padding: '4px 8px', borderRadius: 6, fontSize: 12, textDecoration: 'none' }}
                     title="Download File"
                   >
-                    ⬇
+                    
                   </a>
                   <button
                     type="button"
@@ -533,7 +534,7 @@ export default function NewPOPage() {
                   </div>
                 ) : (
                   <div style={{ padding: 32, textAlign: 'center', color: '#f8fafc', width: '100%' }}>
-                    <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}></div>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: 18, color: '#f8fafc' }}>{uploadedFile.fileName}</h3>
                     <p style={{ fontSize: 13, color: '#94a3b8', maxWidth: 360, margin: '0 auto 16px auto' }}>
                       Spreadsheet / Document uploaded successfully. All line items and metadata have been automatically extracted by AI below.
@@ -544,7 +545,7 @@ export default function NewPOPage() {
                       className="btn secondary"
                       style={{ fontSize: 12, background: '#1e293b', color: '#38bdf8', border: '1px solid #334155' }}
                     >
-                      📥 Download Original Spreadsheet
+                      Download Original Spreadsheet
                     </a>
                   </div>
                 )}
@@ -563,7 +564,7 @@ export default function NewPOPage() {
                 <div style={{ padding: '12px 16px', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)', fontSize: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      🤖 AI Extracted Details ({Object.keys(rawInfo).length} Fields)
+                      AI Extracted Details ({Object.keys(rawInfo).length} Fields)
                     </span>
                     <button
                       type="button"
@@ -681,14 +682,14 @@ export default function NewPOPage() {
               <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    🛒 Line Items
+                    Line Items
                     <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
                       {items.length} items
                     </span>
                   </h3>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', gap: 12 }}>
                     <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {mappedCount} Mapped to Tally</span>
-                    {unmappedCount > 0 && <span style={{ color: '#dc2626', fontWeight: 600 }}>⚠️ {unmappedCount} Unmapped</span>}
+                    {unmappedCount > 0 && <span style={{ color: '#dc2626', fontWeight: 600 }}>{unmappedCount} Unmapped</span>}
                   </div>
                 </div>
 
@@ -706,7 +707,7 @@ export default function NewPOPage() {
                   <button type="button" onClick={clearItems} className="btn secondary" style={{ fontSize: 12, padding: '5px 10px' }}>
                     Clear
                   </button>
-                  <button type="button" onClick={addItem} className="btn" style={{ fontSize: 12, padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                  <button type="button" onClick={addItem} className="btn secondary" style={{ fontSize: 12, padding: '6px 14px' }}>
                     + Add Row
                   </button>
                 </div>
@@ -715,14 +716,14 @@ export default function NewPOPage() {
               {/* Chain Mapping Info Banner */}
               {mappings.length > 0 ? (
                 <div style={{ padding: '8px 20px', background: '#eff6ff', borderBottom: '1px solid #dbeafe', fontSize: 12, color: '#1d4ed8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>💡 <strong>{mappings.length} Tally SKU mappings</strong> active for {form.chainName} — items auto-match on code or barcode</span>
+                  <span><strong>{mappings.length} Tally SKU mappings</strong> active for {form.chainName} — items auto-match on code or barcode</span>
                   <Link href="/item-mapping" target="_blank" style={{ fontSize: 11, textDecoration: 'underline', color: '#1e40af', fontWeight: 600 }}>
                     Manage Mappings ↗
                   </Link>
                 </div>
               ) : (
                 <div style={{ padding: '8px 20px', background: '#fffbeb', borderBottom: '1px solid #fef3c7', fontSize: 12, color: '#b45309' }}>
-                  ⚠️ No SKU mappings found for {form.chainName}. Add mappings under Item Mapping to automatically resolve Tally item names.
+                  No SKU mappings found for {form.chainName}. Add mappings under Item Mapping to automatically resolve Tally item names.
                 </div>
               )}
 
@@ -802,7 +803,7 @@ export default function NewPOPage() {
                               </div>
                             ) : (
                               <span style={{ background: '#fee2e2', color: '#dc2626', padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700, border: '1px solid #fca5a5' }}>
-                                ⚠️ Unmapped SKU
+                                Unmapped SKU
                               </span>
                             )}
                           </td>
@@ -896,7 +897,6 @@ export default function NewPOPage() {
                   disabled={saving}
                   className="btn"
                   style={{
-                    background: 'linear-gradient(135deg, #f59e0b, #ef4444)',
                     padding: '10px 24px',
                     fontSize: 15,
                     fontWeight: 600,
@@ -908,7 +908,7 @@ export default function NewPOPage() {
                       <span className="spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }} /> Saving PO...
                     </>
                   ) : (
-                    <>📦 Save Purchase Order</>
+                    <>Save Purchase Order</>
                   )}
                 </button>
               </div>
@@ -933,7 +933,7 @@ export default function NewPOPage() {
           {/* Modal Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, color: '#fff' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 24 }}>📄</span>
+              <span style={{ fontSize: 24 }}></span>
               <div>
                 <h3 style={{ margin: 0, color: '#fff', fontSize: 18 }}>{uploadedFile.fileName}</h3>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>Fullscreen Document Lightbox</div>

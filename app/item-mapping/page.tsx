@@ -157,13 +157,13 @@ export default function ItemMappingPage() {
       }
 
       if (res.ok) {
-        alert(`✅ Upload successful!\nCreated: ${data.created}\nUpdated: ${data.updated}`);
+        alert(`Upload successful!\nCreated: ${data.created}\nUpdated: ${data.updated}`);
         loadMappings();
       } else {
-        alert(`❌ Upload failed: ${data.error || 'Unknown error'}`);
+        alert(`Upload failed: ${data.error || 'Unknown error'}`);
       }
     } catch (err: any) {
-      alert(`❌ Upload failed: ${err.message}`);
+      alert(`Upload failed: ${err.message}`);
     } finally {
       setUploading(false);
     }
@@ -204,8 +204,8 @@ export default function ItemMappingPage() {
       {/* Header */}
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 32, alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            🔗 Item Mapping Master
+          <h1 className="page-title">
+            Item Mapping Master
           </h1>
           <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
             Map chain item codes → Tally SKU → Company codes with PCS/CASE conversion
@@ -214,12 +214,12 @@ export default function ItemMappingPage() {
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = ''; }} />
           <button onClick={downloadSampleExcel} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
-            📥 Sample Format (.xlsx)
+            Sample Format (.xlsx)
           </button>
           <button onClick={() => fileRef.current?.click()} disabled={uploading} className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
-            {uploading ? 'Uploading...' : '📤 Bulk Upload'}
+            {uploading ? 'Uploading...' : 'Bulk Upload'}
           </button>
-          <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }} className="btn" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', whiteSpace: 'nowrap' }}>
+          <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }} className="btn">
             + Add Mapping
           </button>
         </div>
@@ -241,16 +241,16 @@ export default function ItemMappingPage() {
 
       {/* Search + Filter */}
       <div className="card" style={{ padding: 16, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input placeholder="🔍 Search item name, code or brand..." value={search} onChange={e => setSearch(e.target.value)}
+        <input placeholder="Search item name, code or brand..." value={search} onChange={e => setSearch(e.target.value)}
           style={{ flex: '1 1 200px', padding: '8px 12px', fontSize: 13 }} />
-        <select value={filterChain} onChange={e => setFilterChain(e.target.value)} style={{ padding: '8px 12px', minWidth: 140, fontSize: 13 }}>
+        <select value={filterChain} onChange={e => setFilterChain(e.target.value)} style={{ padding: '8px 12px', flex: '0 0 160px', fontSize: 13 }}>
           <option value="">All Chains</option>
           {CHAINS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <select 
           value={availableBrands.includes(filterBrand) ? filterBrand : ''} 
           onChange={e => setFilterBrand(e.target.value)} 
-          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }}
+          style={{ padding: '8px 12px', flex: '0 0 180px', fontSize: 13 }}
         >
           <option value="">All Brands</option>
           {availableBrands.map(b => (
@@ -261,7 +261,7 @@ export default function ItemMappingPage() {
           placeholder="Filter by brand..." 
           value={filterBrand} 
           onChange={e => setFilterBrand(e.target.value)}
-          style={{ padding: '8px 12px', minWidth: 160, fontSize: 13 }} 
+          style={{ padding: '8px 12px', flex: '0 0 180px', fontSize: 13 }} 
         />
         {filterBrand && (
           <button onClick={() => setFilterBrand('')} className="btn secondary" style={{ fontSize: 12, padding: '6px 10px' }}>✕ Clear Brand</button>
@@ -275,7 +275,7 @@ export default function ItemMappingPage() {
           <div style={{ padding: 48, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
         ) : mappings.length === 0 ? (
           <div style={{ padding: 64, textAlign: 'center' }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔗</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}></div>
             <h3 style={{ marginBottom: 8 }}>No mappings yet</h3>
             <p className="muted" style={{ marginBottom: 24 }}>Add your first item mapping to link chain codes with Tally items.</p>
             <button onClick={() => { setForm(emptyForm); setEditingId(null); setShowModal(true); }} className="btn">+ Add First Mapping</button>
@@ -402,7 +402,7 @@ export default function ItemMappingPage() {
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                 <button type="button" onClick={() => setShowModal(false)} className="btn secondary" style={{ flex: 1 }}>Cancel</button>
-                <button type="submit" disabled={saving} className="btn" style={{ flex: 2, background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+                <button type="submit" disabled={saving} className="btn" style={{ flex: 2 }}>
                   {saving ? 'Saving…' : editingId ? 'Update Mapping' : 'Save Mapping'}
                 </button>
               </div>

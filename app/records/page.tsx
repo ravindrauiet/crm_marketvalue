@@ -24,7 +24,7 @@ export default async function RecordsPage() {
 
       <div style={{ display: 'grid', gap: 32 }}>
         <div className="card" style={{
-          background: 'linear-gradient(to right bottom, var(--panel), var(--bg-secondary))',
+          background: 'var(--bg-secondary)',
           borderLeft: '4px solid var(--primary)'
         }}>
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>Upload New Documents</h3>

@@ -57,42 +57,41 @@ export default function AnalyticsPage() {
 
   return (
     <div className="container fade-in">
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ marginBottom: 8 }}>Business Overview</h1>
-        <p className="muted" style={{ fontSize: 16, maxWidth: 600 }}>
-          Real-time performance metrics, sales insights, and inventory health monitoring.
-        </p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">Sales, order and inventory performance.</p>
+        </div>
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, marginBottom: 32 }}>
-        <div className="card" style={{ padding: 24, background: 'linear-gradient(135deg, var(--primary), #2563eb)', color: 'white', border: 'none' }}>
-          <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.9, marginBottom: 8 }}>Total Revenue</div>
-          <div style={{ fontSize: 36, fontWeight: 700 }}>₹{analytics.sales.totalRevenue.toLocaleString()}</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>All time sales</div>
+      <div className="kpi-grid">
+        <div className="kpi">
+          <span className="kpi-label">Total revenue</span>
+          <span className="kpi-value">₹{analytics.sales.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+          <span className="kpi-foot">All-time sales orders</span>
         </div>
-        <div className="card" style={{ padding: 24 }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Total Orders</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--text)' }}>{analytics.sales.totalOrders}</div>
-          <div style={{ fontSize: 13, color: 'var(--success)', marginTop: 4 }}>Avg. Value: ₹{Math.round(analytics.sales.averageOrderValue).toLocaleString()}</div>
+        <div className="kpi">
+          <span className="kpi-label">Total orders</span>
+          <span className="kpi-value">{analytics.sales.totalOrders.toLocaleString('en-IN')}</span>
+          <span className="kpi-foot">Avg. value ₹{Math.round(analytics.sales.averageOrderValue).toLocaleString('en-IN')}</span>
         </div>
-        <div className="card" style={{ padding: 24 }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Inventory Value</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--text)' }}>₹{analytics.stock.totalValue.toLocaleString()}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>{analytics.stock.totalProducts} active SKUs</div>
+        <div className="kpi">
+          <span className="kpi-label">Inventory value</span>
+          <span className="kpi-value">₹{analytics.stock.totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+          <span className="kpi-foot">{analytics.stock.totalProducts} active SKUs</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid', borderColor: analytics.stock.lowStockCount > 0 ? 'var(--error)' : 'var(--success)' }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Stock Health</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: analytics.stock.lowStockCount > 0 ? 'var(--error)' : 'var(--success)' }}>
-            {analytics.stock.lowStockCount > 0 ? 'Action Needed' : 'Healthy'}
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            {analytics.stock.lowStockCount} items low on stock
-          </div>
+        <div className="kpi">
+          <span className="kpi-label">
+            <span className={`status-dot ${analytics.stock.lowStockCount > 0 ? 'error' : 'success'}`} aria-hidden="true" />
+            Stock health
+          </span>
+          <span className="kpi-value">{analytics.stock.lowStockCount > 0 ? `${analytics.stock.lowStockCount} alerts` : 'Healthy'}</span>
+          <span className="kpi-foot">Items low or out of stock</span>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 32, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))', gap: 20, alignItems: 'start' }}>
         {/* Left Column: Charts & Analysis */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
 
@@ -173,7 +172,7 @@ export default function AnalyticsPage() {
             <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: 16 }}>Inventory Alerts</h3>
             {analytics.stock.lowStockProducts.length === 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 16, background: 'white', borderRadius: 12 }}>
-                <div style={{ fontSize: 24 }}>✅</div>
+                <div style={{ fontSize: 24 }}></div>
                 <div>
                   <div style={{ fontWeight: 600 }}>All Good</div>
                   <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No stock alerts</div>

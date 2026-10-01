@@ -42,7 +42,7 @@ export default function InvoicesPage() {
         <div className="container fade-in">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' }}>
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '28px', background: 'linear-gradient(45deg, var(--primary), #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    <h1 className="page-title">
                         Invoices
                     </h1>
                     <p className="muted" style={{ marginTop: 4 }}>Manage bills and export to Tally</p>
@@ -92,7 +92,7 @@ export default function InvoicesPage() {
                                                 style={{ fontSize: '12px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                                                 onClick={() => setTimeout(loadInvoices, 1000)} // Refresh status after download
                                             >
-                                                <span style={{ fontSize: '14px' }}>⬇</span> XML
+                                                <span style={{ fontSize: '14px' }}></span> XML
                                             </a>
                                         </td>
                                     </tr>

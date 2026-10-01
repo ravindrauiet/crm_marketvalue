@@ -171,7 +171,7 @@ function ShortfallContent() {
           </style>
         </head>
         <body>
-          <h1>📦 Company Purchase Order</h1>
+          <h1>Company Purchase Order</h1>
           <div class="meta">
             <div class="meta-item">
               <span class="meta-label">Date</span>
@@ -278,8 +278,8 @@ function ShortfallContent() {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <a href="/po" style={{ color: 'var(--text-secondary)', fontSize: 13 }}>← Back to POs</a>
-        <h1 style={{ marginTop: 8, marginBottom: 4, fontSize: 28, background: 'linear-gradient(135deg, #10b981, #059669)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          ⚡ Shortfall Calculator
+        <h1 className="page-title">
+          Shortfall Calculator
         </h1>
         <p className="muted" style={{ margin: 0 }}>Select POs → Check stock → Generate purchase order to company</p>
       </div>
@@ -288,7 +288,7 @@ function ShortfallContent() {
       <div style={{ display: 'flex', gap: 0, marginBottom: 28, background: 'var(--bg-secondary)', borderRadius: 12, padding: 4 }}>
         {[{ n: 1, label: 'Select POs' }, { n: 2, label: 'Calculate' }, { n: 3, label: 'Review & Order' }].map(s => (
           <div key={s.n} onClick={() => s.n <= step && setStep(s.n as any)}
-            style={{ flex: 1, padding: '10px 16px', textAlign: 'center', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: s.n <= step ? 'pointer' : 'default', background: step === s.n ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent', color: step === s.n ? '#fff' : step > s.n ? '#10b981' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
+            style={{ flex: 1, padding: '10px 16px', textAlign: 'center', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: s.n <= step ? 'pointer' : 'default', background: step === s.n ? '#059669' : 'transparent', color: step === s.n ? '#fff' : step > s.n ? '#10b981' : 'var(--text-secondary)', transition: 'all 0.2s' }}>
             {s.n < step ? '✓ ' : ''}{s.label}
           </div>
         ))}
@@ -327,8 +327,8 @@ function ShortfallContent() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={calculateShortfall} disabled={selectedIds.size === 0 || loading} className="btn"
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)', minWidth: 200 }}>
-              ⚡ Calculate Shortfall ({selectedIds.size} POs)
+              style={{ background: '#059669', minWidth: 200 }}>
+              Calculate Shortfall ({selectedIds.size} POs)
             </button>
           </div>
         </div>
@@ -349,10 +349,10 @@ function ShortfallContent() {
           {/* Summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 20 }}>
             {[
-              { label: 'Total Items', value: shortfall.length, bg: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
-              { label: 'Short Items', value: shortfallCount, bg: 'linear-gradient(135deg,#ef4444,#dc2626)' },
-              { label: 'OK Items', value: shortfall.length - shortfallCount, bg: 'linear-gradient(135deg,#10b981,#059669)' },
-              { label: 'POs Selected', value: selectedIds.size, bg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
+              { label: 'Total Items', value: shortfall.length, bg: '#2563eb' },
+              { label: 'Short Items', value: shortfallCount, bg: '#dc2626' },
+              { label: 'OK Items', value: shortfall.length - shortfallCount, bg: '#059669' },
+              { label: 'POs Selected', value: selectedIds.size, bg: '#7c3aed' },
             ].map(s => (
               <div key={s.label} className="card" style={{ padding: 20, background: s.bg, border: 'none', color: '#fff' }}>
                 <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
@@ -371,20 +371,20 @@ function ShortfallContent() {
             {step === 2 ? (
               <>
                 <button onClick={() => { setStep(1); setShortfall([]); }} className="btn secondary" style={{ fontSize: 13 }}>← Re-select POs</button>
-                <button onClick={openReviewModal} className="btn" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-                  📋 Review
+                <button onClick={openReviewModal} className="btn" style={{ background: '#059669' }}>
+                  Review
                 </button>
               </>
             ) : (
               <>
                 <button onClick={() => setStep(2)} className="btn secondary" style={{ fontSize: 13 }}>← Back to Details</button>
                 <button onClick={generatePurchaseOrderExcel} disabled={shortfallCount === 0} className="btn"
-                  style={{ background: 'linear-gradient(135deg, #10b981, #059669)', whiteSpace: 'nowrap' }}>
-                  📥 Export Excel ({shortfallCount})
+                  style={{ background: '#059669', whiteSpace: 'nowrap' }}>
+                  Export Excel ({shortfallCount})
                 </button>
                 <button onClick={generatePurchaseOrderPDF} disabled={shortfallCount === 0} className="btn"
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', whiteSpace: 'nowrap' }}>
-                  📄 Export PDF ({shortfallCount})
+                  style={{ background: '#7c3aed', whiteSpace: 'nowrap' }}>
+                  Export PDF ({shortfallCount})
                 </button>
               </>
             )}
@@ -497,7 +497,7 @@ function ShortfallContent() {
               </div>
               <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                 <button type="button" onClick={() => setShowReviewModal(false)} className="btn secondary" style={{ flex: 1 }}>Cancel</button>
-                <button type="submit" className="btn" style={{ flex: 2, background: 'linear-gradient(135deg, #10b981, #059669)' }}>Confirm & Proceed</button>
+                <button type="submit" className="btn" style={{ flex: 2, background: '#059669' }}>Confirm & Proceed</button>
               </div>
             </form>
           </div>

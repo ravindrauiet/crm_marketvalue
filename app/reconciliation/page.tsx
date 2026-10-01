@@ -44,10 +44,10 @@ type Summary = {
 };
 
 const STATUS = {
-  MATCHED: { label: '✅ Matched', color: '#065f46', bg: '#d1fae5' },
-  PARTIAL: { label: '🟡 Partial', color: '#92400e', bg: '#fef3c7' },
-  UNMATCHED: { label: '❌ Unmatched', color: '#991b1b', bg: '#fee2e2' },
-  IGNORED: { label: '⏭ Ignored', color: '#6b7280', bg: '#f3f4f6' },
+  MATCHED: { label: 'Matched', color: '#065f46', bg: '#d1fae5' },
+  PARTIAL: { label: 'Partial', color: '#92400e', bg: '#fef3c7' },
+  UNMATCHED: { label: 'Unmatched', color: '#991b1b', bg: '#fee2e2' },
+  IGNORED: { label: 'Ignored', color: '#6b7280', bg: '#f3f4f6' },
 };
 
 const CHAIN_COLORS: Record<string, string> = {
@@ -144,7 +144,7 @@ export default function ReconciliationPage() {
   }
 
   async function handleResetAllReco() {
-    if (!confirm('⚠️ Are you sure you want to clear/reset ALL reconciliation statement data and batches?')) return;
+    if (!confirm('Are you sure you want to clear/reset ALL reconciliation statement data and batches?')) return;
     try {
       const res = await fetch('/api/reconciliation?resetAll=true', { method: 'DELETE' });
       if (res.ok) {
@@ -159,7 +159,7 @@ export default function ReconciliationPage() {
   }
 
   async function handleDeleteBatch(batchId: string) {
-    if (!confirm('⚠️ Are you sure you want to delete this batch and all its extracted records?')) return;
+    if (!confirm('Are you sure you want to delete this batch and all its extracted records?')) return;
     try {
       const res = await fetch(`/api/reconciliation?batchId=${batchId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -203,53 +203,54 @@ export default function ReconciliationPage() {
   return (
     <div className="container fade-in">
       {/* Top Header & Actions */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #0ea5e9, #6366f1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            💰 Payment & Statement Reconciliation
-          </h1>
-          <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
-            Upload Payment Advices (PDF/Excel), Party Ledger Statements & Party Payment Advices → Chain-Specific AI Extraction & Auto Set-Off
+          <h1 className="page-title">Payment Reconciliation</h1>
+          <p className="page-subtitle">
+            Upload payment advices, party ledger statements and remittance details — lines are extracted and set off against POs and invoices.
           </p>
         </div>
 
         {rows.length > 0 && (
-          <button
-            onClick={handleResetAllReco}
-            className="btn secondary"
-            style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: 13 }}
-          >
-            🗑️ Clear / Reset Reco Data
-          </button>
+          <div className="page-actions">
+            <button onClick={handleResetAllReco} className="btn danger">
+              Clear reconciliation data
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, marginBottom: 24 }}>
+      {/* Summary KPIs */}
+      <div className="kpi-grid">
         {[
-          { label: 'Total Received', value: `₹${(summary.totalCredit || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, bg: 'linear-gradient(135deg,#10b981,#059669)' },
-          { label: 'Matched', value: summary.totalMatched || 0, bg: 'linear-gradient(135deg,#3b82f6,#2563eb)' },
-          { label: 'Partial', value: summary.totalPartial || 0, bg: 'linear-gradient(135deg,#f59e0b,#d97706)' },
-          { label: 'Unmatched', value: summary.totalUnmatched || 0, bg: 'linear-gradient(135deg,#ef4444,#dc2626)' },
-          { label: 'Pending Amount', value: `₹${(summary.totalPending || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, bg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)' },
+          { label: 'Total received', value: `₹${(summary.totalCredit || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, foot: 'Credits across all uploads' },
+          { label: 'Matched', value: (summary.totalMatched || 0).toLocaleString('en-IN'), foot: 'Fully set off', tone: 'success' },
+          { label: 'Partial', value: (summary.totalPartial || 0).toLocaleString('en-IN'), foot: 'Amount differs from PO / invoice', tone: 'warn' },
+          { label: 'Unmatched', value: (summary.totalUnmatched || 0).toLocaleString('en-IN'), foot: 'Needs manual matching', tone: 'error' },
+          { label: 'Pending amount', value: `₹${(summary.totalPending || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, foot: 'Not yet set off' },
         ].map(s => (
-          <div key={s.label} className="card" style={{ padding: 18, background: s.bg, border: 'none', color: '#fff' }}>
-            <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{s.value}</div>
+          <div key={s.label} className="kpi">
+            <span className="kpi-label">
+              {s.tone && <span className={`status-dot ${s.tone}`} aria-hidden="true" />}
+              {s.label}
+            </span>
+            <span className="kpi-value">{s.value}</span>
+            <span className="kpi-foot">{s.foot}</span>
           </div>
         ))}
       </div>
 
       {/* Tabs Navigation */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 24, background: 'var(--bg-secondary)', borderRadius: 12, padding: 4, width: 'fit-content' }}>
+      <div className="tabs" role="tablist">
         {[
-          { id: 'upload', label: '📤 Upload Statements & Advices' },
-          { id: 'match', label: `🔗 Match Rows & Set-Off (${rows.length})` },
-          { id: 'dashboard', label: '📊 Chain Analytics' }
+          { id: 'upload', label: 'Upload statements & advices' },
+          { id: 'match', label: 'Match rows & set-off', count: rows.length },
+          { id: 'dashboard', label: 'Chain analytics' }
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id as any)}
-            className="btn" style={{ background: tab === t.id ? 'linear-gradient(135deg,#0ea5e9,#6366f1)' : 'transparent', color: tab === t.id ? '#fff' : 'var(--text)', fontWeight: 600, fontSize: 13, padding: '8px 20px', boxShadow: 'none', border: 'none' }}>
+          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id as any)}
+            className={`tab${tab === t.id ? ' active' : ''}`}>
             {t.label}
+            {t.count !== undefined && <span className="tab-count">{t.count}</span>}
           </button>
         ))}
       </div>
@@ -260,22 +261,22 @@ export default function ReconciliationPage() {
           {/* Chain Selection Box */}
           <div className="card" style={{ padding: 16, marginBottom: 24, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>🏷️ Target Retail Chain / Format:</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>Target Retail Chain / Format:</span>
               <select
                 value={selectedChain}
                 onChange={e => setSelectedChain(e.target.value)}
                 style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #3b82f6', background: 'var(--bg)', minWidth: 240 }}
               >
-                <option value="AUTO">🪄 Auto-Detect Chain (Recommended)</option>
-                <option value="RELIANCE">🛒 Reliance Retail Payment Advice</option>
-                <option value="AMAZON">📦 Amazon EFT Remittance Advice</option>
-                <option value="BLINKIT">⚡ Blinkit Payment Advice</option>
-                <option value="ZEPTO">🟣 Zepto Payment Advice</option>
-                <option value="HSBC">🏦 HSBC Bank Payment Advice</option>
-                <option value="SWIGGY">🛵 Swiggy / Instamart Advice</option>
-                <option value="FLIPKART">🛍️ Flipkart Settlement Advice</option>
-                <option value="BIGBASKET">🟢 BigBasket Settlement Advice</option>
-                <option value="DMART">🏪 DMart Payment Advice</option>
+                <option value="AUTO">Auto-Detect Chain (Recommended)</option>
+                <option value="RELIANCE">Reliance Retail Payment Advice</option>
+                <option value="AMAZON">Amazon EFT Remittance Advice</option>
+                <option value="BLINKIT">Blinkit Payment Advice</option>
+                <option value="ZEPTO">Zepto Payment Advice</option>
+                <option value="HSBC">HSBC Bank Payment Advice</option>
+                <option value="SWIGGY">Swiggy / Instamart Advice</option>
+                <option value="FLIPKART">Flipkart Settlement Advice</option>
+                <option value="BIGBASKET">BigBasket Settlement Advice</option>
+                <option value="DMART">DMart Payment Advice</option>
               </select>
               <span className="muted" style={{ fontSize: 12 }}>
                 {selectedChain === 'AUTO' ? 'AI will inspect document text and headers to auto-identify the chain.' : `AI parser locked to specialized ${selectedChain} extraction rules.`}
@@ -284,8 +285,8 @@ export default function ReconciliationPage() {
           </div>
 
           {uploading && (
-            <div className="card" style={{ padding: 24, marginBottom: 24, background: 'linear-gradient(135deg, #e0f2fe, #f0f9ff)', border: '1px solid #7dd3fc', textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 8, animation: 'spin 2s linear infinite' }}>🤖</div>
+            <div className="card" style={{ padding: 24, marginBottom: 24, background: '#f0f9ff', border: '1px solid #7dd3fc', textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 8, animation: 'spin 2s linear infinite' }}></div>
               <h3 style={{ margin: 0, color: '#0369a1', fontSize: 18 }}>AI Extracting Payment Advice using {selectedChain} Rules...</h3>
               <p style={{ margin: '6px 0 0 0', color: '#0284c7', fontSize: 13 }}>
                 Reading PDF tables, document reference numbers, invoice numbers, TDS deductions, and matching with database POs...
@@ -293,12 +294,12 @@ export default function ReconciliationPage() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16, marginBottom: 24 }}>
             
             {/* Card 1: Vendor / Debtor Payment Advice Upload */}
             <div className="card" style={{ borderLeft: '4px solid #3b82f6' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>📑</span>
+                <span style={{ fontSize: 24 }}></span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16 }}>1. Upload Payment Advice / Remittance</h3>
                   <span style={{ fontSize: 11, background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
@@ -320,16 +321,16 @@ export default function ReconciliationPage() {
                 className="btn"
                 onClick={() => fileVendorRef.current?.click()}
                 disabled={uploading}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
+                style={{ width: '100%' }}
               >
-                {uploading ? 'Processing Advice...' : '📤 Select Payment Advice PDF / Excel'}
+                {uploading ? 'Processing Advice...' : 'Select Payment Advice PDF / Excel'}
               </button>
             </div>
 
             {/* Card 2: Tally Internal Ledger Upload */}
             <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>📊</span>
+                <span style={{ fontSize: 24 }}></span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16 }}>2. Upload Tally Statement</h3>
                   <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
@@ -351,16 +352,16 @@ export default function ReconciliationPage() {
                 className="btn"
                 onClick={() => fileTallyRef.current?.click()}
                 disabled={uploading}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                style={{ width: '100%' }}
               >
-                {uploading ? 'Processing Statement...' : '📤 Select Tally Statement'}
+                {uploading ? 'Processing Statement...' : 'Select Tally Statement'}
               </button>
             </div>
 
             {/* Card 3: Party Ledger Statement Upload */}
             <div className="card" style={{ borderLeft: '4px solid #8b5cf6' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>📒</span>
+                <span style={{ fontSize: 24 }}></span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16 }}>3. Upload Party Ledger Statement</h3>
                   <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
@@ -382,16 +383,16 @@ export default function ReconciliationPage() {
                 className="btn"
                 onClick={() => fileBankRef.current?.click()}
                 disabled={uploading}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}
+                style={{ width: '100%' }}
               >
-                {uploading ? 'Processing Statement...' : '📤 Select Party Ledger Statement'}
+                {uploading ? 'Processing Statement...' : 'Select Party Ledger Statement'}
               </button>
             </div>
 
             {/* Card 4: Party Payment Advice (file or pasted email text) */}
             <div className="card" style={{ borderLeft: '4px solid #f97316' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>📧</span>
+                <span style={{ fontSize: 24 }}></span>
                 <div>
                   <h3 style={{ margin: 0, fontSize: 16 }}>4. Upload Party Payment Advice</h3>
                   <span style={{ fontSize: 11, background: '#ffedd5', color: '#9a3412', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
@@ -413,9 +414,9 @@ export default function ReconciliationPage() {
                 className="btn"
                 onClick={() => filePartyAdviceRef.current?.click()}
                 disabled={uploading}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #f97316, #ea580c)', marginBottom: 10 }}
+                style={{ width: '100%', marginBottom: 10 }}
               >
-                {uploading ? 'Processing Advice...' : '📤 Select Party Payment Advice File'}
+                {uploading ? 'Processing Advice...' : 'Select Party Payment Advice File'}
               </button>
               <textarea
                 value={pastedAdvice}
@@ -430,7 +431,7 @@ export default function ReconciliationPage() {
                 disabled={uploading || !pastedAdvice.trim()}
                 style={{ width: '100%', marginTop: 8, fontSize: 13 }}
               >
-                📋 Process Pasted Text
+                Process Pasted Text
               </button>
             </div>
 
@@ -438,10 +439,10 @@ export default function ReconciliationPage() {
 
           {uploadResult && (
             <div style={{ padding: 20, borderRadius: 12, background: uploadResult.error ? '#fee2e2' : '#d1fae5', color: uploadResult.error ? '#dc2626' : '#065f46', fontSize: 14, marginBottom: 24 }}>
-              {uploadResult.error ? `❌ ${uploadResult.error}` : (
+              {uploadResult.error ? `${uploadResult.error}` : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>
-                    ✅ Upload & Chain AI Extraction Complete! (Chain: <span style={{ textTransform: 'uppercase' }}>{uploadResult.detectedChain || 'OTHER'}</span>)
+                    Upload & Chain AI Extraction Complete! (Chain: <span style={{ textTransform: 'uppercase' }}>{uploadResult.detectedChain || 'OTHER'}</span>)
                   </div>
                   <div>
                     Extracted <strong>{uploadResult.total || 0}</strong> transaction records · Matched: <strong>{uploadResult.matched || 0}</strong> · Partial: <strong>{uploadResult.partial || 0}</strong> · Unmatched: <strong>{uploadResult.unmatched || 0}</strong>
@@ -476,7 +477,7 @@ export default function ReconciliationPage() {
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>
                         {b.imagekitUrl ? (
                           <a href={b.imagekitUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0ea5e9', textDecoration: 'none' }}>
-                            📄 {b.fileName}
+                            {b.fileName}
                           </a>
                         ) : b.fileName}
                       </td>
@@ -496,7 +497,7 @@ export default function ReconciliationPage() {
                           style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14 }}
                           title="Delete Batch"
                         >
-                          🗑️
+                          
                         </button>
                       </td>
                     </tr>
@@ -516,7 +517,7 @@ export default function ReconciliationPage() {
             
             <input
               type="text"
-              placeholder="🔍 Search Invoice #, PO #, Narration..."
+              placeholder="Search Invoice #, PO #, Narration..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{ padding: '7px 12px', fontSize: 13, minWidth: 220, borderRadius: 8, border: '1px solid var(--border)' }}
@@ -622,7 +623,7 @@ export default function ReconciliationPage() {
       {tab === 'dashboard' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div className="card">
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>📊 Chain-wise Payment & Outstanding Overview</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Chain-wise Payment & Outstanding Overview</h3>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>

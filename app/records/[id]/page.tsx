@@ -65,7 +65,7 @@ export default async function RecordDetail({ params }: { params: { id: string } 
                       gap: 4
                     }}
                   >
-                    ☁️ View on ImageKit.io
+                    View on ImageKit.io
                   </a>
                 )}
               </div>
@@ -96,13 +96,13 @@ export default async function RecordDetail({ params }: { params: { id: string } 
                 <summary style={{
                   cursor: 'pointer',
                   padding: '12px 16px',
-                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  background: '#2563eb',
                   color: '#fff',
                   borderRadius: 8,
                   fontWeight: 600,
                   fontSize: 14
                 }}>
-                  📄 Document Information (All Extracted Data)
+                  Document Information (All Extracted Data)
                 </summary>
                 <div style={{
                   marginTop: 12,
@@ -167,7 +167,7 @@ export default async function RecordDetail({ params }: { params: { id: string } 
 
                     {/* Amounts */}
                     {(rawDocInfo.subtotal || rawDocInfo.taxAmount || rawDocInfo.totalAmount) && (
-                      <div style={{ gridColumn: '1 / -1', marginTop: 8, padding: 12, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', borderRadius: 8 }}>
+                      <div style={{ gridColumn: '1 / -1', marginTop: 8, padding: 12, background: '#059669', color: '#fff', borderRadius: 8 }}>
                         <strong>Financial Summary:</strong>
                         <div style={{ display: 'flex', gap: 24, marginTop: 8, flexWrap: 'wrap' }}>
                           {rawDocInfo.subtotal && <div>Subtotal: ₹{rawDocInfo.subtotal.toLocaleString()}</div>}
@@ -214,13 +214,13 @@ export default async function RecordDetail({ params }: { params: { id: string } 
                 <summary style={{
                   cursor: 'pointer',
                   padding: '12px 16px',
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  background: '#d97706',
                   color: '#fff',
                   borderRadius: 8,
                   fontWeight: 600,
                   fontSize: 14
                 }}>
-                  📦 Extracted Products ({extractedProducts.length} items)
+                  Extracted Products ({extractedProducts.length} items)
                 </summary>
                 <div style={{ marginTop: 12, overflowX: 'auto' }}>
                   <table className="table" style={{ fontSize: 13 }}>

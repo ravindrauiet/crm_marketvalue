@@ -10,7 +10,7 @@ export default function ImportProductsPage() {
   return (
     <div className="container fade-in">
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 8 }}>📦 Stock & Inventory Import</h2>
+        <h2 style={{ marginTop: 0, marginBottom: 8 }}>Stock & Inventory Import</h2>
         <p className="muted" style={{ fontSize: 14 }}>
           Upload generic Excel files to update current closing stock quantities (PCS). Review uploaded stock below and delete/re-upload anytime.
         </p>
@@ -18,7 +18,7 @@ export default function ImportProductsPage() {
 
       {/* Stock Import Form */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>📥 Bulk Stock Import</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 12 }}>Bulk Stock Import</h3>
         <p className="muted" style={{ fontSize: 14, marginBottom: 16 }}>
           Upload Excel file (.xlsx / .xls) containing SKU/Code, Product Name, and Closing Quantity (PCS).
         </p>
@@ -29,11 +29,11 @@ export default function ImportProductsPage() {
       <StockTableWithDelete refreshKey={refreshKey} />
 
       {/* Shifted Section Notice */}
-      <div className="card" style={{ marginTop: 32, background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid #bfdbfe', padding: 24 }}>
+      <div className="card" style={{ marginTop: 32, background: '#dbeafe', border: '1px solid #bfdbfe', padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <h4 style={{ margin: 0, fontSize: 16, color: '#1e40af', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>📦</span> Chain / Buyer PO Uploads Moved to POs Tab
+              <span></span> Chain / Buyer PO Uploads Moved to POs Tab
             </h4>
             <p style={{ margin: '6px 0 0', fontSize: 13, color: '#1e3a8a' }}>
               Chain PO documents (Amazon, Blinkit, DMart, Zepto, Swiggy, BigBasket, Eastern, Reliance, Vishal) have been shifted to the POs tab for integrated PO extraction and order planning.

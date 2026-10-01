@@ -75,7 +75,7 @@ export default function PaymentsPage() {
         <div className="container fade-in">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' }}>
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '28px', background: 'linear-gradient(45deg, var(--primary), #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    <h1 className="page-title">
                         Payments
                     </h1>
                     <p className="muted" style={{ marginTop: 4 }}>Track cash flow and transactions</p>

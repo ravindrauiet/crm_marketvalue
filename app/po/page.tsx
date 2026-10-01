@@ -20,10 +20,10 @@ type PO = {
 const CHAINS = ['FLIPKART', 'AMAZON', 'ZEPTO', 'BLINKIT', 'SWIGGY', 'BIGBASKET', 'DMART', 'EASTERN', 'RELIANCE', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
 const CHAIN_COLORS: Record<string, string> = { FLIPKART: '#F7CA41', AMAZON: '#FF9900', ZEPTO: '#8C5CF6', BLINKIT: '#0FA956', SWIGGY: '#FC8019', BIGBASKET: '#84C225', DMART: '#E91B23', EASTERN: '#E41E26', RELIANCE: '#005CB9', CITYMALL: '#E11D48', DEERIKA: '#CA8A04', VISHAL: '#0055A5', OTHER: '#64748b' };
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  ACTIVE: { label: '🟢 Active', color: '#16a34a', bg: '#dcfce7' },
-  PLANNED: { label: '🔵 Planned', color: '#2563eb', bg: '#dbeafe' },
-  COMPLETED: { label: '✅ Completed', color: '#6b7280', bg: '#f3f4f6' },
-  REMOVED: { label: '❌ Removed', color: '#dc2626', bg: '#fee2e2' },
+  ACTIVE: { label: 'Active', color: '#16a34a', bg: '#dcfce7' },
+  PLANNED: { label: 'Planned', color: '#2563eb', bg: '#dbeafe' },
+  COMPLETED: { label: 'Completed', color: '#6b7280', bg: '#f3f4f6' },
+  REMOVED: { label: 'Removed', color: '#dc2626', bg: '#fee2e2' },
 };
 
 const suppliers = [
@@ -63,7 +63,7 @@ export default function POPage() {
   // Filter & Sort States
   const [searchQuery, setSearchQuery] = useState('');
   const [filterChain, setFilterChain] = useState('');
-  const [filterStatus, setFilterStatus] = useState('ACTIVE');
+  const [filterStatus, setFilterStatus] = useState(''); // '' = every PO except removed ones
   const [timeFilter, setTimeFilter] = useState('all'); // 'all' | 'today' | '7days' | '30days'
   const [sortBy, setSortBy] = useState('upload_desc'); // 'upload_desc' | 'upload_asc' | 'po_desc' | 'po_asc' | 'amount_desc' | 'amount_asc'
 
@@ -180,7 +180,7 @@ export default function POPage() {
   const resetFilters = () => {
     setSearchQuery('');
     setFilterChain('');
-    setFilterStatus('ACTIVE');
+    setFilterStatus('');
     setTimeFilter('all');
     setSortBy('upload_desc');
   };
@@ -188,60 +188,33 @@ export default function POPage() {
   return (
     <div className="container fade-in">
       {/* Header */}
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 20, alignItems: 'flex-start' }}>
+      <div className="page-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #f59e0b, #ef4444)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            📦 PO Management
-          </h1>
-          <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>Track and upload incoming Purchase Orders from Flipkart, Amazon, Zepto, Blinkit & more</p>
+          <h1 className="page-title">Purchase Orders</h1>
+          <p className="page-subtitle">Track and upload incoming chain POs from Flipkart, Amazon, Zepto, Blinkit and more.</p>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div className="page-actions">
           {selectedIds.size > 0 && (
-            <Link href={`/shortfall?pos=${[...selectedIds].join(',')}`} className="btn"
-              style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-              ⚡ Shortfall ({selectedIds.size})
+            <Link href={`/shortfall?pos=${[...selectedIds].join(',')}`} className="btn secondary">
+              Plan shortfall ({selectedIds.size})
             </Link>
           )}
-          <Link href="/po/reconciliation-report" className="btn" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', whiteSpace: 'nowrap' }}>
-            📊 Fill Rate & Reco Report
+          <Link href="/po/reconciliation-report" className="btn secondary">
+            Fill Rate Report
           </Link>
-          <Link href="/po/new" className="btn" style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)', whiteSpace: 'nowrap' }}>
+          <Link href="/po/new" className="btn">
             + New PO
           </Link>
         </div>
       </div>
 
       {/* Main Tab Navigation */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, borderBottom: '2px solid var(--border)', paddingBottom: 12 }}>
-        <button
-          onClick={() => setActiveTab('list')}
-          className="btn"
-          style={{
-            background: activeTab === 'list' ? 'linear-gradient(135deg, #f59e0b, #ef4444)' : 'var(--bg-secondary)',
-            color: activeTab === 'list' ? '#fff' : 'var(--text)',
-            border: 'none',
-            fontSize: 14,
-            fontWeight: 600,
-            padding: '8px 18px',
-            borderRadius: 8
-          }}
-        >
-          📋 Active PO Records ({filteredAndSortedPOs.length})
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={activeTab === 'list'} onClick={() => setActiveTab('list')} className={`tab${activeTab === 'list' ? ' active' : ''}`}>
+          PO records <span className="tab-count">{filteredAndSortedPOs.length}</span>
         </button>
-        <button
-          onClick={() => setActiveTab('upload')}
-          className="btn"
-          style={{
-            background: activeTab === 'upload' ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'var(--bg-secondary)',
-            color: activeTab === 'upload' ? '#fff' : 'var(--text)',
-            border: 'none',
-            fontSize: 14,
-            fontWeight: 600,
-            padding: '8px 18px',
-            borderRadius: 8
-          }}
-        >
-          📤 Chain / Buyer PO Uploads
+        <button role="tab" aria-selected={activeTab === 'upload'} onClick={() => setActiveTab('upload')} className={`tab${activeTab === 'upload' ? ' active' : ''}`}>
+          Upload chain PO documents
         </button>
       </div>
 
@@ -250,13 +223,13 @@ export default function POPage() {
         <div>
           <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: 20 }}>📤 Chain / Buyer PO Uploads</h3>
+              <h3 style={{ margin: 0, fontSize: 20 }}>Chain / Buyer PO Uploads</h3>
               <p className="muted" style={{ margin: '4px 0 0', fontSize: 14 }}>
                 Upload PO documents from specific retail chains (Amazon, Blinkit, DMart, Zepto, Swiggy, BigBasket, Eastern, Reliance, Vishal) to auto-extract items and create PO records.
               </p>
             </div>
             <Link href="/po/new" className="btn secondary" style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              👁️ Interactive PO Editor (+ Pre-review before saving)
+              Interactive PO Editor (+ Pre-review before saving)
             </Link>
           </div>
 
@@ -279,7 +252,7 @@ export default function POPage() {
                   onSuccess={(createdPoId?: string) => {
                     setSearchQuery('');
                     setFilterChain('');
-                    setFilterStatus('ACTIVE');
+                    setFilterStatus('');
                     setTimeFilter('all');
                     setSortBy('upload_desc');
                     setActiveTab('list');
@@ -295,16 +268,17 @@ export default function POPage() {
         /* PO Records List View */
         <div>
           {/* Stats Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 24 }}>
+          <div className="kpi-grid">
             {[
-              { label: 'Active POs', value: stats.active, color: '#16a34a', bg: 'linear-gradient(135deg,#16a34a,#15803d)' },
-              { label: 'Planned', value: stats.planned, color: '#2563eb', bg: 'linear-gradient(135deg,#2563eb,#1d4ed8)' },
-              { label: 'Total Value', value: `₹${stats.totalValue.toLocaleString('en-IN')}`, color: '#9333ea', bg: 'linear-gradient(135deg,#9333ea,#7e22ce)' },
-              { label: 'Total Line Items', value: stats.totalItems, color: '#ea580c', bg: 'linear-gradient(135deg,#ea580c,#c2410c)' },
+              { label: 'Active POs', value: stats.active, foot: 'Received, not yet planned' },
+              { label: 'Planned', value: stats.planned, foot: 'Scheduled for dispatch' },
+              { label: 'Total value', value: `₹${stats.totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, foot: 'Of POs shown below' },
+              { label: 'Line items', value: stats.totalItems, foot: 'Of POs shown below' },
             ].map(s => (
-              <div key={s.label} className="card" style={{ padding: 20, background: s.bg, border: 'none', color: '#fff' }}>
-                <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>{s.label}</div>
-                <div style={{ fontSize: 28, fontWeight: 700 }}>{s.value}</div>
+              <div key={s.label} className="kpi">
+                <span className="kpi-label">{s.label}</span>
+                <span className="kpi-value">{s.value}</span>
+                <span className="kpi-foot">{s.foot}</span>
               </div>
             ))}
           </div>
@@ -316,7 +290,7 @@ export default function POPage() {
               {/* Search input */}
               <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                  🔍 Search POs
+                  Search POs
                 </label>
                 <input
                   type="text"
@@ -330,10 +304,10 @@ export default function POPage() {
               {/* Status Filter */}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                  🟢 Status Filter
+                  Status Filter
                 </label>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ width: '100%', padding: '8px 12px', fontSize: 13, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                  <option value="">All Statuses</option>
+                  <option value="">All (except removed)</option>
                   {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
@@ -341,7 +315,7 @@ export default function POPage() {
               {/* Chain Filter */}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                  🏷️ Chain Filter
+                  Chain Filter
                 </label>
                 <select value={filterChain} onChange={e => setFilterChain(e.target.value)} style={{ width: '100%', padding: '8px 12px', fontSize: 13, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8 }}>
                   <option value="">All Chains</option>
@@ -352,7 +326,7 @@ export default function POPage() {
               {/* Upload Time Period Filter */}
               <div>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                  🕒 Upload Period
+                  Upload Period
                 </label>
                 <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)} style={{ width: '100%', padding: '8px 12px', fontSize: 13, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 8 }}>
                   <option value="all">All Upload Times</option>
@@ -389,14 +363,14 @@ export default function POPage() {
                   <span style={{ fontWeight: 600, color: '#10b981' }}>{selectedIds.size} selected for Shortfall</span>
                 )}
               </div>
-              {(searchQuery || filterChain || filterStatus !== 'ACTIVE' || timeFilter !== 'all' || sortBy !== 'upload_desc') && (
+              {(searchQuery || filterChain || filterStatus !== '' || timeFilter !== 'all' || sortBy !== 'upload_desc') && (
                 <button
                   type="button"
                   onClick={resetFilters}
                   className="btn secondary"
                   style={{ fontSize: 12, padding: '4px 10px' }}
                 >
-                  🔄 Reset Filters & Search
+                  Reset Filters & Search
                 </button>
               )}
             </div>
@@ -407,13 +381,13 @@ export default function POPage() {
             <div style={{ padding: 64, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
           ) : filteredAndSortedPOs.length === 0 ? (
             <div className="card" style={{ padding: 64, textAlign: 'center' }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
+              <div style={{ fontSize: 48, marginBottom: 16 }}></div>
               <h3>No POs found</h3>
               <p className="muted" style={{ marginBottom: 24 }}>No Purchase Orders match your current search and filter settings.</p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
-                <button onClick={resetFilters} className="btn">🔄 Reset Filters</button>
+                <button onClick={resetFilters} className="btn">Reset Filters</button>
                 <Link href="/po/new" className="btn secondary">+ Add PO Manually</Link>
-                <button onClick={() => setActiveTab('upload')} className="btn secondary">📤 Upload Chain PO Document</button>
+                <button onClick={() => setActiveTab('upload')} className="btn secondary">Upload Chain PO Document</button>
               </div>
             </div>
           ) : (
@@ -457,15 +431,15 @@ export default function POPage() {
                               }}
                               title="View on ImageKit CDN"
                             >
-                              ☁️ ImageKit
+                              ImageKit
                             </a>
                           )}
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <span>📅 PO Date: <strong>{new Date(po.poDate).toLocaleDateString('en-IN')}</strong>{po.appointmentDate ? ` · Appt: ${new Date(po.appointmentDate).toLocaleDateString('en-IN')}` : ''}</span>
+                          <span>PO Date: <strong>{new Date(po.poDate).toLocaleDateString('en-IN')}</strong>{po.appointmentDate ? ` · Appt: ${new Date(po.appointmentDate).toLocaleDateString('en-IN')}` : ''}</span>
                           <span style={{ opacity: 0.85 }}>•</span>
-                          <span>🕒 Uploaded: <strong>{uploadFormatted}</strong></span>
-                          {po.fileName && <span style={{ color: '#2563eb', fontWeight: 500 }}>📄 {po.fileName}</span>}
+                          <span>Uploaded: <strong>{uploadFormatted}</strong></span>
+                          {po.fileName && <span style={{ color: '#2563eb', fontWeight: 500 }}>{po.fileName}</span>}
                         </div>
                       </div>
 
@@ -500,7 +474,7 @@ export default function POPage() {
                         {(po.filePath || po.rawDocumentInfo || po.imagekitUrl) && (
                           <div style={{ marginBottom: 16, padding: 14, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                              <span style={{ fontWeight: 700, fontSize: 13, color: '#1e40af' }}>🤖 AI Extracted Document Summary (16 Fields)</span>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: '#1e40af' }}>AI Extracted Document Summary (16 Fields)</span>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 {po.imagekitUrl && (
                                   <a
@@ -510,12 +484,12 @@ export default function POPage() {
                                     className="btn secondary"
                                     style={{ fontSize: 12, padding: '4px 10px', background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', border: '1px solid rgba(2, 132, 199, 0.3)', textDecoration: 'none' }}
                                   >
-                                    ☁️ View on ImageKit.io
+                                    View on ImageKit.io
                                   </a>
                                 )}
                                 {po.filePath && (
                                   <a href={po.filePath} download={po.fileName || `PO_${po.poNumber}`} className="btn secondary" style={{ fontSize: 12, padding: '4px 10px', background: '#dbeafe', color: '#1e40af', border: '1px solid #bfdbfe' }}>
-                                    📄 Download Original File ({po.fileName || 'PO File'})
+                                    Download Original File ({po.fileName || 'PO File'})
                                   </a>
                                 )}
                               </div>
@@ -569,7 +543,7 @@ export default function POPage() {
                             ))}
                           </tbody>
                         </table>
-                        {po.notes && <div style={{ paddingTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>📝 {po.notes}</div>}
+                        {po.notes && <div style={{ paddingTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>{po.notes}</div>}
                       </div>
                     )}
                   </div>

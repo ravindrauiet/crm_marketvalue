@@ -80,14 +80,14 @@ export default function OrdersPage() {
       {/* Header Section */}
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '28px', background: 'linear-gradient(45deg, var(--primary), #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <h1 className="page-title">
             Order Management
           </h1>
           <p className="muted" style={{ marginTop: 4 }}>Track sales, purchases, and order fulfillments</p>
         </div>
         <div className="row" style={{ gap: 12 }}>
           <a href="/api/export/orders" className="btn secondary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>📊</span> Export
+            <span></span> Export
           </a>
           <Link href="/orders/new" className="btn primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>+</span> New Order
@@ -95,23 +95,27 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Stats Cards - Using Flexbox */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ flex: '1 1 200px', minWidth: 180, padding: 20, background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', border: 'none', color: '#fff' }}>
-          <div style={{ fontSize: '11px', marginBottom: 6, fontWeight: 600, opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Orders</div>
-          <div style={{ fontSize: '32px', fontWeight: 700 }}>{stats.total.toLocaleString()}</div>
+      {/* Stats */}
+      <div className="kpi-grid">
+        <div className="kpi">
+          <span className="kpi-label">Total orders</span>
+          <span className="kpi-value">{stats.total.toLocaleString('en-IN')}</span>
+          <span className="kpi-foot">Sales and purchases</span>
         </div>
-        <div className="card" style={{ flex: '1 1 200px', minWidth: 180, padding: 20, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', border: 'none', color: '#fff' }}>
-          <div style={{ fontSize: '11px', marginBottom: 6, fontWeight: 600, opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending Action</div>
-          <div style={{ fontSize: '32px', fontWeight: 700 }}>{stats.pending}</div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot warn" aria-hidden="true" />Pending action</span>
+          <span className="kpi-value">{stats.pending.toLocaleString('en-IN')}</span>
+          <span className="kpi-foot">Waiting to be confirmed</span>
         </div>
-        <div className="card" style={{ flex: '1 1 200px', minWidth: 180, padding: 20, background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', border: 'none', color: '#fff' }}>
-          <div style={{ fontSize: '11px', marginBottom: 6, fontWeight: 600, opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Revenue</div>
-          <div style={{ fontSize: '32px', fontWeight: 700 }}>₹{stats.revenue.toLocaleString()}</div>
+        <div className="kpi">
+          <span className="kpi-label">Sales revenue</span>
+          <span className="kpi-value">₹{stats.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+          <span className="kpi-foot">From sale orders</span>
         </div>
-        <div className="card" style={{ flex: '1 1 200px', minWidth: 180, padding: 20, background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', border: 'none', color: '#fff' }}>
-          <div style={{ fontSize: '11px', marginBottom: 6, fontWeight: 600, opacity: 0.9, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Purchase Value</div>
-          <div style={{ fontSize: '32px', fontWeight: 700 }}>₹{stats.purchaseValue.toLocaleString()}</div>
+        <div className="kpi">
+          <span className="kpi-label">Purchase value</span>
+          <span className="kpi-value">₹{stats.purchaseValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+          <span className="kpi-foot">From purchase orders</span>
         </div>
       </div>
 
@@ -121,23 +125,23 @@ export default function OrdersPage() {
         <select
           value={filter.type}
           onChange={(e) => setFilter({ ...filter, type: e.target.value })}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', minWidth: 140, fontSize: '13px', cursor: 'pointer' }}
+          style={{ flex: '0 0 180px', fontSize: '13px', cursor: 'pointer' }}
         >
           <option value="">All Types</option>
-          <option value="SALE">💰 Sales</option>
-          <option value="PURCHASE">📦 Purchases</option>
+          <option value="SALE">Sales</option>
+          <option value="PURCHASE">Purchases</option>
         </select>
         <select
           value={filter.status}
           onChange={(e) => setFilter({ ...filter, status: e.target.value })}
-          style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', minWidth: 140, fontSize: '13px', cursor: 'pointer' }}
+          style={{ flex: '0 0 180px', fontSize: '13px', cursor: 'pointer' }}
         >
           <option value="">All Statuses</option>
-          <option value="PENDING">⏳ Pending</option>
+          <option value="PENDING">Pending</option>
           <option value="CONFIRMED">✓ Confirmed</option>
-          <option value="SHIPPED">🚚 Shipped</option>
-          <option value="DELIVERED">✅ Delivered</option>
-          <option value="CANCELLED">❌ Cancelled</option>
+          <option value="SHIPPED">Shipped</option>
+          <option value="DELIVERED">Delivered</option>
+          <option value="CANCELLED">Cancelled</option>
         </select>
         <div style={{ flex: 1 }} />
         <span className="muted" style={{ fontSize: '13px' }}>{orders.length} order{orders.length !== 1 ? 's' : ''} found</span>
@@ -152,7 +156,7 @@ export default function OrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', background: 'var(--bg-secondary)' }}>
-            <div style={{ fontSize: 32, marginBottom: 16 }}>📦</div>
+            <div style={{ fontSize: 32, marginBottom: 16 }}></div>
             <h3 style={{ margin: '0 0 8px', fontSize: '18px' }}>No orders found</h3>
             <p className="muted" style={{ margin: '0 0 24px', fontSize: '14px' }}>Get started by creating your first order.</p>
             <Link href="/orders/new" className="btn primary">Create Order</Link>
@@ -228,7 +232,7 @@ export default function OrdersPage() {
                           style={{ fontSize: '12px', padding: '4px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
                           title="Generate Invoice"
                         >
-                          📄
+                          
                         </button>
                       )}
                       <Link href={`/orders/${order.id}`} className="btn secondary" style={{ fontSize: '12px', padding: '4px 10px' }}>
@@ -279,7 +283,7 @@ export default function OrdersPage() {
                           style={{ fontSize: '12px', padding: '4px 10px', background: '#dcfce7', color: '#166534', border: '1px solid #bbb' }}
                           title="Receive Goods"
                         >
-                          📦 Recv
+                          Recv
                         </button>
                       )}
                     </td>

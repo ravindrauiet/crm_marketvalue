@@ -37,7 +37,7 @@ export default function UploadForm({
           uploadFd.append('file', file);
           uploadFd.append('chainName', activeVendor);
 
-          console.log(`📤 [PO UPLOAD FORM] Uploading PO file "${file.name}" for chain "${activeVendor}"...`);
+          console.log(`[PO UPLOAD FORM] Uploading PO file "${file.name}" for chain "${activeVendor}"...`);
           const extractRes = await fetch('/api/po/upload', { method: 'POST', body: uploadFd });
           const extractData = await extractRes.json();
 
@@ -98,7 +98,7 @@ export default function UploadForm({
           }
         }
 
-        setSuccessMsg(`✅ Successfully processed and created ${createdCount} Purchase Order(s) for ${activeVendor}!`);
+        setSuccessMsg(`Successfully processed and created ${createdCount} Purchase Order(s) for ${activeVendor}!`);
         setFiles(null);
         setLoading(false);
 
@@ -107,7 +107,7 @@ export default function UploadForm({
           router.push('/po');
         }
       } catch (err: any) {
-        console.error('❌ [PO UPLOAD FORM ERROR]', err);
+        console.error('[PO UPLOAD FORM ERROR]', err);
         setError(err?.message || 'PO Processing failed');
         setLoading(false);
       }
@@ -225,7 +225,7 @@ export default function UploadForm({
           color: 'var(--error)',
           fontSize: 14
         }}>
-          ⚠️ {error}
+          {error}
         </div>
       )}
     </form>

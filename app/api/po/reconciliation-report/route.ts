@@ -62,6 +62,8 @@ export async function GET(req: NextRequest) {
       prisma.chainPurchaseOrder.findMany({
         where: {
           poDate: { gte: startDate, lte: endDate },
+          // POs deleted from the PO list are soft-deleted as REMOVED and must not be reported
+          status: { not: 'REMOVED' },
           ...(chainParam && chainParam !== 'ALL' ? { chainName: { equals: chainParam.toUpperCase(), mode: 'insensitive' } } : {}),
         },
         include: { items: true },

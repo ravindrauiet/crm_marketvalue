@@ -45,7 +45,7 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
       const res = await fetch(`/api/import/stock?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (res.ok) {
-        setActionMessage(`✅ Stock for "${name}" reset to 0 pcs`);
+        setActionMessage(`Stock for "${name}" reset to 0 pcs`);
         loadStockData();
       } else {
         alert(data.error || 'Failed to delete stock');
@@ -56,12 +56,12 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
   }
 
   async function handleResetAll() {
-    if (!confirm('⚠️ Are you sure you want to reset ALL uploaded stock quantities to 0? This allows you to perform a clean re-upload.')) return;
+    if (!confirm('Are you sure you want to reset ALL uploaded stock quantities to 0? This allows you to perform a clean re-upload.')) return;
     try {
       const res = await fetch('/api/import/stock?resetAll=true', { method: 'DELETE' });
       const data = await res.json();
       if (res.ok) {
-        setActionMessage('✅ All stock quantities reset to 0 pcs. Ready for fresh upload!');
+        setActionMessage('All stock quantities reset to 0 pcs. Ready for fresh upload!');
         loadStockData();
       } else {
         alert(data.error || 'Failed to reset stock');
@@ -82,7 +82,7 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
       {/* Header & Stats */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 18 }}>📊 Uploaded Stock & PCS Summary</h3>
+          <h3 style={{ margin: 0, fontSize: 18 }}>Uploaded Stock & PCS Summary</h3>
           <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
             Review uploaded closing stock quantities. Delete or reset items anytime to re-upload fresh files.
           </p>
@@ -94,7 +94,7 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
             className="btn secondary" 
             style={{ color: '#dc2626', borderColor: '#fca5a5', fontSize: 12, padding: '6px 12px' }}
           >
-            🗑️ Clear / Reset All Stock
+            Clear / Reset All Stock
           </button>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
       {/* Search Input */}
       <div style={{ marginBottom: 16 }}>
         <input 
-          placeholder="🔍 Search uploaded stock by item name, SKU or brand..." 
+          placeholder="Search uploaded stock by item name, SKU or brand..." 
           value={search} 
           onChange={e => setSearch(e.target.value)}
           style={{ width: '100%', padding: '8px 12px', fontSize: 13 }}
@@ -169,7 +169,7 @@ export default function StockTableWithDelete({ refreshKey }: { refreshKey?: numb
                       className="btn secondary" 
                       style={{ fontSize: 11, padding: '3px 8px', color: '#dc2626' }}
                     >
-                      🗑️ Delete
+                      Delete
                     </button>
                   </td>
                 </tr>

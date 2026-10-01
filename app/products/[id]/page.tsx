@@ -285,7 +285,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
 
         {/* Right Column: Stock Status */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div className="card" style={{ background: 'linear-gradient(135deg, var(--panel), var(--bg-secondary))' }}>
+          <div className="card" style={{ background: 'var(--bg-secondary)' }}>
             <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: 16, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Current Stock</h3>
             <div style={{ fontSize: 48, fontWeight: 800, color: currentQty <= product.minStockThreshold ? 'var(--warning)' : 'var(--success)', lineHeight: 1 }}>
               {currentQty}
@@ -306,7 +306,7 @@ export default function ProductDetailPage({ params }: { params: { id: string } }
               </div>
               {currentQty <= product.minStockThreshold && (
                 <div style={{ marginTop: 12, fontSize: 12, color: 'var(--warning)', background: 'var(--warning-bg)', padding: 8, borderRadius: 6 }}>
-                  ⚠️ Stock is low. Reorder recommended.
+                  Stock is low. Reorder recommended.
                 </div>
               )}
             </div>

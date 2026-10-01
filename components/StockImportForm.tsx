@@ -19,7 +19,7 @@ export default function StockImportForm({ onImportSuccess }: { onImportSuccess?:
       const res = await fetch('/api/import/stock', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Import failed');
-      setResult(`✅ Imported/updated ${data.upserted} products with closing stock`);
+      setResult(`Imported/updated ${data.upserted} products with closing stock`);
       if (onImportSuccess) onImportSuccess();
     } catch (e: any) {
       setError(e?.message || 'Import failed');

@@ -533,24 +533,18 @@ export default function POFillRateReportPage() {
         }
       `}} />
 
-      {/* Navigation Breadcrumb & Header */}
-      <div className="no-print" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Page header */}
+      <div className="page-header no-print">
         <div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
-            <Link href="/po" style={{ color: 'var(--primary)', textDecoration: 'none' }}>📦 PO Management</Link> › Fill Rate & Reco Report
-          </div>
-          <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>
-            📊 PO Fill Rate & Multi-Payment Reconciliation Report
-          </h1>
-          <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: 14 }}>
-            Reconcile Chain POs against GLOMIN Billed Invoices • Track 3-4 Multi-Installment Bank Remittances & Set-Off Status
+          <h1 className="page-title">PO Fill Rate &amp; Reconciliation</h1>
+          <p className="page-subtitle">
+            Chain POs against GLOMIN billed invoices, with delivery fill rate, multi-installment remittances and set-off status.
           </p>
         </div>
 
-        {/* Action Toolbar */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <label className="btn" style={{ background: '#ea580c', color: '#fff', fontSize: 13, gap: 6, cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
-            {uploadingReport ? '⏳ Uploading...' : '📤 Upload Daily Sale Invoice'}
+        <div className="page-actions">
+          <label className="btn" style={{ cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
+            {uploadingReport ? 'Uploading…' : 'Upload daily sale invoices'}
             <input
               type="file"
               accept=".xls,.xlsx,.csv"
@@ -559,11 +553,11 @@ export default function POFillRateReportPage() {
               style={{ display: 'none' }}
             />
           </label>
-          <button onClick={exportToExcel} className="btn" style={{ background: '#16a34a', color: '#fff', fontSize: 13, gap: 6 }}>
-            📥 Export Excel (.xlsx)
+          <button onClick={exportToExcel} className="btn secondary">
+            Export Excel
           </button>
-          <button onClick={handlePrint} className="btn secondary" style={{ fontSize: 13, gap: 6 }}>
-            📄 Print / PDF
+          <button onClick={handlePrint} className="btn secondary">
+            Print / PDF
           </button>
         </div>
       </div>
@@ -575,7 +569,7 @@ export default function POFillRateReportPage() {
           {/* 1. Date Range Picker (1 Year Filter) */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              📅 From Date (1-Year Filter)
+              From Date (1-Year Filter)
             </label>
             <input
               type="date"
@@ -588,7 +582,7 @@ export default function POFillRateReportPage() {
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              📅 To Date
+              To Date
             </label>
             <input
               type="date"
@@ -602,7 +596,7 @@ export default function POFillRateReportPage() {
           {/* 2. Month Selector */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              🗓️ Expiry / PO Month
+              Expiry / PO Month
             </label>
             <select
               className="input"
@@ -620,7 +614,7 @@ export default function POFillRateReportPage() {
           {/* 3. Account / Chain Selector */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              🏪 Account / Retail Chain
+              Account / Retail Chain
             </label>
             <select
               className="input"
@@ -637,7 +631,7 @@ export default function POFillRateReportPage() {
           {/* 4. Brand Selector */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              🏷️ Brand Selection
+              Brand Selection
             </label>
             <select
               className="input"
@@ -654,7 +648,7 @@ export default function POFillRateReportPage() {
           {/* 5. PO Status Selector */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              📌 PO Status
+              PO Status
             </label>
             <select
               className="input"
@@ -675,7 +669,7 @@ export default function POFillRateReportPage() {
           <input
             type="text"
             className="input"
-            placeholder="🔍 Search by PO Number, Invoice #, Brand, DC Location, Item Code, Remarks..."
+            placeholder="Search by PO Number, Invoice #, Brand, DC Location, Item Code, Remarks..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ padding: '9px 14px', fontSize: 13 }}
@@ -707,7 +701,7 @@ export default function POFillRateReportPage() {
               whiteSpace: 'nowrap'
             }}
           >
-            {brand === 'ALL' ? '🌐 All Brands' : `🏷️ ${brand}`}
+            {brand === 'ALL' ? 'All Brands' : `${brand}`}
           </button>
         ))}
       </div>
@@ -719,7 +713,7 @@ export default function POFillRateReportPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
           <div>
             <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
-              📅 Daily Tally Sales Report Upload & Calendar Tracker
+              Daily Tally Sales Report Upload & Calendar Tracker
             </h3>
             <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
               Upload daily Tally Excel sales reports (e.g. <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>Tally/SALE REPORT_JULY_.xls</code>) to reconcile PO Fill Rates & check daily upload ticks (✓).
@@ -729,7 +723,7 @@ export default function POFillRateReportPage() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* File Upload Button */}
             <label className="btn primary" style={{ cursor: uploadingReport ? 'not-allowed' : 'pointer', fontSize: 12, padding: '7px 14px', background: '#2563eb', color: '#fff', borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span>{uploadingReport ? '⏳ Uploading & Reconciling...' : '📤 Upload Daily Tally Excel (.xls/.xlsx)'}</span>
+              <span>{uploadingReport ? 'Uploading & Reconciling...' : 'Upload Daily Tally Excel (.xls/.xlsx)'}</span>
               <input
                 type="file"
                 accept=".xls,.xlsx,.csv"
@@ -758,7 +752,7 @@ export default function POFillRateReportPage() {
                 gap: 6
               }}
             >
-              ⚡ Quick Import (Tally/SALE REPORT_JULY_.xls)
+              Quick Import (Tally/SALE REPORT_JULY_.xls)
             </button>
             )}
           </div>
@@ -779,7 +773,7 @@ export default function POFillRateReportPage() {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <span>{uploadStatus.type === 'success' ? '✅' : '❌'} {uploadStatus.message}</span>
+            <span>{uploadStatus.type === 'success' ? '' : ''} {uploadStatus.message}</span>
             <button onClick={() => setUploadStatus(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'inherit' }}>✕</button>
           </div>
         )}
@@ -797,7 +791,7 @@ export default function POFillRateReportPage() {
               ◀ Prev
             </button>
             <span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>
-              📆 {monthNames[calMonth]} {calYear}
+              {monthNames[calMonth]} {calYear}
             </span>
             <button
               onClick={() => {
@@ -823,7 +817,7 @@ export default function POFillRateReportPage() {
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b' }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#cbd5e1', display: 'inline-block' }}></span>
-              ⏳ Pending Upload
+              Pending Upload
             </span>
           </div>
         </div>
@@ -884,7 +878,7 @@ export default function POFillRateReportPage() {
                       ✓ Uploaded
                     </span>
                   ) : (
-                    <span style={{ fontSize: 10, color: '#94a3b8' }}>⏳ Pending</span>
+                    <span style={{ fontSize: 10, color: '#94a3b8' }}>Pending</span>
                   )}
                 </div>
 
@@ -951,67 +945,24 @@ export default function POFillRateReportPage() {
       )}
 
       {/* Main View Tabs */}
-      <div className="no-print" style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: 20 }}>
-        <button
-          onClick={() => setActiveTab('summary')}
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            fontWeight: activeTab === 'summary' ? 700 : 500,
-            color: activeTab === 'summary' ? '#2563eb' : '#64748b',
-            borderBottom: activeTab === 'summary' ? '3px solid #2563eb' : 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          📋 PO Level Summary Report ({rows.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('item_detail')}
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            fontWeight: activeTab === 'item_detail' ? 700 : 500,
-            color: activeTab === 'item_detail' ? '#2563eb' : '#64748b',
-            borderBottom: activeTab === 'item_detail' ? '3px solid #2563eb' : 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          🔍 Item Level Detail Breakdown ({allItemRows.length} items)
-        </button>
-        <button
-          onClick={() => setActiveTab('installments')}
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            fontWeight: activeTab === 'installments' ? 700 : 500,
-            color: activeTab === 'installments' ? '#2563eb' : '#64748b',
-            borderBottom: activeTab === 'installments' ? '3px solid #2563eb' : 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          💳 Payment Installments & Remittances ({allPaymentInstallments.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('sale_items')}
-          style={{
-            padding: '10px 20px',
-            fontSize: 14,
-            fontWeight: activeTab === 'sale_items' ? 700 : 500,
-            color: activeTab === 'sale_items' ? '#2563eb' : '#64748b',
-            borderBottom: activeTab === 'sale_items' ? '3px solid #2563eb' : 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer'
-          }}
-        >
-          🧾 Sale Invoice Item Wise
-        </button>
+      <div className="tabs no-print" role="tablist">
+        {([
+          ['summary', 'PO summary', rows.length],
+          ['item_detail', 'Item-level detail', allItemRows.length],
+          ['installments', 'Payment installments', allPaymentInstallments.length],
+          ['sale_items', 'Sale invoices (item-wise)', undefined],
+        ] as const).map(([id, label, count]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={activeTab === id}
+            onClick={() => setActiveTab(id)}
+            className={`tab${activeTab === id ? ' active' : ''}`}
+          >
+            {label}
+            {count !== undefined && <span className="tab-count">{count}</span>}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'sale_items' ? (
@@ -1020,11 +971,11 @@ export default function POFillRateReportPage() {
         <div>
           <div className="no-print" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 14, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>📅 Invoice Date From</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Invoice Date From</label>
               <input type="date" className="input" value={saleFrom} onChange={e => setSaleFrom(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>📅 Invoice Date To</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>Invoice Date To</label>
               <input type="date" className="input" value={saleTo} onChange={e => setSaleTo(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -1037,7 +988,7 @@ export default function POFillRateReportPage() {
             <input
               type="text"
               className="input"
-              placeholder="🔍 Search Invoice No, Party, PO No, Item..."
+              placeholder="Search Invoice No, Party, PO No, Item..."
               value={saleSearch}
               onChange={e => setSaleSearch(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') fetchSaleItems(); }}
@@ -1045,7 +996,7 @@ export default function POFillRateReportPage() {
             />
             <button onClick={fetchSaleItems} className="btn primary" style={{ fontSize: 13, padding: '7px 14px' }}>Search</button>
             <button onClick={exportSaleItems} disabled={saleRows.length === 0} className="btn" style={{ background: '#16a34a', color: '#fff', fontSize: 13, padding: '7px 14px' }}>
-              📥 Export
+              Export
             </button>
           </div>
 
@@ -1057,12 +1008,12 @@ export default function POFillRateReportPage() {
           </div>
 
           {saleLoading ? (
-            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>⏳ Loading sale invoice items...</div>
+            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>Loading sale invoice items...</div>
           ) : saleError ? (
-            <div style={{ padding: 20, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8 }}>❌ {saleError}</div>
+            <div style={{ padding: 20, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8 }}>{saleError}</div>
           ) : saleRows.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              ℹ️ No sale invoices uploaded for this date range. Use "📤 Upload Daily Sale Invoice" to upload the Tally sale report.
+              No sale invoices uploaded for this date range. Use "Upload Daily Sale Invoice" to upload the Tally sale report.
             </div>
           ) : (
             <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -1100,15 +1051,15 @@ export default function POFillRateReportPage() {
 
       ) : loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
-          ⏳ Generating PO Fill Rate & Billing Reconciliation Report...
+          Generating PO Fill Rate & Billing Reconciliation Report...
         </div>
       ) : error ? (
         <div style={{ padding: 20, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8 }}>
-          ❌ {error}
+          {error}
         </div>
       ) : rows.length === 0 ? (
         <div style={{ padding: 48, textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-          ℹ️ No Purchase Orders found matching selected filters. Try adjusting your date range or brand filter.
+          No Purchase Orders found matching selected filters. Try adjusting your date range or brand filter.
         </div>
       ) : activeTab === 'summary' ? (
 
@@ -1334,7 +1285,7 @@ export default function POFillRateReportPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              📦 Line Items ({r.itemDetails.length})
+                              Line Items ({r.itemDetails.length})
                             </button>
                             <button
                               onClick={() => setSubTab('payments')}
@@ -1349,7 +1300,7 @@ export default function POFillRateReportPage() {
                                 cursor: 'pointer'
                               }}
                             >
-                              💳 Payment Remittance & Installments ({r.paymentInstallments.length})
+                              Payment Remittance & Installments ({r.paymentInstallments.length})
                             </button>
                           </div>
 
@@ -1397,7 +1348,7 @@ export default function POFillRateReportPage() {
                             <div>
                               {r.paymentInstallments.length === 0 ? (
                                 <div style={{ padding: 16, background: '#fff', borderRadius: 6, border: '1px solid #e2e8f0', color: '#64748b' }}>
-                                  ℹ️ No remittance payments recorded yet for PO #{r.poNumber}.
+                                  No remittance payments recorded yet for PO #{r.poNumber}.
                                 </div>
                               ) : (
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, background: '#fff', border: '1px solid #cbd5e1' }}>
@@ -1537,7 +1488,7 @@ export default function POFillRateReportPage() {
                       background: inst.setOffStatus === 'FULLY_SET_OFF' ? '#dcfce7' : '#fef3c7',
                       color: inst.setOffStatus === 'FULLY_SET_OFF' ? '#15803d' : '#b45309'
                     }}>
-                      {inst.setOffStatus === 'FULLY_SET_OFF' ? '✅ Set-Off' : '🟡 Partial'}
+                      {inst.setOffStatus === 'FULLY_SET_OFF' ? 'Set-Off' : 'Partial'}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#475569', fontSize: 11 }}>{inst.narration}</td>

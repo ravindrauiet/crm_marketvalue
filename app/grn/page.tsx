@@ -40,7 +40,7 @@ export default function GRNPage() {
         <div className="container fade-in">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' }}>
                 <div>
-                    <h1 style={{ margin: 0, fontSize: '28px', background: 'linear-gradient(45deg, var(--primary), #10b981)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    <h1 className="page-title">
                         Goods Receipt Notes (GRN)
                     </h1>
                     <p className="muted" style={{ marginTop: 4 }}>Track inventory received from vendors</p>
@@ -52,7 +52,7 @@ export default function GRNPage() {
                     <div style={{ padding: 48, textAlign: 'center' }}>Loading...</div>
                 ) : grns.length === 0 ? (
                     <div style={{ padding: 48, textAlign: 'center' }}>
-                        <div style={{ fontSize: 32, marginBottom: 16 }}>📦</div>
+                        <div style={{ fontSize: 32, marginBottom: 16 }}></div>
                         <h3>No GRNs found</h3>
                         <p className="muted">Create a GRN from the Orders page (Purchase Orders)</p>
                         <Link href="/orders" className="btn primary">Go to Orders</Link>

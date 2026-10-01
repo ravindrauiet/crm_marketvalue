@@ -25,13 +25,13 @@ export default function StockPage() {
       }
 
       if (res.ok) {
-        alert(`✅ Stock updated successfully! \n${data.updatedCount} items updated.`);
+        alert(`Stock updated successfully! \n${data.updatedCount} items updated.`);
         setRefreshKey(k => k + 1);
       } else {
-        alert(`❌ Error: ${data.error || 'Upload failed'}`);
+        alert(`Error: ${data.error || 'Upload failed'}`);
       }
     } catch (err: any) {
-      alert(`❌ Request Error: ${err.message}`);
+      alert(`Request Error: ${err.message}`);
     } finally {
       setUploading(false);
     }
@@ -40,8 +40,8 @@ export default function StockPage() {
   return (
     <div className="container fade-in">
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 28, background: 'linear-gradient(135deg, #14b8a6, #0f766e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          📦 Stock & Inventory
+        <h1 className="page-title">
+          Stock & Inventory
         </h1>
         <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
           Upload Tally Closing Stock directly via Excel/PDF to update CRM quantities. Review uploaded stock below and delete/re-upload anytime.
@@ -57,7 +57,7 @@ export default function StockPage() {
           <div><div className="spinner" style={{ margin: '0 auto 12px' }} /><p>Processing Tally Stock…</p></div>
         ) : (
           <>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+            <div style={{ fontSize: 48, marginBottom: 12 }}></div>
             <h3 style={{ marginBottom: 8 }}>Drop Tally Closing Stock Here</h3>
             <p className="muted" style={{ margin: 0 }}>Excel, CSV, or PDF format</p>
           </>

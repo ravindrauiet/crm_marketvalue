@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
     const orders = await prisma.chainPurchaseOrder.findMany({
       where: {
         ...(chain ? { chainName: { equals: chain.toUpperCase(), mode: 'insensitive' } } : {}),
-        ...(status ? { status } : {}),
+        // No status filter = everything except soft-deleted (REMOVED) POs
+        ...(status ? { status } : { status: { not: 'REMOVED' } }),
       },
       include: { items: true },
       orderBy: { createdAt: 'desc' },

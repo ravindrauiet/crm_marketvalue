@@ -68,7 +68,7 @@ function DocumentInfoPreview({ rawDocumentInfo, extractedData }: { rawDocumentIn
       )}
       {productCount > 0 && (
         <div style={{ marginTop: 4 }}>
-          <span className="badge info" style={{ fontSize: 10 }}>📦 {productCount} products</span>
+          <span className="badge info" style={{ fontSize: 10 }}>{productCount} products</span>
         </div>
       )}
     </div>
@@ -100,7 +100,7 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
                   <div key={f.id} style={{ marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 16 }}>
-                        {f.mimetype.includes('pdf') ? '📄' : f.mimetype.includes('spreadsheet') || f.mimetype.includes('excel') ? '📊' : '📁'}
+                        {f.mimetype.includes('pdf') ? '' : f.mimetype.includes('spreadsheet') || f.mimetype.includes('excel') ? '' : ''}
                       </span>
                       <span style={{ fontSize: 13, color: 'var(--text)' }}>{f.filename}</span>
                       {f.imagekitUrl && (
@@ -122,7 +122,7 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
                           }}
                           title="Open file on ImageKit.io CDN"
                         >
-                          ☁️ ImageKit
+                          ImageKit
                         </a>
                       )}
                       {(f.rawDocumentInfo || f.extractedData) && (
@@ -182,7 +182,7 @@ export default function RecordTable({ records }: { records: RecordRow[] }) {
       </table>
       {records.length === 0 && (
         <div style={{ padding: 64, textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
+          <div style={{ fontSize: 48, marginBottom: 16 }}></div>
           <h3 style={{ color: 'var(--text)', marginBottom: 8 }}>No records found</h3>
           <p className="muted">Upload your first document to get started.</p>
         </div>

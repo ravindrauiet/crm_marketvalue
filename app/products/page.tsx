@@ -22,7 +22,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: { q
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
           <Link href="/products/import" className="btn secondary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span>📄</span> Import
+            <span></span> Import
           </Link>
           <Link href="/products/new" className="btn primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span>+</span> Add Product
@@ -30,22 +30,26 @@ export default async function ProductsPage({ searchParams }: { searchParams: { q
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24, marginBottom: 32 }}>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--primary)' }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Total Products</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--text)' }}>{stats.total}</div>
+      <div className="kpi-grid">
+        <div className="kpi">
+          <span className="kpi-label">Total products</span>
+          <span className="kpi-value">{stats.total}</span>
+          <span className="kpi-foot">In the catalogue</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--success)' }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>In Stock</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--success)' }}>{stats.inStock}</div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot success" aria-hidden="true" />In stock</span>
+          <span className="kpi-value">{stats.inStock}</span>
+          <span className="kpi-foot">Above minimum level</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--warning)' }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Low Stock</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--warning)' }}>{stats.lowStock}</div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot warn" aria-hidden="true" />Low stock</span>
+          <span className="kpi-value">{stats.lowStock}</span>
+          <span className="kpi-foot">At or below minimum</span>
         </div>
-        <div className="card" style={{ padding: 24, borderLeft: '4px solid var(--error)' }}>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Out of Stock</div>
-          <div style={{ fontSize: 36, fontWeight: 700, color: 'var(--error)' }}>{stats.outOfStock}</div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot error" aria-hidden="true" />Out of stock</span>
+          <span className="kpi-value">{stats.outOfStock}</span>
+          <span className="kpi-foot">Zero quantity</span>
         </div>
       </div>
 
@@ -83,7 +87,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: { q
               <button type="submit" className="btn secondary">Filter</button>
             </form>
             <a href="/api/export/products" className="btn secondary" style={{ whiteSpace: 'nowrap' }}>
-              <span>📥</span> Export
+              <span></span> Export
             </a>
           </div>
         </div>
