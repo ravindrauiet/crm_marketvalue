@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { listProducts } from '@/lib/products';
 import { prisma } from '@/lib/prisma';
+import { productCreateData } from '@/lib/productInput';
+import { errorResponse } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -19,52 +21,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json();
-
-    // Validate required fields
-    if (!data.sku || !data.name) {
-      return NextResponse.json({ error: 'SKU and Name are required' }, { status: 400 });
-    }
+    const body = await req.json().catch(() => null);
+    const { data, initialStock } = productCreateData(body);
 
     // Check if SKU already exists
     const existing = await prisma.product.findUnique({ where: { sku: data.sku } });
     if (existing) {
-      return NextResponse.json({ error: 'A product with this SKU already exists' }, { status: 400 });
+      return NextResponse.json({ error: 'A product with this SKU already exists' }, { status: 409 });
     }
 
-    // Create the product
-    const product = await prisma.product.create({
-      data: {
-        sku: data.sku,
-        name: data.name,
-        brand: data.brand || null,
-        group: data.group || null,
-        description: data.description || null,
-        price: data.price ? parseFloat(data.price) : null,
-        cost: data.cost ? parseFloat(data.cost) : null,
-        minStockThreshold: data.minStockThreshold ? parseInt(data.minStockThreshold) : 10,
-      }
-    });
+    const product = await prisma.product.create({ data });
 
     // Create initial stock entry if quantity provided
-    if (data.initialStock && parseInt(data.initialStock) > 0) {
+    if (initialStock > 0) {
       await prisma.stock.create({
-        data: {
-          productId: product.id,
-          location: 'TOTAL',
-          quantity: parseInt(data.initialStock),
-        }
+        data: { productId: product.id, location: 'TOTAL', quantity: initialStock }
       });
     }
 
     return NextResponse.json(product);
   } catch (error: any) {
     console.error('Failed to create product:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return errorResponse(error, 'Failed to create product');
   }
 }
-
-
-
-
-

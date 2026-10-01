@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ValidationError, cleanString, errorResponse, isObjectId, toNumber } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
+// POST /api/stock/adjust  Body: { productId, quantity (new absolute stock), reason?, notes? }
 export async function POST(req: NextRequest) {
   try {
-    const { productId, quantity, reason, notes } = await req.json();
+    const body = await req.json().catch(() => null);
+    const productId = String(body?.productId || '');
+    const quantity = toNumber(body?.quantity);
 
-    if (!productId || quantity === undefined) {
-      return NextResponse.json({ error: 'Product ID and quantity are required' }, { status: 400 });
-    }
+    if (!isObjectId(productId)) throw new ValidationError('A valid product ID is required');
+    if (quantity === null) throw new ValidationError('Quantity is required');
+    if (!Number.isInteger(quantity) || quantity < 0) throw new ValidationError('Quantity must be a whole number of 0 or more');
+
+    const product = await prisma.product.findUnique({ where: { id: productId }, select: { id: true } });
+    if (!product) throw new ValidationError('Product not found', 404);
 
     // Get current stock
     let stock = await prisma.stock.findFirst({
@@ -27,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     const previousQty = stock.quantity;
-    const newQty = Math.max(0, quantity);
+    const newQty = quantity;
 
     // Update stock
     await prisma.stock.update({
@@ -43,23 +50,18 @@ export async function POST(req: NextRequest) {
         quantity: Math.abs(newQty - previousQty),
         previousQty,
         newQty,
-        reason: reason || 'ADJUSTMENT',
-        notes: notes || null
+        reason: cleanString(body?.reason, 50) || 'ADJUSTMENT',
+        notes: cleanString(body?.notes, 1000) || null
       }
     });
 
-    return NextResponse.json({ 
-      ok: true, 
-      previousQty, 
+    return NextResponse.json({
+      ok: true,
+      previousQty,
       newQty,
       change: newQty - previousQty
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return errorResponse(error, 'Failed to adjust stock');
   }
 }
-
-
-
-
-

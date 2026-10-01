@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { SALE_UPLOAD_WHERE, poNumberFromSaleNotes } from '@/lib/billSources';
+
+// Whole-token match: PO 12345 must not match 123456 or AB12345
+function containsToken(text: string, token: string) {
+  if (!token) return false;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i').test(text);
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -59,7 +67,9 @@ export async function GET(req: NextRequest) {
         include: { items: true },
         orderBy: { poDate: 'desc' }
       }),
+      // Only daily Tally sale uploads count as deliveries (OCR purchase bills are supplier invoices)
       prisma.purchaseBill.findMany({
+        where: SALE_UPLOAD_WHERE,
         include: { items: true }
       }),
       prisma.invoice.findMany({
@@ -108,19 +118,19 @@ export async function GET(req: NextRequest) {
 
       // Match with actual GLOMIN Billed Invoices / Bills
       const matchingBills = purchaseBills.filter(b => {
-        const bText = (JSON.stringify(b) + ' ' + (b.notes || '') + ' ' + (b.rawExtractedData || '')).toLowerCase();
-        return poNumLower && poNumLower.length >= 4 && bText.includes(poNumLower);
+        const billPo = poNumberFromSaleNotes(b.notes).toLowerCase();
+        return !!poNumLower && (billPo === poNumLower || (poNumLower.length >= 4 && containsToken(billPo, poNumLower)));
       });
 
       const matchingInvoices = invoices.filter(inv => {
-        const invText = (JSON.stringify(inv)).toLowerCase();
-        return poNumLower && poNumLower.length >= 4 && invText.includes(poNumLower);
+        const invText = JSON.stringify(inv);
+        return !!poNumLower && poNumLower.length >= 4 && containsToken(invText, poNumLower);
       });
 
       const matchingRecos = paymentRecos.filter(r => {
         const rPo = (r.matchedPoNumber || '').toLowerCase();
         const rNarr = (r.narration || '').toLowerCase();
-        return (poNumLower && rPo === poNumLower) || (poNumLower && poNumLower.length >= 4 && rNarr.includes(poNumLower));
+        return (!!poNumLower && rPo === poNumLower) || (!!poNumLower && poNumLower.length >= 4 && containsToken(rNarr, poNumLower));
       });
 
       // Billed Invoices String
@@ -147,7 +157,7 @@ export async function GET(req: NextRequest) {
       }
 
       // If status is COMPLETED or DELIVERED and no bill uploaded yet, assume filled based on status
-      const isDeliveredStatus = po.status === 'COMPLETED' || po.status === 'DELIVERED' || po.status === 'Y - PO Delivered';
+      const isDeliveredStatus = po.status === 'COMPLETED' || po.status === 'DELIVERED' || po.status === 'Y - PO Delivered' || po.status === 'Full Delivery';
       const isClosedStatus = po.status === 'CLOSED' || po.status === 'PO CLOSED' || po.status === 'CANCELLED';
 
       const poValue = po.totalAmount || po.items.reduce((s, i) => s + i.totalPrice, 0);
@@ -162,10 +172,10 @@ export async function GET(req: NextRequest) {
       let displayStatus = 'Open / Pending';
       if (isClosedStatus || (deliveredQty === 0 && !isDeliveredStatus && poValue > 0)) {
         displayStatus = 'PO Closed';
-      } else if (isDeliveredStatus || (billedValue >= poValue * 0.9 && poValue > 0)) {
-        displayStatus = 'Y - PO Delivered';
-      } else if (billedValue > 0) {
-        displayStatus = 'Partially Billed';
+      } else if (isDeliveredStatus || (poValue > 0 && billedValue >= poValue * 0.995) || (poQty > 0 && deliveredQty >= poQty)) {
+        displayStatus = 'Full Delivery';
+      } else if (billedValue > 0 || deliveredQty > 0) {
+        displayStatus = 'Part Delivery';
       }
 
       // Item Level Sub-Tab Breakdown
@@ -281,8 +291,11 @@ export async function GET(req: NextRequest) {
         remarks2 = priceMismatchItems.map(i => `${i.chainItemName} (PO ₹${i.unitPrice} vs Billed ₹${(i.billedTotalPrice / i.deliveredQtyPcs).toFixed(2)})`).join(', ');
       }
 
-      const remarks3 = '';
-      const remarks4 = '';
+      // Manually saved remarks (from the report page) override the auto-generated ones
+      if (po.remarks1 != null) remarks1 = po.remarks1;
+      if (po.remarks2 != null) remarks2 = po.remarks2;
+      const remarks3 = po.remarks3 ?? '';
+      const remarks4 = po.remarks4 ?? '';
 
       return {
         id: po.id,
@@ -347,14 +360,15 @@ export async function GET(req: NextRequest) {
         r.brand.toLowerCase().includes(q) ||
         r.invoiceNo.toLowerCase().includes(q) ||
         r.dcLocation.toLowerCase().includes(q) ||
-        r.remarks.toLowerCase().includes(q)
+        [r.remarks, r.remarks1, r.remarks2, r.remarks3, r.remarks4].some(rm => rm.toLowerCase().includes(q))
       );
     }
 
     // Calculate Global KPI Aggregates
     const summary = {
       totalPOs: reportRows.length,
-      deliveredPOs: reportRows.filter(r => r.poStatus.includes('Delivered')).length,
+      deliveredPOs: reportRows.filter(r => r.poStatus === 'Full Delivery').length,
+      partDeliveredPOs: reportRows.filter(r => r.poStatus === 'Part Delivery').length,
       closedPOs: reportRows.filter(r => r.poStatus.includes('Closed')).length,
       openPOs: reportRows.filter(r => r.poStatus.includes('Open')).length,
       totalPOValue: reportRows.reduce((s, r) => s + r.poValueInRs, 0),

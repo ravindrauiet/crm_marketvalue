@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { readFileSync } from 'fs';
-import path from 'path';
 import OpenAI from 'openai';
 import pdf from 'pdf-parse';
 import * as XLSX from 'xlsx';
+import { readStoredFile } from '@/lib/fileStorage';
+import { OCR_BILL_WHERE } from '@/lib/billSources';
+import { parseDate, toNumber, isObjectId } from '@/lib/validation';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
@@ -119,11 +120,10 @@ function parseSpreadsheetBill(buf: Buffer) {
     const row = rawData[r];
     if (!row || !Array.isArray(row) || row.length === 0) continue;
 
-    const rowStr = row.map(cleanVal).join(' ').toLowerCase();
-    if (rowStr.includes('total') || rowStr.includes('subtotal') || rowStr.includes('grand total')) continue;
-
     const rawName = nameIdx >= 0 ? cleanVal(row[nameIdx]) : '';
     if (!rawName) continue;
+    // Skip summary rows (but keep products that merely contain the word "total")
+    if (/^(subs*-?s*total|grands*total|total)/i.test(rawName)) continue;
 
     if (!supplierName && suppIdx >= 0) supplierName = cleanVal(row[suppIdx]);
     if (!invoiceNumber && invIdx >= 0) invoiceNumber = cleanVal(row[invIdx]);
@@ -224,6 +224,7 @@ function localExtractPurchaseBill(text: string, fileName: string) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  if (!isObjectId(params.id)) return NextResponse.json({ error: 'Invalid bill id' }, { status: 400 });
   try {
     const bill = await prisma.purchaseBill.findUnique({ where: { id: params.id } });
     if (!bill) return NextResponse.json({ error: 'Bill not found' }, { status: 404 });
@@ -232,14 +233,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     await prisma.purchaseBill.update({ where: { id: params.id }, data: { status: 'PROCESSING', errorMessage: null } });
 
-    let buf: Buffer;
-    if (bill.filePath.startsWith('data:')) {
-      const base64Data = bill.filePath.split(',')[1];
-      buf = Buffer.from(base64Data, 'base64');
-    } else {
-      const absolutePath = path.join(process.cwd(), 'public', bill.filePath || '');
-      buf = readFileSync(absolutePath);
-    }
+    // filePath may be a data: URI, an ImageKit https URL, or a local /uploads path
+    const buf = await readStoredFile(bill.filePath, bill.imagekitUrl);
 
     const fileNameLower = (bill.fileName || '').toLowerCase();
     const mimeTypeLower = (bill.mimeType || '').toLowerCase();
@@ -330,9 +325,10 @@ Text: ${documentText.substring(0, 8000)}`;
     if (extracted.invoiceNumber) {
       const existing = await prisma.purchaseBill.findFirst({
         where: {
-          invoiceNumber: extracted.invoiceNumber,
-          id: { not: params.id },
-          status: { not: 'FAILED' }
+          AND: [
+            { invoiceNumber: extracted.invoiceNumber, id: { not: params.id }, status: { not: 'FAILED' } },
+            OCR_BILL_WHERE,
+          ]
         }
       });
       if (existing) {
@@ -346,9 +342,10 @@ Text: ${documentText.substring(0, 8000)}`;
       data: {
         supplierName: extracted.supplierName || null,
         invoiceNumber: extracted.invoiceNumber || null,
-        invoiceDate: extracted.invoiceDate ? new Date(extracted.invoiceDate) : null,
-        totalAmount: extracted.totalAmount || 0,
-        taxAmount: extracted.taxAmount || 0,
+        // Invalid / unreadable dates are left empty for the user to fill in during review
+        invoiceDate: parseDate(extracted.invoiceDate),
+        totalAmount: toNumber(extracted.totalAmount) ?? 0,
+        taxAmount: toNumber(extracted.taxAmount) ?? 0,
         rawExtractedData: JSON.stringify(extracted),
         status: isDuplicate ? 'DUPLICATE' : 'EXTRACTED',
         duplicateOf: duplicateOf,
@@ -358,12 +355,12 @@ Text: ${documentText.substring(0, 8000)}`;
           create: (extracted.items || []).map((item: any) => ({
             itemName: item.itemName || '',
             hsnCode: item.hsnCode || null,
-            quantity: parseFloat(item.quantity) || 0,
+            quantity: toNumber(item.quantity) ?? 0,
             unit: item.unit || null,
-            rate: parseFloat(item.rate) || 0,
-            amount: parseFloat(item.amount) || 0,
-            taxRate: parseFloat(item.taxRate) || 0,
-            taxAmount: parseFloat(item.taxAmount) || 0,
+            rate: toNumber(item.rate) ?? 0,
+            amount: toNumber(item.amount) ?? 0,
+            taxRate: toNumber(item.taxRate) ?? 0,
+            taxAmount: toNumber(item.taxAmount) ?? 0,
           }))
         }
       },

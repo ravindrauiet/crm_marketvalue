@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
@@ -46,3 +46,37 @@ export function publicPathForStoredFile(storedName: string) {
 
 
 
+
+/**
+ * Loads a stored upload as a Buffer. Uploads may be kept as a data: URI, a remote
+ * (ImageKit) URL, an absolute local path, or a /uploads/... public path. On serverless
+ * hosts local files disappear between requests, so a remote fallback URL is tried last.
+ */
+export async function readStoredFile(location: string | null | undefined, fallbackUrl?: string | null): Promise<Buffer> {
+  const candidates = [location, fallbackUrl].filter((v): v is string => !!v);
+
+  for (const loc of candidates) {
+    if (loc.startsWith('data:')) {
+      return Buffer.from(loc.split(',')[1] || '', 'base64');
+    }
+    if (/^https?:\/\//i.test(loc)) {
+      const res = await fetch(loc);
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      continue;
+    }
+    const localPaths = path.isAbsolute(loc) ? [loc] : [path.join(process.cwd(), 'public', loc), path.join(getUploadDir(), path.basename(loc))];
+    for (const p of localPaths) {
+      if (existsSync(p)) return readFileSync(p);
+    }
+  }
+
+  throw new Error('Stored file could not be found (it may have been removed from temporary storage). Please upload it again.');
+}
+
+/** Ensures a local copy of a stored file exists (for parsers that need a path) and returns that path */
+export async function ensureLocalFile(location: string | null | undefined, fallbackUrl: string | null | undefined, filename: string): Promise<string> {
+  if (location && path.isAbsolute(location) && existsSync(location)) return location;
+  const buf = await readStoredFile(location, fallbackUrl);
+  const { filepath } = await saveBufferToUploads(filename, buf);
+  return filepath;
+}

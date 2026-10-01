@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { errorResponse } from '@/lib/validation';
 import { listCustomers, createCustomer } from '@/lib/customers';
 
 export const runtime = 'nodejs';
@@ -12,11 +13,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const data = await req.json();
+    const data = await req.json().catch(() => null);
     const customer = await createCustomer(data);
     return NextResponse.json(customer);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return errorResponse(error, 'Customer request failed');
   }
 }
 

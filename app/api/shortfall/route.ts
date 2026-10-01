@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isObjectId } from '@/lib/validation';
 
 // POST /api/shortfall
 // Body: { poIds: string[] }
@@ -10,12 +11,17 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(poIds) || poIds.length === 0) {
       return NextResponse.json({ error: 'poIds array is required' }, { status: 400 });
     }
+    if (!poIds.every(isObjectId)) {
+      return NextResponse.json({ error: 'poIds contains an invalid id' }, { status: 400 });
+    }
 
-    // Fetch all selected POs
-    const pos = await prisma.chainPurchaseOrder.findMany({
+    // Fetch all selected POs, earliest appointment first so stock is allocated to the most urgent PO
+    const pos = (await prisma.chainPurchaseOrder.findMany({
       where: { id: { in: poIds } },
       include: { items: true }
-    });
+    })).sort((a, b) =>
+      (a.appointmentDate?.getTime() ?? a.poDate.getTime()) - (b.appointmentDate?.getTime() ?? b.poDate.getTime())
+    );
 
     // Get list of unique chain names to fetch mappings efficiently
     const chainNames = [...new Set(pos.map(po => po.chainName.toUpperCase()))];
@@ -54,30 +60,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fetch stock from database
-    const products = await prisma.product.findMany({
-      where: {
-        OR: [
-          { name: { in: [...tallyNames] } },
-          { sku: { in: [...tallyNames] } },
-        ]
-      },
-      include: { stocks: true }
-    });
+    // Fetch stock from database. Matching is case-insensitive (imported SKUs are upper-case,
+    // Tally names in mappings may not be), so keys are normalised to lower case.
+    const wanted = new Set([...tallyNames].map(n => n.trim().toLowerCase()));
+    const products = (await prisma.product.findMany({
+      select: { name: true, sku: true, stocks: { select: { quantity: true, location: true } } }
+    })).filter(p => wanted.has(p.name.trim().toLowerCase()) || (p.sku && wanted.has(p.sku.trim().toLowerCase())));
 
     const stockMap: Record<string, number> = {};
     const locationMap: Record<string, string> = {};
 
     for (const p of products) {
       const totalStock = p.stocks.reduce((sum, s) => sum + s.quantity, 0);
-      stockMap[p.name] = totalStock;
-      if (p.sku) stockMap[p.sku] = totalStock;
-
       const locs = p.stocks.map(s => s.location).filter(Boolean);
       const locDisplay = locs.length > 0 ? locs.join(', ') : 'TOTAL';
-      locationMap[p.name] = locDisplay;
-      if (p.sku) locationMap[p.sku] = locDisplay;
+      for (const key of [p.name, p.sku]) {
+        if (!key) continue;
+        const k = key.trim().toLowerCase();
+        stockMap[k] = totalStock;
+        locationMap[k] = locDisplay;
+      }
     }
+
+    // Stock still available after earlier PO lines have been allocated
+    const remainingStock: Record<string, number> = { ...stockMap };
 
     // Construct shortfall item rows
     const shortfallItems = [];
@@ -94,11 +100,14 @@ export async function POST(req: NextRequest) {
         const reqPcs = item.quantityPcs;
         const reqCase = reqPcs / pcsPerCase;
 
-        const availableStock = stockMap[tallyName] || 0;
-        const location = locationMap[tallyName] || 'TOTAL';
+        const key = (tallyName || '').trim().toLowerCase();
+        const availableStock = remainingStock[key] || 0;
+        const location = locationMap[key] || 'TOTAL';
 
         const shortfallPcs = Math.max(0, reqPcs - availableStock);
         const shortfallCases = Math.max(0, reqCase - (availableStock / pcsPerCase));
+        // Reserve what this PO line consumes so the same stock isn't offered to the next PO
+        remainingStock[key] = Math.max(0, availableStock - reqPcs);
         const roundedShortfallCases = Math.round(shortfallCases);
 
         shortfallItems.push({
@@ -113,7 +122,8 @@ export async function POST(req: NextRequest) {
           pcsPerCase,
           reqPcs,
           reqCase,
-          availableStock,
+          availableStock, // left for this PO after earlier POs were allocated
+          totalStock: stockMap[key] || 0,
           shortfallPcs,
           shortfallCases: roundedShortfallCases, // rounded shortfall cases
           sourcePo: po.poNumber,

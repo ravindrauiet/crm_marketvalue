@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { badRequest, errorResponse, isObjectId } from '@/lib/validation';
 import { getCustomer, updateCustomer, deleteCustomer } from '@/lib/customers';
 
 export const runtime = 'nodejs';
@@ -7,6 +8,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isObjectId(params.id)) return badRequest('Invalid customer id');
   const customer = await getCustomer(params.id);
   if (!customer) {
     return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
@@ -19,11 +21,11 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const data = await req.json();
+    const data = await req.json().catch(() => null);
     const customer = await updateCustomer(params.id, data);
     return NextResponse.json(customer);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return errorResponse(error, 'Customer request failed');
   }
 }
 
@@ -35,7 +37,7 @@ export async function DELETE(
     await deleteCustomer(params.id);
     return NextResponse.json({ ok: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return errorResponse(error, 'Customer request failed');
   }
 }
 

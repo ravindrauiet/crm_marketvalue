@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
+import { badRequest, isObjectId, toNumber } from '@/lib/validation';
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 export const runtime = 'nodejs';
 
@@ -14,6 +17,9 @@ export async function POST(req: NextRequest) {
     const form = await req.formData();
     const file = form.get('file');
     if (!(file instanceof File)) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!/\.(xlsx|xls|csv)$/i.test(file.name)) return badRequest('Please upload an Excel (.xlsx / .xls) or CSV stock file');
+    if (file.size === 0) return badRequest('The uploaded file is empty');
+    if (file.size > MAX_FILE_BYTES) return badRequest('File is too large (max 10 MB)');
 
     const buf = Buffer.from(await file.arrayBuffer());
     const wb = XLSX.read(buf, { type: 'buffer' });
@@ -61,11 +67,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (headerRowIdx === -1) {
-      headerRowIdx = rawData.findIndex(r => r && Array.isArray(r) && r.length > 1) || 0;
+      // findIndex returns -1 (truthy) when nothing is found, so check explicitly
+      const firstWide = rawData.findIndex(r => r && Array.isArray(r) && r.length > 1);
+      headerRowIdx = firstWide >= 0 ? firstWide : 0;
     }
 
-    // Check multi-row headers (headerRowIdx and up to 2 preceding rows)
-    for (let rIdx = Math.max(0, headerRowIdx - 2); rIdx <= headerRowIdx; rIdx++) {
+    // Check multi-row headers: the header row first, then up to 2 rows above it (e.g. Tally's
+    // "Closing Balance" over "Quantity | Rate | Value"). The header row wins on conflicts.
+    for (let rIdx = headerRowIdx; rIdx >= Math.max(0, headerRowIdx - 2); rIdx--) {
       const row = rawData[rIdx];
       if (row && Array.isArray(row)) {
         row.forEach((cell: any, idx: number) => {
@@ -95,7 +104,11 @@ export async function POST(req: NextRequest) {
     let nameIdx = getIdx('particulars', 'product name', 'item description', 'description', 'title', 'name', 'item');
     const brandIdx = getIdx('brand');
     const groupIdx = getIdx('group', 'category', 'catg');
-    const qtyIdx = getIdx('closing quantity (pcs)', 'quantity (pcs)', 'stock quantity', 'closing stock', 'quantity', 'qty', 'pcs', "pc's", 'stock', 'available');
+    const qtyIdx = getIdx('closing quantity (pcs)', 'quantity (pcs)', 'stock quantity', 'closing stock', 'closing quantity', 'closing balance', 'quantity', 'qty', 'pcs', "pc's", 'available', 'balance');
+
+    if (qtyIdx === -1) {
+      return badRequest('Could not find a Quantity / Closing Stock column in the file. Please check the header row.');
+    }
 
     // Fallback: analyze sample data rows to find the true item description column
     let detectedTextCol = -1;
@@ -113,14 +126,20 @@ export async function POST(req: NextRequest) {
       if (detectedTextCol !== -1) break;
     }
 
-    if (detectedTextCol !== -1) {
+    // Only guess the name column from data when no name header was found
+    if (nameIdx === -1 && detectedTextCol !== -1) {
       nameIdx = detectedTextCol;
+    }
+    if (nameIdx === -1 && skuIdx === -1) {
+      return badRequest('Could not find an Item Name / Particulars or SKU column in the file.');
     }
 
     // Fetch active ItemMappings for mapping & enrichment
     const allMappings = await prisma.itemMapping.findMany({ where: { isActive: true } });
 
-    let upserted = 0;
+    // Rows are collected first so the same SKU appearing twice is summed, not overwritten
+    const rowsBySku = new Map<string, { sku: string; name: string; brand: string | null; group: string | null; quantity: number }>();
+    let skippedRows = 0;
 
     for (let r = headerRowIdx + 1; r < rawData.length; r++) {
       const row = rawData[r];
@@ -144,14 +163,17 @@ export async function POST(req: NextRequest) {
       if (!name || /^\d+$/.test(name)) {
         name = rawSku;
       }
-      if (!sku || sku === name || /^\d+$/.test(sku)) {
+      // Numeric codes (EAN / barcode / item codes) are valid SKUs; only fall back to the name when empty
+      if (!sku) {
         sku = name;
       }
 
       if (!sku && !name) continue;
       if (name.includes('/PCS') || name.includes('/KG') || name.toLowerCase() === 'particulars') continue;
 
-      const quantity = Math.round(parseFloat(rawQty.replace(/[^0-9.-]/g, '')) || 0);
+      const parsedQty = toNumber(rawQty);
+      if (parsedQty === null) { skippedRows++; continue; }
+      const quantity = Math.max(0, Math.round(parsedQty));
 
       // Try item mapping matching
       const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -170,16 +192,17 @@ export async function POST(req: NextRequest) {
         return false;
       });
 
-      // 2. Partial match if exact match not found
-      if (!mapping) {
+      // 2. Partial match if exact match not found (only for reasonably specific names,
+      //    otherwise a short name like "oil" would match an unrelated mapping)
+      if (!mapping && cleanName.length >= 8) {
         mapping = allMappings.find(m => {
           const mName = (m.tallyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           const mChainName = (m.chainItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           const mCompName = (m.companyItemName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          if (mName && mName.length > 5 && (cleanName.includes(mName) || mName.includes(cleanName))) return true;
-          if (mChainName && mChainName.length > 5 && (cleanName.includes(mChainName) || mChainName.includes(cleanName))) return true;
-          if (mCompName && mCompName.length > 5 && (cleanName.includes(mCompName) || mCompName.includes(cleanName))) return true;
+          if (mName && mName.length >= 8 && (cleanName.includes(mName) || mName.includes(cleanName))) return true;
+          if (mChainName && mChainName.length >= 8 && (cleanName.includes(mChainName) || mChainName.includes(cleanName))) return true;
+          if (mCompName && mCompName.length >= 8 && (cleanName.includes(mCompName) || mCompName.includes(cleanName))) return true;
           return false;
         });
       }
@@ -189,29 +212,59 @@ export async function POST(req: NextRequest) {
       const finalBrand = mapping?.brandName || rawBrand || (finalName.toLowerCase().includes('eastern') ? 'Eastern' : null);
       const finalGroup = rawGroup || null;
 
+      const skuKey = finalSku.trim().toUpperCase();
+      if (!skuKey) { skippedRows++; continue; }
+      const prev = rowsBySku.get(skuKey);
+      if (prev) {
+        prev.quantity += quantity;
+      } else {
+        rowsBySku.set(skuKey, { sku: skuKey, name: finalName, brand: finalBrand, group: finalGroup, quantity });
+      }
+    }
+
+    if (rowsBySku.size === 0) {
+      return badRequest('No stock rows found in the file. Check that it has item names and quantities.');
+    }
+
+    let upserted = 0;
+    for (const r of rowsBySku.values()) {
       const product = await prisma.product.upsert({
-        where: { sku: finalSku.toUpperCase() },
-        update: { name: finalName, ...(finalBrand ? { brand: finalBrand } : {}), ...(finalGroup ? { group: finalGroup } : {}) },
-        create: { sku: finalSku.toUpperCase(), name: finalName, brand: finalBrand, group: finalGroup }
+        where: { sku: r.sku },
+        update: { name: r.name, ...(r.brand ? { brand: r.brand } : {}), ...(r.group ? { group: r.group } : {}) },
+        create: { sku: r.sku, name: r.name, brand: r.brand, group: r.group }
       });
 
       const existing = await prisma.stock.findFirst({ where: { productId: product.id, location: 'TOTAL' } });
+      const previousQty = existing?.quantity ?? 0;
       if (existing) {
-        await prisma.stock.update({ where: { id: existing.id }, data: { quantity } });
+        await prisma.stock.update({ where: { id: existing.id }, data: { quantity: r.quantity } });
       } else {
         await prisma.stock.create({
           data: {
             productId: product.id,
             location: 'TOTAL',
-            quantity,
+            quantity: r.quantity,
             minStock: product.minStockThreshold || 0
+          }
+        });
+      }
+      if (previousQty !== r.quantity) {
+        await prisma.stockTransaction.create({
+          data: {
+            productId: product.id,
+            type: r.quantity > previousQty ? 'IN' : 'OUT',
+            quantity: Math.abs(r.quantity - previousQty),
+            previousQty,
+            newQty: r.quantity,
+            reason: 'STOCK_IMPORT',
+            notes: `Closing stock import: ${file.name}`,
           }
         });
       }
       upserted++;
     }
 
-    return NextResponse.json({ ok: true, upserted });
+    return NextResponse.json({ ok: true, upserted, skippedRows });
   } catch (err: any) {
     console.error('❌ [STOCK IMPORT ERROR]', err);
     return NextResponse.json({ error: 'Failed to import stock: ' + (err.message || err) }, { status: 500 });
@@ -268,6 +321,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Stock ID or resetAll parameter required' }, { status: 400 });
     }
 
+    if (!isObjectId(id)) return badRequest('Invalid stock id');
     const deleted = await prisma.stock.delete({
       where: { id }
     });

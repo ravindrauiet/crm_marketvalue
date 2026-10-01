@@ -310,6 +310,11 @@ model ChainPurchaseOrder {
   fileName        String?  // original filename of PO file
   imagekitUrl     String?  // ImageKit.io CDN URL
   rawDocumentInfo String?  // JSON string containing all 16 extracted AI document fields
+  // Fill Rate report manual remarks (null = use auto-generated remark)
+  remarks1        String?  // Item not supplied from brand
+  remarks2        String?  // PO price not correct
+  remarks3        String?  // Manual fill
+  remarks4        String?  // Manual fill
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   items           ChainPOItem[]

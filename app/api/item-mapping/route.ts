@@ -85,31 +85,47 @@ export async function POST(req: NextRequest) {
     if (!chainName || !chainItemCode || !chainItemName || !tallyItemName) {
       return NextResponse.json({ error: 'chainName, chainItemCode, chainItemName, tallyItemName are required' }, { status: 400 });
     }
-    const normalizedChainName = chainName.toUpperCase();
+    const normalizedChainName = String(chainName).trim().toUpperCase();
     const normalizedCode = String(chainItemCode).trim();
+    if (!normalizedChainName || !normalizedCode || !String(chainItemName).trim() || !String(tallyItemName).trim()) {
+      return NextResponse.json({ error: 'chainName, chainItemCode, chainItemName, tallyItemName cannot be blank' }, { status: 400 });
+    }
 
+    let pcs = 1;
+    if (pcsPerCase !== undefined && pcsPerCase !== null && pcsPerCase !== '') {
+      pcs = Number(pcsPerCase);
+      if (!Number.isInteger(pcs) || pcs < 1) {
+        return NextResponse.json({ error: 'Pcs per case must be a whole number of 1 or more' }, { status: 400 });
+      }
+    }
+
+    // The unique index covers deleted (inactive) mappings too, so look them up as well
     const existing = await prisma.itemMapping.findFirst({
-      where: { chainName: normalizedChainName, chainItemCode: { equals: normalizedCode, mode: 'insensitive' }, isActive: true }
+      where: { chainName: normalizedChainName, chainItemCode: { equals: normalizedCode, mode: 'insensitive' } }
     });
-    if (existing) {
+    if (existing?.isActive) {
       return NextResponse.json({ error: `A mapping for ${normalizedChainName} code "${normalizedCode}" already exists — edit that mapping instead of creating a duplicate.` }, { status: 409 });
     }
 
-    const mapping = await prisma.itemMapping.create({
-      data: {
-        chainName: normalizedChainName,
-        chainItemCode: normalizedCode,
-        chainItemName: String(chainItemName).trim(),
-        tallyItemName: String(tallyItemName).trim(),
-        tallyItemSku: tallyItemSku || null,
-        eanCode: eanCode ? String(eanCode).trim() : null,
-        brandName: brandName || null,
-        companyItemCode: companyItemCode || null,
-        companyItemName: companyItemName || null,
-        pcsPerCase: pcsPerCase ? parseInt(pcsPerCase) : 1,
-        notes: notes || null,
-      }
-    });
+    const data = {
+      chainName: normalizedChainName,
+      chainItemCode: normalizedCode,
+      chainItemName: String(chainItemName).trim(),
+      tallyItemName: String(tallyItemName).trim(),
+      tallyItemSku: tallyItemSku || null,
+      eanCode: eanCode ? String(eanCode).trim() : null,
+      brandName: brandName || null,
+      companyItemCode: companyItemCode || null,
+      companyItemName: companyItemName || null,
+      pcsPerCase: pcs,
+      notes: notes || null,
+      isActive: true,
+    };
+
+    // Re-creating a previously deleted mapping reactivates it with the new details
+    const mapping = existing
+      ? await prisma.itemMapping.update({ where: { id: existing.id }, data })
+      : await prisma.itemMapping.create({ data });
     return NextResponse.json(mapping, { status: 201 });
   } catch (err) {
     console.error(err);

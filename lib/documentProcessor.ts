@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { extractProductsWithAI, ExtractedProduct } from './ai';
+import { ensureLocalFile } from './fileStorage';
 
 export type ProcessingOptions = {
   /**
@@ -69,6 +70,8 @@ export async function processFileWithAI(
   try {
     // Determine extraction method based on file type
     let extractionResult;
+    // The original upload may only exist on ImageKit now (serverless temp storage is not persistent)
+    const localPath = await ensureLocalFile(file.path, file.imagekitUrl, file.filename);
 
     // Check if it's an Excel or CSV file
     if (file.mimetype.includes('excel') ||
@@ -83,11 +86,11 @@ export async function processFileWithAI(
 
       // Use efficient deterministic extraction
       const { extractFromExcel } = await import('./excel-extractor');
-      extractionResult = await extractFromExcel(file.path, vendor);
+      extractionResult = await extractFromExcel(localPath, vendor);
 
     } else {
       // Use AI for PDFs, Images, etc.
-      extractionResult = await extractProductsWithAI(file.path, file.mimetype, vendor);
+      extractionResult = await extractProductsWithAI(localPath, file.mimetype, vendor);
     }
     result.productsExtracted = extractionResult.products.length;
     result.metadata = {

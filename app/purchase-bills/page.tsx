@@ -170,6 +170,8 @@ export default function PurchaseBillsPage() {
       const a = document.createElement('a');
       a.href = url; a.download = `tally-purchase-${bill.invoiceNumber || bill.id}.xml`;
       a.click(); URL.revokeObjectURL(url);
+    } else {
+      alert('Error: ' + (data.error || 'Could not generate Tally XML'));
     }
     setDownloading(null);
   }

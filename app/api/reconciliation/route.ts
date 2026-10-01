@@ -1,30 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { badRequest, isObjectId } from '@/lib/validation';
+
+const ROW_LIMIT = 2000;
 
 export async function GET(req: NextRequest) {
   try {
     const batchId = req.nextUrl.searchParams.get('batchId');
     const status = req.nextUrl.searchParams.get('status');
 
-    const [rows, batches] = await Promise.all([
+    if (batchId && !isObjectId(batchId)) return badRequest('Invalid batchId');
+    const where = {
+      ...(batchId ? { batchId } : {}),
+      ...(status ? { matchStatus: status } : {}),
+    };
+
+    const [rows, batches, groups, totalCount] = await Promise.all([
       prisma.paymentReco.findMany({
-        where: {
-          ...(batchId ? { batchId } : {}),
-          ...(status ? { matchStatus: status } : {}),
-        },
+        where,
         orderBy: { txnDate: 'desc' },
-        take: 1000,
+        take: ROW_LIMIT,
       }),
-      prisma.recoBatch.findMany({ orderBy: { uploadedAt: 'desc' } })
+      prisma.recoBatch.findMany({ orderBy: { uploadedAt: 'desc' } }),
+      // Totals are computed over ALL matching rows, not just the rows returned
+      prisma.paymentReco.groupBy({
+        by: ['matchStatus'],
+        where,
+        _count: { _all: true },
+        _sum: { creditAmount: true, pendingAmount: true },
+      }),
+      prisma.paymentReco.count({ where }),
     ]);
 
-    // Summary stats
+    const byStatus = (s: string) => groups.find(g => g.matchStatus === s);
     const summary = {
-      totalCredit: rows.reduce((s, r) => s + r.creditAmount, 0),
-      totalMatched: rows.filter(r => r.matchStatus === 'MATCHED').length,
-      totalPartial: rows.filter(r => r.matchStatus === 'PARTIAL').length,
-      totalUnmatched: rows.filter(r => r.matchStatus === 'UNMATCHED').length,
-      totalPending: rows.filter(r => r.matchStatus !== 'MATCHED').reduce((s, r) => s + r.pendingAmount, 0),
+      totalCredit: groups.reduce((s, g) => s + (g._sum.creditAmount || 0), 0),
+      totalMatched: byStatus('MATCHED')?._count._all || 0,
+      totalPartial: byStatus('PARTIAL')?._count._all || 0,
+      totalUnmatched: byStatus('UNMATCHED')?._count._all || 0,
+      totalPending: groups.filter(g => g.matchStatus !== 'MATCHED').reduce((s, g) => s + (g._sum.pendingAmount || 0), 0),
+      totalRows: totalCount,
+      rowsShown: rows.length,
     };
 
     return NextResponse.json({ rows, batches, summary });
@@ -53,6 +69,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (batchId) {
+      if (!isObjectId(batchId)) return badRequest('Invalid batchId');
       const [recoRes] = await Promise.all([
         prisma.paymentReco.deleteMany({ where: { batchId } }),
         prisma.recoBatch.delete({ where: { id: batchId } })

@@ -3,78 +3,50 @@ import { prisma } from '@/lib/prisma';
 import * as XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
+import { parseDate, toNumber } from '@/lib/validation';
+import { SALE_UPLOAD_WHERE } from '@/lib/billSources';
 
-// Helper to convert Excel serial date or string to Date object
-function parseExcelDate(val: any): Date {
-  if (!val) return new Date();
-  if (typeof val === 'number') {
-    // Excel serial date code
-    const dateObj = XLSX.SSF.parse_date_code(val);
-    if (dateObj) {
-      return new Date(Date.UTC(dateObj.y, dateObj.m - 1, dateObj.d));
-    }
-  }
-  if (val instanceof Date) return val;
-  const str = String(val).trim();
-  const parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) return parsed;
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const WRITE_BATCH = 10; // invoices written in parallel per batch
 
-  // Try formats like 1-Jul-26 or 01/07/2026
-  const parts = str.split(/[-/ ]/);
-  if (parts.length === 3) {
-    const months: Record<string, number> = {
-      jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-      jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
-    };
-    let day = parseInt(parts[0], 10);
-    let monthStr = parts[1].toLowerCase();
-    let year = parseInt(parts[2], 10);
-    if (year < 100) year += 2000;
-    if (months[monthStr] !== undefined) {
-      return new Date(Date.UTC(year, months[monthStr], day));
-    }
-  }
-
-  return new Date();
+// Local dev convenience: the sample Tally export kept next to the project
+function readQuickImportFile(): { buffer: Buffer; name: string } | null {
+  const filePath = path.join(process.cwd(), '..', 'Tally', 'SALE REPORT_JULY_.xls');
+  return fs.existsSync(filePath) ? { buffer: fs.readFileSync(filePath), name: 'SALE REPORT_JULY_.xls' } : null;
 }
 
 export async function POST(req: NextRequest) {
   try {
     let fileBuffer: Buffer | null = null;
     let fileName = 'Tally_Sales_Report.xls';
+    let quickImport = false;
 
     const contentType = req.headers.get('content-type') || '';
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
-      const file = formData.get('file') as File | null;
-      const isQuickImport = formData.get('quickImport') === 'true';
+      const file = formData.get('file');
+      quickImport = formData.get('quickImport') === 'true';
 
-      if (isQuickImport) {
-        const filePath = path.join(process.cwd(), '..', 'Tally', 'SALE REPORT_JULY_.xls');
-        if (fs.existsSync(filePath)) {
-          fileBuffer = fs.readFileSync(filePath);
-          fileName = 'SALE REPORT_JULY_.xls';
-        } else {
-          return NextResponse.json({ error: 'File Tally/SALE REPORT_JULY_.xls not found in project workspace' }, { status: 404 });
+      if (!quickImport && file instanceof File) {
+        if (!/\.(xlsx|xls|csv)$/i.test(file.name)) {
+          return NextResponse.json({ error: 'Please upload the Tally sale report as Excel (.xls / .xlsx) or CSV' }, { status: 400 });
         }
-      } else if (file) {
-        const bytes = await file.arrayBuffer();
-        fileBuffer = Buffer.from(bytes);
+        if (file.size === 0) return NextResponse.json({ error: 'The uploaded file is empty' }, { status: 400 });
+        if (file.size > MAX_FILE_BYTES) return NextResponse.json({ error: 'File is too large (max 15 MB)' }, { status: 400 });
+        fileBuffer = Buffer.from(await file.arrayBuffer());
         fileName = file.name;
       }
     } else {
-      // JSON payload requesting quick import
       const body = await req.json().catch(() => ({}));
-      if (body.quickImport) {
-        const filePath = path.join(process.cwd(), '..', 'Tally', 'SALE REPORT_JULY_.xls');
-        if (fs.existsSync(filePath)) {
-          fileBuffer = fs.readFileSync(filePath);
-          fileName = 'SALE REPORT_JULY_.xls';
-        } else {
-          return NextResponse.json({ error: 'File Tally/SALE REPORT_JULY_.xls not found in project workspace' }, { status: 404 });
-        }
-      }
+      quickImport = !!body.quickImport;
+    }
+
+    if (quickImport) {
+      const q = readQuickImportFile();
+      if (!q) return NextResponse.json({ error: 'Quick import is only available in local development (Tally/SALE REPORT_JULY_.xls not found)' }, { status: 404 });
+      fileBuffer = q.buffer;
+      fileName = q.name;
     }
 
     if (!fileBuffer) {
@@ -94,37 +66,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Excel sheet is empty' }, { status: 400 });
     }
 
-    // Find Header Row (row containing 'Vch No' or 'Party Name' or 'Order No')
+    // Find Header Row (row containing 'Vch No' or 'Party Name')
     let headerRowIndex = rawRows.findIndex(row =>
       Array.isArray(row) && row.some(cell => cell && String(cell).toLowerCase().includes('vch no'))
     );
-
     if (headerRowIndex === -1) {
       headerRowIndex = rawRows.findIndex(row =>
         Array.isArray(row) && row.some(cell => cell && String(cell).toLowerCase().includes('party name'))
       );
     }
-
     if (headerRowIndex === -1) {
-      headerRowIndex = 0;
+      return NextResponse.json({ error: 'Could not find the header row (expected columns like "Vch No." and "Party Name")' }, { status: 400 });
     }
 
     const headers = rawRows[headerRowIndex].map(h => String(h || '').trim().toLowerCase());
 
-    const getColIndex = (keywords: string[]) => {
-      return headers.findIndex(h => keywords.some(k => h.includes(k)));
+    // Keywords are tried in priority order, so "order no" wins over a looser "order" match
+    const getColIndex = (keywords: string[], exclude: number[] = []) => {
+      for (const k of keywords) {
+        const idx = headers.findIndex((h, i) => !exclude.includes(i) && h.includes(k));
+        if (idx !== -1) return idx;
+      }
+      return -1;
     };
 
-    const vchNoIdx = getColIndex(['vch no', 'vch. no', 'voucher', 'invoice']);
-    const dateIdx = getColIndex(['date']);
-    const orderNoIdx = getColIndex(['order no', 'po', 'order']);
+    const vchNoIdx = getColIndex(['vch no', 'vch. no', 'voucher no', 'invoice no', 'voucher', 'invoice']);
+    const orderNoIdx = getColIndex(['order no', 'po no', 'po number', 'order']);
     const orderDateIdx = getColIndex(['order dt', 'order date']);
+    const dateIdx = headers.findIndex((h, i) => i !== orderDateIdx && /(^|\s)date$|^date|^dt$/.test(h));
     const partyNameIdx = getColIndex(['party name', 'customer', 'party']);
-    const itemNameIdx = getColIndex(['item name', 'stock item', 'product', 'description']);
+    const itemNameIdx = getColIndex(['item name', 'stock item', 'product', 'description', 'particulars']);
     const qtyIdx = getColIndex(['quantity', 'qty']);
     const rateIdx = getColIndex(['rate', 'price']);
-    const amountIdx = getColIndex(['amount', 'total']);
-    const stockGroupIdx = getColIndex(['stock group', 'brand', 'group']);
+    const amountIdx = getColIndex(['amount', 'value', 'total']);
+
+    if (vchNoIdx === -1) return NextResponse.json({ error: 'Could not find the "Vch No." (invoice number) column' }, { status: 400 });
+    if (dateIdx === -1) return NextResponse.json({ error: 'Could not find the invoice "Date" column' }, { status: 400 });
 
     const dataRows = rawRows.slice(headerRowIndex + 1);
 
@@ -134,28 +111,26 @@ export async function POST(req: NextRequest) {
       invoiceDate: Date;
       poNumber: string;
       customerName: string;
-      brand: string;
-      items: Array<{
-        itemName: string;
-        quantity: number;
-        rate: number;
-        amount: number;
-        stockGroup: string;
-      }>;
+      items: Array<{ itemName: string; quantity: number; rate: number; amount: number }>;
     }>();
 
     const uniqueDatesSet = new Set<string>();
+    const badDateRows: number[] = [];
 
     dataRows.forEach((row, idx) => {
       if (!Array.isArray(row) || row.length === 0) return;
 
-      const vchNo = vchNoIdx !== -1 && row[vchNoIdx] ? String(row[vchNoIdx]).trim() : '';
+      const vchNo = row[vchNoIdx] !== undefined && row[vchNoIdx] !== null ? String(row[vchNoIdx]).trim() : '';
       if (!vchNo || vchNo.toLowerCase().includes('total')) return;
 
-      const rawDate = dateIdx !== -1 ? row[dateIdx] : null;
-      const invoiceDate = parseExcelDate(rawDate);
-      const dateIsoStr = invoiceDate.toISOString().split('T')[0];
-      uniqueDatesSet.add(dateIsoStr);
+      // Tally "continuation" lines leave the date blank: reuse the invoice's date
+      const existingInvoice = invoicesMap.get(vchNo);
+      const invoiceDate = parseDate(row[dateIdx]) || existingInvoice?.invoiceDate || null;
+      if (!invoiceDate) {
+        badDateRows.push(headerRowIndex + idx + 2); // 1-based Excel row number
+        return;
+      }
+      uniqueDatesSet.add(invoiceDate.toISOString().split('T')[0]);
 
       let orderNo = orderNoIdx !== -1 && row[orderNoIdx] ? String(row[orderNoIdx]).trim() : '';
       // Clean order number e.g. PO#GGNPO370787 -> GGNPO370787
@@ -163,30 +138,22 @@ export async function POST(req: NextRequest) {
 
       const customerName = partyNameIdx !== -1 && row[partyNameIdx] ? String(row[partyNameIdx]).trim() : 'UNKNOWN';
       const itemName = itemNameIdx !== -1 && row[itemNameIdx] ? String(row[itemNameIdx]).trim() : 'Item';
-      const quantity = qtyIdx !== -1 && row[qtyIdx] ? parseFloat(String(row[qtyIdx])) || 0 : 0;
-      const rate = rateIdx !== -1 && row[rateIdx] ? parseFloat(String(row[rateIdx])) || 0 : 0;
-      const amount = amountIdx !== -1 && row[amountIdx] ? parseFloat(String(row[amountIdx])) || 0 : (quantity * rate);
-      const stockGroup = stockGroupIdx !== -1 && row[stockGroupIdx] ? String(row[stockGroupIdx]).trim() : '';
+      const quantity = qtyIdx !== -1 ? toNumber(row[qtyIdx]) ?? 0 : 0;
+      const rate = rateIdx !== -1 ? toNumber(row[rateIdx]) ?? 0 : 0;
+      const amount = amountIdx !== -1 ? (toNumber(row[amountIdx]) ?? quantity * rate) : (quantity * rate);
 
-      if (!invoicesMap.has(vchNo)) {
+      if (!existingInvoice) {
         invoicesMap.set(vchNo, {
           invoiceNumber: vchNo,
           invoiceDate,
           poNumber: orderNo,
           customerName,
-          brand: stockGroup,
           items: []
         });
       }
 
       const invRecord = invoicesMap.get(vchNo)!;
-      invRecord.items.push({
-        itemName,
-        quantity,
-        rate,
-        amount,
-        stockGroup
-      });
+      invRecord.items.push({ itemName, quantity, rate, amount });
       if (orderNo && !invRecord.poNumber) {
         invRecord.poNumber = orderNo;
       }
@@ -194,90 +161,76 @@ export async function POST(req: NextRequest) {
 
     const parsedInvoices = Array.from(invoicesMap.values());
     if (parsedInvoices.length === 0) {
-      return NextResponse.json({ error: 'No valid sales invoice records found in uploaded file' }, { status: 400 });
+      const hint = badDateRows.length ? ` (${badDateRows.length} rows had an unreadable date, e.g. row ${badDateRows[0]})` : '';
+      return NextResponse.json({ error: `No valid sales invoice records found in uploaded file${hint}` }, { status: 400 });
     }
 
-    // Process & Upsert PurchaseBills in MongoDB via Prisma
+    // Existing sale uploads for these invoice numbers (OCR purchase bills are never overwritten)
+    const existingBills = await prisma.purchaseBill.findMany({
+      where: { AND: [SALE_UPLOAD_WHERE, { invoiceNumber: { in: parsedInvoices.map(i => i.invoiceNumber) } }] },
+      select: { id: true, invoiceNumber: true },
+    });
+    const existingByNumber = new Map(existingBills.map(b => [b.invoiceNumber, b.id]));
+
     let createdCount = 0;
     let updatedCount = 0;
     let totalBilledAmount = 0;
 
-    for (const inv of parsedInvoices) {
+    const writeInvoice = async (inv: typeof parsedInvoices[number]) => {
       const invTotal = inv.items.reduce((sum, item) => sum + item.amount, 0);
       totalBilledAmount += invTotal;
+      const itemsCreate = inv.items.map(item => ({
+        itemName: item.itemName,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount,
+        tallyItemName: item.itemName,
+        unit: 'PCS'
+      }));
+      const common = {
+        invoiceDate: inv.invoiceDate,
+        supplierName: inv.customerName,
+        totalAmount: invTotal,
+        notes: `PO:${inv.poNumber} | Party:${inv.customerName}`,
+        status: 'VERIFIED',
+        fileName,
+      };
 
-      const existingBill = await prisma.purchaseBill.findFirst({
-        where: { invoiceNumber: inv.invoiceNumber }
-      });
-
-      if (existingBill) {
-        // Delete old items and update bill
-        await prisma.purchaseBillItem.deleteMany({
-          where: { billId: existingBill.id }
-        });
-
+      const existingId = existingByNumber.get(inv.invoiceNumber);
+      if (existingId) {
         await prisma.purchaseBill.update({
-          where: { id: existingBill.id },
-          data: {
-            invoiceDate: inv.invoiceDate,
-            supplierName: inv.customerName,
-            totalAmount: invTotal,
-            notes: `PO:${inv.poNumber} | Party:${inv.customerName}`,
-            status: 'VERIFIED',
-            fileName,
-            items: {
-              create: inv.items.map(item => ({
-                itemName: item.itemName,
-                quantity: item.quantity,
-                rate: item.rate,
-                amount: item.amount,
-                tallyItemName: item.itemName,
-                unit: 'PCS'
-              }))
-            }
-          }
+          where: { id: existingId },
+          data: { ...common, items: { deleteMany: {}, create: itemsCreate } }
         });
         updatedCount++;
       } else {
-        // Create new bill
         await prisma.purchaseBill.create({
-          data: {
-            invoiceNumber: inv.invoiceNumber,
-            invoiceDate: inv.invoiceDate,
-            supplierName: inv.customerName,
-            totalAmount: invTotal,
-            notes: `PO:${inv.poNumber} | Party:${inv.customerName}`,
-            status: 'VERIFIED',
-            fileName,
-            items: {
-              create: inv.items.map(item => ({
-                itemName: item.itemName,
-                quantity: item.quantity,
-                rate: item.rate,
-                amount: item.amount,
-                tallyItemName: item.itemName,
-                unit: 'PCS'
-              }))
-            }
-          }
+          data: { ...common, invoiceNumber: inv.invoiceNumber, items: { create: itemsCreate } }
         });
         createdCount++;
       }
+    };
+
+    for (let i = 0; i < parsedInvoices.length; i += WRITE_BATCH) {
+      await Promise.all(parsedInvoices.slice(i, i + WRITE_BATCH).map(writeInvoice));
     }
 
     const uniqueDatesList = Array.from(uniqueDatesSet).sort();
+    const warning = badDateRows.length
+      ? ` ${badDateRows.length} row(s) skipped because the date could not be read (e.g. Excel row ${badDateRows[0]}).`
+      : '';
 
     return NextResponse.json({
       success: true,
-      message: `Successfully processed ${fileName}: ${parsedInvoices.length} Invoices reconciled across ${uniqueDatesList.length} dates.`,
+      message: `Successfully processed ${fileName}: ${parsedInvoices.length} Invoices reconciled across ${uniqueDatesList.length} dates.${warning}`,
       fileName,
       totalInvoicesProcessed: parsedInvoices.length,
       createdCount,
       updatedCount,
+      skippedRows: badDateRows.length,
       totalBilledAmount,
-      uniqueDatesUploaded: uniqueDatesList
+      uploadedDates: uniqueDatesList,
     });
-
   } catch (err: any) {
     console.error('❌ [DAILY REPORT UPLOAD ERROR]', err);
     return NextResponse.json({ error: 'Failed to upload & reconcile daily report: ' + err.message }, { status: 500 });

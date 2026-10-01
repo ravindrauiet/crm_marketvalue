@@ -63,7 +63,8 @@ export default function PaymentsPage() {
                 setShowModal(false);
                 loadPayments();
             } else {
-                alert('Failed to save payment');
+                const data = await res.json().catch(() => ({}));
+                alert(data.error || 'Failed to save payment');
             }
         } catch (err) {
             alert('Error saving payment');

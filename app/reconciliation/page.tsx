@@ -20,6 +20,8 @@ type RecoRow = {
   notes?: string;
 };
 
+type StatementType = 'vendor' | 'tally' | 'ledger' | 'party_advice';
+
 type Batch = {
   id: string;
   fileName: string;
@@ -79,6 +81,8 @@ export default function ReconciliationPage() {
   const fileVendorRef = useRef<HTMLInputElement>(null);
   const fileTallyRef = useRef<HTMLInputElement>(null);
   const fileBankRef = useRef<HTMLInputElement>(null);
+  const filePartyAdviceRef = useRef<HTMLInputElement>(null);
+  const [pastedAdvice, setPastedAdvice] = useState('');
 
   useEffect(() => { loadData(); }, [filterStatus, filterChain]);
 
@@ -98,7 +102,7 @@ export default function ReconciliationPage() {
     setLoading(false);
   }
 
-  async function uploadFile(file: File, statementType: 'vendor' | 'tally' | 'bank' = 'bank') {
+  async function uploadFile(file: File, statementType: StatementType = 'ledger') {
     if (!file) return;
     setUploading(true); setUploadResult(null);
     const fd = new FormData();
@@ -128,6 +132,15 @@ export default function ReconciliationPage() {
       setUploadResult({ error: err.message });
     }
     setUploading(false);
+  }
+
+  // Pasted email / payment advice text is sent as a .txt file so it goes through the same AI parser
+  async function uploadPastedAdvice() {
+    const text = pastedAdvice.trim();
+    if (!text) return;
+    const file = new File([text], `pasted_payment_advice_${Date.now()}.txt`, { type: 'text/plain' });
+    await uploadFile(file, 'party_advice');
+    setPastedAdvice('');
   }
 
   async function handleResetAllReco() {
@@ -196,7 +209,7 @@ export default function ReconciliationPage() {
             💰 Payment & Statement Reconciliation
           </h1>
           <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
-            Upload Payment Advices (PDF/Excel), Retail Chain Settlement Ledgers & Bank Statements → Chain-Specific AI Extraction & Auto Set-Off
+            Upload Payment Advices (PDF/Excel), Party Ledger Statements & Party Payment Advices → Chain-Specific AI Extraction & Auto Set-Off
           </p>
         </div>
 
@@ -344,26 +357,26 @@ export default function ReconciliationPage() {
               </button>
             </div>
 
-            {/* Card 3: Bank Account Statement Upload */}
+            {/* Card 3: Party Ledger Statement Upload */}
             <div className="card" style={{ borderLeft: '4px solid #8b5cf6' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}>🏦</span>
+                <span style={{ fontSize: 24 }}>📒</span>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>3. Upload Bank Statement</h3>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>3. Upload Party Ledger Statement</h3>
                   <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                    BANK ACCOUNT STATEMENT
+                    PARTY LEDGER STATEMENT (PDF, XLS, CSV)
                   </span>
                 </div>
               </div>
               <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                Upload bank statement or bank transaction advice (Excel, CSV, PDF).
+                Upload the party / customer ledger statement received from the retail chain (PDF, XLS, XLSX, CSV).
               </p>
               <input
                 ref={fileBankRef}
                 type="file"
-                accept=".xlsx,.xls,.csv,.pdf"
+                accept=".pdf,.xlsx,.xls,.csv"
                 style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'bank'); e.target.value = ''; }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'ledger'); e.target.value = ''; }}
               />
               <button
                 className="btn"
@@ -371,7 +384,53 @@ export default function ReconciliationPage() {
                 disabled={uploading}
                 style={{ width: '100%', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}
               >
-                {uploading ? 'Processing Statement...' : '📤 Select Bank Statement'}
+                {uploading ? 'Processing Statement...' : '📤 Select Party Ledger Statement'}
+              </button>
+            </div>
+
+            {/* Card 4: Party Payment Advice (file or pasted email text) */}
+            <div className="card" style={{ borderLeft: '4px solid #f97316' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span style={{ fontSize: 24 }}>📧</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16 }}>4. Upload Party Payment Advice</h3>
+                  <span style={{ fontSize: 11, background: '#ffedd5', color: '#9a3412', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
+                    ZEPTO PDF · SWIGGY ADVICE · EMAIL COPY-PASTE
+                  </span>
+                </div>
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+                Upload party payment invoice details (e.g. Zepto PDF, Swiggy payment advice), or copy &amp; paste the payment info from the email below.
+              </p>
+              <input
+                ref={filePartyAdviceRef}
+                type="file"
+                accept=".pdf,.xlsx,.xls,.csv,.txt"
+                style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'party_advice'); e.target.value = ''; }}
+              />
+              <button
+                className="btn"
+                onClick={() => filePartyAdviceRef.current?.click()}
+                disabled={uploading}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #f97316, #ea580c)', marginBottom: 10 }}
+              >
+                {uploading ? 'Processing Advice...' : '📤 Select Party Payment Advice File'}
+              </button>
+              <textarea
+                value={pastedAdvice}
+                onChange={e => setPastedAdvice(e.target.value)}
+                placeholder="Or paste payment email / advice text here (UTR, invoice nos., amounts, TDS...)"
+                rows={4}
+                style={{ width: '100%', padding: 8, fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', resize: 'vertical', boxSizing: 'border-box' }}
+              />
+              <button
+                className="btn secondary"
+                onClick={uploadPastedAdvice}
+                disabled={uploading || !pastedAdvice.trim()}
+                style={{ width: '100%', marginTop: 8, fontSize: 13 }}
+              >
+                📋 Process Pasted Text
               </button>
             </div>
 

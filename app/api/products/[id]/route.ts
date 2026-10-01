@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { productUpdateData } from '@/lib/productInput';
+import { badRequest, errorResponse, isObjectId } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -7,6 +9,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isObjectId(params.id)) return badRequest('Invalid product id');
   try {
     const product = await prisma.product.findUnique({
       where: { id: params.id },
@@ -31,23 +34,17 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isObjectId(params.id)) return badRequest('Invalid product id');
   try {
-    const data = await req.json();
+    const body = await req.json().catch(() => null);
+    // Only fields that were sent are changed (an omitted price is no longer wiped)
     const product = await prisma.product.update({
       where: { id: params.id },
-      data: {
-        name: data.name,
-        brand: data.brand,
-        group: data.group,
-        description: data.description,
-        price: data.price ? parseFloat(data.price) : null,
-        cost: data.cost ? parseFloat(data.cost) : null,
-        minStockThreshold: data.minStockThreshold ? parseInt(data.minStockThreshold) : undefined
-      }
+      data: productUpdateData(body)
     });
     return NextResponse.json(product);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return errorResponse(error, 'Failed to update product');
   }
 }
 
@@ -55,7 +52,10 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isObjectId(params.id)) return badRequest('Invalid product id');
   try {
+    const used = await prisma.orderItem.count({ where: { productId: params.id } });
+    if (used > 0) return badRequest('This product is used in orders and cannot be deleted', 409);
     await prisma.product.delete({
       where: { id: params.id }
     });

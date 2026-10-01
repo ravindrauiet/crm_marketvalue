@@ -1,12 +1,13 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { isObjectId, nextSequenceNumber } from '@/lib/validation';
 
 export async function POST(request: Request) {
     try {
-        const { orderId } = await request.json();
+        const { orderId } = await request.json().catch(() => ({}));
 
-        if (!orderId) {
-            return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
+        if (!isObjectId(orderId)) {
+            return NextResponse.json({ error: 'A valid Order ID is required' }, { status: 400 });
         }
 
         // Fetch order with items and customer
@@ -33,16 +34,24 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Invoice already exists for this order', invoice: existingInvoice }, { status: 409 });
         }
 
-        // Check status
-        if (order.type !== 'SALE' || !['CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(order.status)) {
-            // We allow draft invoices for PENDING orders too if needed, but usually only confirmed
-            // For now, let's allow it but warn.
+        if (order.type !== 'SALE') {
+            return NextResponse.json({ error: 'Invoices can only be generated for SALE orders' }, { status: 400 });
+        }
+        if (order.status === 'CANCELLED') {
+            return NextResponse.json({ error: 'Cannot invoice a cancelled order' }, { status: 400 });
+        }
+        if (!order.customerId) {
+            return NextResponse.json({ error: 'This order has no customer. Please assign a customer before generating an invoice.' }, { status: 400 });
+        }
+        if (order.items.length === 0) {
+            return NextResponse.json({ error: 'This order has no items' }, { status: 400 });
         }
 
-        // Generate Invoice Number (Simple logic: INV-{YYYY}-{Count})
-        const count = await prisma.invoice.count();
-        const year = new Date().getFullYear();
-        const invoiceNumber = `INV-${year}-${(count + 1).toString().padStart(4, '0')}`;
+        // Next number after the highest existing one (a count breaks after deletes)
+        const invoiceNumber = await nextSequenceNumber('INV', async prefix =>
+            (await prisma.invoice.findMany({ where: { invoiceNumber: { startsWith: prefix } }, select: { invoiceNumber: true } }))
+                .map(i => i.invoiceNumber)
+        );
 
         // Create Invoice
         const invoice = await prisma.invoice.create({
@@ -53,7 +62,7 @@ export async function POST(request: Request) {
                 status: 'DRAFT',
                 totalAmount: order.totalAmount,
                 orderId: order.id,
-                customerId: order.customerId!,
+                customerId: order.customerId,
                 items: {
                     create: order.items.map(item => ({
                         productId: item.productId,

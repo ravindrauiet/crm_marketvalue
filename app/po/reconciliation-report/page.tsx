@@ -69,6 +69,7 @@ type ReportRow = {
 type ReportSummary = {
   totalPOs: number;
   deliveredPOs: number;
+  partDeliveredPOs: number;
   closedPOs: number;
   openPOs: number;
   totalPOValue: number;
@@ -81,7 +82,25 @@ type ReportSummary = {
 
 const CHAINS = ['ALL', 'RELIANCE', 'SWIGGY', 'ZEPTO', 'BIGBASKET', 'BLINKIT', 'FLIPKART', 'DMART', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
 const BRANDS = ['ALL', 'HEALTHY HUNGER', 'MARVEL', 'EASTERN', "MOTHER'S RECIPE", 'DILBAHAR', 'GENERAL'];
-const STATUSES = ['ALL', 'Y - PO Delivered', 'PO Closed', 'Open / Pending', 'Partially Billed'];
+const STATUSES = ['ALL', 'Full Delivery', 'Part Delivery', 'PO Closed', 'Open / Pending'];
+const MONTHS: Array<[string, string]> = [
+  ['JAN', 'January'], ['FEB', 'February'], ['MAR', 'March'], ['APR', 'April'], ['MAY', 'May'], ['JUN', 'June'],
+  ['JUL', 'July'], ['AUG', 'August'], ['SEP', 'September'], ['OCT', 'October'], ['NOV', 'November'], ['DEC', 'December'],
+];
+type RemarkField = 'remarks1' | 'remarks2' | 'remarks3' | 'remarks4';
+
+type SaleItemRow = {
+  id: string;
+  invoiceDate: string;
+  invoiceNumber: string;
+  partyName: string;
+  poNumber: string;
+  itemName: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  fileName: string;
+};
 
 export default function POFillRateReportPage() {
   const [loading, setLoading] = useState(true);
@@ -103,14 +122,16 @@ export default function POFillRateReportPage() {
   const [search, setSearch] = useState('');
 
   // UI View States
-  const [activeTab, setActiveTab] = useState<'summary' | 'item_detail' | 'installments'>('summary');
+  const [activeTab, setActiveTab] = useState<'summary' | 'item_detail' | 'installments' | 'sale_items'>('summary');
   const [expandedPoId, setExpandedPoId] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<'items' | 'payments'>('items');
 
   // Inline Editable Remarks State (Remarks 1..4)
   const [editedRemarks, setEditedRemarks] = useState<Record<string, { remarks1?: string; remarks2?: string; remarks3?: string; remarks4?: string }>>({});
 
-  const handleRemarkChange = (poId: string, field: 'remarks1' | 'remarks2' | 'remarks3' | 'remarks4', val: string) => {
+  const [remarkSaveStatus, setRemarkSaveStatus] = useState<Record<string, 'saving' | 'saved' | 'error'>>({});
+
+  const handleRemarkChange = (poId: string, field: RemarkField, val: string) => {
     setEditedRemarks(prev => ({
       ...prev,
       [poId]: {
@@ -120,13 +141,104 @@ export default function POFillRateReportPage() {
     }));
   };
 
-  // Available Filter Options & Daily Upload Calendar Tracker States
-  const [availableMonths, setAvailableMonths] = useState<string[]>([]);
+  // Persist an edited remark to the PO when the input loses focus
+  const saveRemark = async (poId: string, field: RemarkField) => {
+    const val = editedRemarks[poId]?.[field];
+    if (val === undefined) return;
+    const row = rows.find(r => r.id === poId);
+    if (row && (row[field] ?? '') === val) return;
+
+    const key = `${poId}:${field}`;
+    setRemarkSaveStatus(prev => ({ ...prev, [key]: 'saving' }));
+    try {
+      const res = await fetch('/api/po/reconciliation-report/remarks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poId, [field]: val }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      setRows(prev => prev.map(r => r.id === poId ? { ...r, [field]: val.trim() } : r));
+      setRemarkSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
+    } catch {
+      setRemarkSaveStatus(prev => ({ ...prev, [key]: 'error' }));
+    }
+  };
+
+  const remarkBorder = (poId: string, field: RemarkField) => {
+    const s = remarkSaveStatus[`${poId}:${field}`];
+    return s === 'saved' ? '1px solid #22c55e' : s === 'error' ? '1px solid #ef4444' : s === 'saving' ? '1px solid #f59e0b' : '1px solid #cbd5e1';
+  };
+
+  // Daily Upload Calendar Tracker States
   const [uploadedDatesMap, setUploadedDatesMap] = useState<Record<string, { count: number; invoicesCount: number; totalAmount: number }>>({});
-  const [calYear, setCalYear] = useState<number>(2026);
-  const [calMonth, setCalMonth] = useState<number>(6); // July (0-indexed, 6 = July)
+  const [calYear, setCalYear] = useState<number>(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState<number>(() => new Date().getMonth()); // 0-indexed
   const [uploadingReport, setUploadingReport] = useState<boolean>(false);
   const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Sale Invoice Item Wise tab (daily uploaded Tally sale invoices)
+  const [saleFrom, setSaleFrom] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA');
+  });
+  const [saleTo, setSaleTo] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const [saleSearch, setSaleSearch] = useState('');
+  const [saleRows, setSaleRows] = useState<SaleItemRow[]>([]);
+  const [saleTotals, setSaleTotals] = useState({ invoices: 0, lines: 0, quantity: 0, amount: 0 });
+  const [saleLoading, setSaleLoading] = useState(false);
+  const [saleError, setSaleError] = useState('');
+
+  const fetchSaleItems = async () => {
+    setSaleLoading(true);
+    setSaleError('');
+    try {
+      const params = new URLSearchParams();
+      if (saleFrom) params.set('from', saleFrom);
+      if (saleTo) params.set('to', saleTo);
+      if (saleSearch) params.set('search', saleSearch);
+      const res = await fetch(`/api/po/reconciliation-report/sale-items?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load sale invoice items');
+      setSaleRows(data.rows || []);
+      setSaleTotals(data.totals || { invoices: 0, lines: 0, quantity: 0, amount: 0 });
+    } catch (err: any) {
+      setSaleError(err.message);
+    } finally {
+      setSaleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'sale_items') fetchSaleItems();
+  }, [activeTab, saleFrom, saleTo]);
+
+  const setSaleRange = (preset: 'today' | 'yesterday' | 'week' | 'month') => {
+    const today = new Date();
+    const fmt = (d: Date) => d.toLocaleDateString('en-CA');
+    if (preset === 'today') { setSaleFrom(fmt(today)); setSaleTo(fmt(today)); }
+    else if (preset === 'yesterday') { const y = new Date(today); y.setDate(y.getDate() - 1); setSaleFrom(fmt(y)); setSaleTo(fmt(y)); }
+    else if (preset === 'week') { const w = new Date(today); w.setDate(w.getDate() - 6); setSaleFrom(fmt(w)); setSaleTo(fmt(today)); }
+    else { setSaleFrom(fmt(new Date(today.getFullYear(), today.getMonth(), 1))); setSaleTo(fmt(today)); }
+  };
+
+  const exportSaleItems = () => {
+    if (saleRows.length === 0) return;
+    const ws = XLSX.utils.json_to_sheet(saleRows.map(r => ({
+      'Invoice Date': r.invoiceDate,
+      'Invoice No': r.invoiceNumber,
+      'Party Name': r.partyName,
+      'PO Number': r.poNumber,
+      'Item Name': r.itemName,
+      'Quantity (Pcs)': r.quantity,
+      'Rate (Rs.)': r.rate,
+      'Amount (Rs.)': r.amount,
+      'Source File': r.fileName,
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sale Invoice Item Wise');
+    XLSX.writeFile(wb, `Sale_Invoice_Item_Wise_${saleFrom}_to_${saleTo}.xlsx`);
+  };
 
   const fetchReport = async () => {
     setLoading(true);
@@ -147,9 +259,8 @@ export default function POFillRateReportPage() {
 
       setRows(data.rows || []);
       setSummary(data.summary || null);
-      if (data.availableMonths && data.availableMonths.length > 0) {
-        setAvailableMonths(data.availableMonths);
-      }
+      setEditedRemarks({});
+      setRemarkSaveStatus({});
       if (data.uploadedDatesMap) {
         setUploadedDatesMap(data.uploadedDatesMap);
       }
@@ -183,6 +294,7 @@ export default function POFillRateReportPage() {
 
       setUploadStatus({ type: 'success', message: data.message || 'Report uploaded successfully!' });
       await fetchReport();
+      if (activeTab === 'sale_items') await fetchSaleItems();
     } catch (err: any) {
       setUploadStatus({ type: 'error', message: err.message });
     } finally {
@@ -337,7 +449,8 @@ export default function POFillRateReportPage() {
     // Sheet 4: KPI Executive Summary
     const kpiSummaryData = summary ? [
       { Metric: 'Total POs Count', Value: summary.totalPOs },
-      { Metric: 'Delivered POs Count', Value: summary.deliveredPOs },
+      { Metric: 'Full Delivery POs Count', Value: summary.deliveredPOs },
+      { Metric: 'Part Delivery POs Count', Value: summary.partDeliveredPOs ?? 0 },
       { Metric: 'Closed POs Count', Value: summary.closedPOs },
       { Metric: 'Open / Pending POs Count', Value: summary.openPOs },
       { Metric: 'Total PO Value (Rs.)', Value: summary.totalPOValue },
@@ -436,6 +549,16 @@ export default function POFillRateReportPage() {
 
         {/* Action Toolbar */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <label className="btn" style={{ background: '#ea580c', color: '#fff', fontSize: 13, gap: 6, cursor: uploadingReport ? 'not-allowed' : 'pointer' }}>
+            {uploadingReport ? '⏳ Uploading...' : '📤 Upload Daily Sale Invoice'}
+            <input
+              type="file"
+              accept=".xls,.xlsx,.csv"
+              onChange={handleDailyUpload}
+              disabled={uploadingReport}
+              style={{ display: 'none' }}
+            />
+          </label>
           <button onClick={exportToExcel} className="btn" style={{ background: '#16a34a', color: '#fff', fontSize: 13, gap: 6 }}>
             📥 Export Excel (.xlsx)
           </button>
@@ -488,18 +611,8 @@ export default function POFillRateReportPage() {
               style={{ padding: '8px 12px', fontSize: 13 }}
             >
               <option value="ALL">All Months</option>
-              <option value="MAR">MAR (March)</option>
-              <option value="APR">APR (April)</option>
-              <option value="MAY">MAY (May)</option>
-              <option value="JUN">JUN (June)</option>
-              <option value="JUL">JUL (July)</option>
-              <option value="AUG">AUG (August)</option>
-              <option value="SEP">SEP (September)</option>
-              <option value="OCT">OCT (October)</option>
-              <option value="NOV">NOV (November)</option>
-              <option value="DEC">DEC (December)</option>
-              {availableMonths.map(m => (
-                <option key={m} value={m}>{m}</option>
+              {MONTHS.map(([code, name]) => (
+                <option key={code} value={code}>{code} ({name})</option>
               ))}
             </select>
           </div>
@@ -626,7 +739,8 @@ export default function POFillRateReportPage() {
               />
             </label>
 
-            {/* Quick Import Tally/SALE REPORT_JULY_.xls */}
+            {/* Quick Import Tally/SALE REPORT_JULY_.xls (local development only) */}
+            {process.env.NODE_ENV !== 'production' && (
             <button
               onClick={handleQuickImport}
               disabled={uploadingReport}
@@ -646,6 +760,7 @@ export default function POFillRateReportPage() {
             >
               ⚡ Quick Import (Tally/SALE REPORT_JULY_.xls)
             </button>
+            )}
           </div>
         </div>
 
@@ -694,10 +809,10 @@ export default function POFillRateReportPage() {
               Next ▶
             </button>
             <button
-              onClick={() => { setCalYear(2026); setCalMonth(6); }}
+              onClick={() => { const d = new Date(); setCalYear(d.getFullYear()); setCalMonth(d.getMonth()); }}
               style={{ padding: '4px 10px', fontSize: 11, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 4, cursor: 'pointer' }}
             >
-              Jul 2026
+              This Month
             </button>
           </div>
 
@@ -828,7 +943,7 @@ export default function POFillRateReportPage() {
               {summary.totalPOs} Total POs
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>{summary.deliveredPOs} Delivered</span> • <span style={{ color: '#dc2626', fontWeight: 600 }}>{summary.closedPOs} Closed</span> • <span>{summary.openPOs} Open</span>
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>{summary.deliveredPOs} Full</span> • <span style={{ color: '#d97706', fontWeight: 600 }}>{summary.partDeliveredPOs ?? 0} Part</span> • <span style={{ color: '#dc2626', fontWeight: 600 }}>{summary.closedPOs} Closed</span> • <span>{summary.openPOs} Open</span>
             </div>
           </div>
 
@@ -882,9 +997,108 @@ export default function POFillRateReportPage() {
         >
           💳 Payment Installments & Remittances ({allPaymentInstallments.length})
         </button>
+        <button
+          onClick={() => setActiveTab('sale_items')}
+          style={{
+            padding: '10px 20px',
+            fontSize: 14,
+            fontWeight: activeTab === 'sale_items' ? 700 : 500,
+            color: activeTab === 'sale_items' ? '#2563eb' : '#64748b',
+            borderBottom: activeTab === 'sale_items' ? '3px solid #2563eb' : 'none',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          🧾 Sale Invoice Item Wise
+        </button>
       </div>
 
-      {loading ? (
+      {activeTab === 'sale_items' ? (
+
+        /* TAB 4: SALE INVOICE ITEM WISE (Daily uploaded Tally sale invoices) */
+        <div>
+          <div className="no-print" style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 14, padding: 14, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>📅 Invoice Date From</label>
+              <input type="date" className="input" value={saleFrom} onChange={e => setSaleFrom(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>📅 Invoice Date To</label>
+              <input type="date" className="input" value={saleTo} onChange={e => setSaleTo(e.target.value)} style={{ padding: '7px 10px', fontSize: 13 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([['today', 'Today'], ['yesterday', 'Yesterday'], ['week', 'Last 7 Days'], ['month', 'This Month']] as const).map(([p, label]) => (
+                <button key={p} onClick={() => setSaleRange(p)} style={{ padding: '7px 10px', fontSize: 12, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 6, cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              className="input"
+              placeholder="🔍 Search Invoice No, Party, PO No, Item..."
+              value={saleSearch}
+              onChange={e => setSaleSearch(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') fetchSaleItems(); }}
+              style={{ padding: '7px 12px', fontSize: 13, flex: 1, minWidth: 200 }}
+            />
+            <button onClick={fetchSaleItems} className="btn primary" style={{ fontSize: 13, padding: '7px 14px' }}>Search</button>
+            <button onClick={exportSaleItems} disabled={saleRows.length === 0} className="btn" style={{ background: '#16a34a', color: '#fff', fontSize: 13, padding: '7px 14px' }}>
+              📥 Export
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 20, fontSize: 13, marginBottom: 12, color: '#334155', flexWrap: 'wrap' }}>
+            <span>Invoices: <strong>{saleTotals.invoices}</strong></span>
+            <span>Item Lines: <strong>{saleTotals.lines}</strong></span>
+            <span>Total Qty: <strong>{saleTotals.quantity.toLocaleString('en-IN')}</strong> Pcs</span>
+            <span>Total Amount: <strong style={{ color: '#16a34a' }}>₹{saleTotals.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong></span>
+          </div>
+
+          {saleLoading ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>⏳ Loading sale invoice items...</div>
+          ) : saleError ? (
+            <div style={{ padding: 20, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8 }}>❌ {saleError}</div>
+          ) : saleRows.length === 0 ? (
+            <div style={{ padding: 48, textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              ℹ️ No sale invoices uploaded for this date range. Use "📤 Upload Daily Sale Invoice" to upload the Tally sale report.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9', color: '#334155', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 12px' }}>Invoice Date</th>
+                    <th style={{ padding: '10px 12px' }}>Invoice No</th>
+                    <th style={{ padding: '10px 12px' }}>Party Name</th>
+                    <th style={{ padding: '10px 12px' }}>PO Number</th>
+                    <th style={{ padding: '10px 12px' }}>Item Name</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Qty (Pcs)</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Rate (₹)</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Amount (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {saleRows.map(s => (
+                    <tr key={s.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{s.invoiceDate}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 700 }}>{s.invoiceNumber}</td>
+                      <td style={{ padding: '10px 12px', fontWeight: 600 }}>{s.partyName}</td>
+                      <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: '#2563eb' }}>{s.poNumber || '—'}</td>
+                      <td style={{ padding: '10px 12px' }}>{s.itemName}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{s.quantity.toLocaleString('en-IN')}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>₹{s.rate.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>₹{s.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      ) : loading ? (
         <div style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
           ⏳ Generating PO Fill Rate & Billing Reconciliation Report...
         </div>
@@ -927,7 +1141,8 @@ export default function POFillRateReportPage() {
             <tbody>
               {rows.map(r => {
                 const isExpanded = expandedPoId === r.id;
-                const isDelivered = r.poStatus.includes('Delivered');
+                const isDelivered = r.poStatus === 'Full Delivery';
+                const isPart = r.poStatus === 'Part Delivery';
                 const isClosed = r.poStatus.includes('Closed');
 
                 const r1 = editedRemarks[r.id]?.remarks1 ?? r.remarks1 ?? r.remarks ?? '';
@@ -976,9 +1191,9 @@ export default function POFillRateReportPage() {
                           borderRadius: 4,
                           fontSize: 11,
                           fontWeight: 600,
-                          background: isDelivered ? '#dcfce7' : (isClosed ? '#fee2e2' : '#e0f2fe'),
-                          color: isDelivered ? '#15803d' : (isClosed ? '#b91c1c' : '#0369a1'),
-                          border: isDelivered ? '1px solid #bbf7d0' : (isClosed ? '1px solid #fecaca' : '1px solid #bae6fd')
+                          background: isDelivered ? '#dcfce7' : isPart ? '#fef3c7' : (isClosed ? '#fee2e2' : '#e0f2fe'),
+                          color: isDelivered ? '#15803d' : isPart ? '#b45309' : (isClosed ? '#b91c1c' : '#0369a1'),
+                          border: isDelivered ? '1px solid #bbf7d0' : isPart ? '1px solid #fde68a' : (isClosed ? '1px solid #fecaca' : '1px solid #bae6fd')
                         }}>
                           {r.poStatus}
                         </span>
@@ -1033,7 +1248,9 @@ export default function POFillRateReportPage() {
                           className="input"
                           value={r1}
                           onChange={e => handleRemarkChange(r.id, 'remarks1', e.target.value)}
-                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          onBlur={() => saveRemark(r.id, 'remarks1')}
+                          title="Saved automatically when you leave the field"
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: remarkBorder(r.id, 'remarks1') }}
                           placeholder="Shortage/unsupplied..."
                         />
                       </td>
@@ -1045,7 +1262,9 @@ export default function POFillRateReportPage() {
                           className="input"
                           value={r2}
                           onChange={e => handleRemarkChange(r.id, 'remarks2', e.target.value)}
-                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          onBlur={() => saveRemark(r.id, 'remarks2')}
+                          title="Saved automatically when you leave the field"
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 150, borderRadius: 4, border: remarkBorder(r.id, 'remarks2') }}
                           placeholder="Price mismatch..."
                         />
                       </td>
@@ -1057,7 +1276,9 @@ export default function POFillRateReportPage() {
                           className="input"
                           value={r3}
                           onChange={e => handleRemarkChange(r.id, 'remarks3', e.target.value)}
-                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          onBlur={() => saveRemark(r.id, 'remarks3')}
+                          title="Saved automatically when you leave the field"
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: remarkBorder(r.id, 'remarks3') }}
                           placeholder="Manual fill..."
                         />
                       </td>
@@ -1069,7 +1290,9 @@ export default function POFillRateReportPage() {
                           className="input"
                           value={r4}
                           onChange={e => handleRemarkChange(r.id, 'remarks4', e.target.value)}
-                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: '1px solid #cbd5e1' }}
+                          onBlur={() => saveRemark(r.id, 'remarks4')}
+                          title="Saved automatically when you leave the field"
+                          style={{ padding: '4px 8px', fontSize: 11, width: '100%', minWidth: 120, borderRadius: 4, border: remarkBorder(r.id, 'remarks4') }}
                           placeholder="Manual fill..."
                         />
                       </td>

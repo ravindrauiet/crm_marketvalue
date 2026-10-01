@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { ValidationError, cleanString, errorResponse, requireValidDate, toNumber } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,91 +21,35 @@ export async function GET(req: NextRequest) {
   }
 }
 
-function parseFlexibleDate(val: any): Date {
-  if (!val) return new Date();
-  if (val instanceof Date && !isNaN(val.getTime())) return val;
-
-  const str = String(val).trim();
-  if (!str) return new Date();
-
-  // If YYYY-MM-DD standard format
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-    const d = new Date(str + 'T00:00:00.000Z');
-    if (!isNaN(d.getTime())) return d;
-  }
-
-  // 1. Check DD.MM.YYYY or DD.MM.YY
-  const dotParts = str.split('.');
-  if (dotParts.length === 3) {
-    const day = parseInt(dotParts[0], 10);
-    const month = parseInt(dotParts[1], 10) - 1;
-    let year = parseInt(dotParts[2], 10);
-    if (year < 100) year += 2000;
-    if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-      const d = new Date(Date.UTC(year, month, day));
-      if (!isNaN(d.getTime())) return d;
-    }
-  }
-
-  // 2. Check DD/MM/YYYY or DD/MM/YY
-  const slashParts = str.split('/');
-  if (slashParts.length === 3) {
-    const p0 = parseInt(slashParts[0], 10);
-    const p1 = parseInt(slashParts[1], 10);
-    let p2 = parseInt(slashParts[2], 10);
-    if (p2 < 100) p2 += 2000;
-
-    let day = p0;
-    let month = p1 - 1;
-    let year = p2;
-
-    if (p0 > 12) {
-      day = p0; month = p1 - 1;
-    } else if (p1 > 12) {
-      day = p1; month = p0 - 1;
-    }
-
-    const d = new Date(Date.UTC(year, month, day));
-    if (!isNaN(d.getTime())) return d;
-  }
-
-  // 3. Check DD-MM-YYYY or DD-MM-YY
-  const dashParts = str.split('-');
-  if (dashParts.length === 3 && dashParts[0].length <= 2) {
-    const p0 = parseInt(dashParts[0], 10);
-    const p1 = parseInt(dashParts[1], 10);
-    let p2 = parseInt(dashParts[2], 10);
-    if (p2 < 100) p2 += 2000;
-
-    let day = p0;
-    let month = p1 - 1;
-    let year = p2;
-
-    if (p0 > 12) {
-      day = p0; month = p1 - 1;
-    } else if (p1 > 12) {
-      day = p1; month = p0 - 1;
-    }
-
-    const d = new Date(Date.UTC(year, month, day));
-    if (!isNaN(d.getTime())) return d;
-  }
-
-  // 4. Fallback to standard Date constructor
-  const parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) return parsed;
-
-  return new Date();
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { poNumber, chainName, poDate, appointmentDate, deliveryDate, notes, filePath, fileName, imagekitUrl, rawDocumentInfo, items } = body;
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') throw new ValidationError('Invalid request body');
+    const { notes, filePath, fileName, imagekitUrl, rawDocumentInfo } = body;
+    const poNumber = cleanString(body.poNumber, 100);
+    const chainName = cleanString(body.chainName, 50).toUpperCase();
 
     if (!poNumber || !chainName) {
       return NextResponse.json({ error: 'poNumber and chainName are required' }, { status: 400 });
     }
+
+    // Invalid dates are rejected instead of silently becoming today's date
+    const poDate = requireValidDate(body.poDate, 'PO date') || new Date();
+    const appointmentDate = requireValidDate(body.appointmentDate, 'Appointment date');
+    const deliveryDate = requireValidDate(body.deliveryDate, 'Delivery / expiry date');
+
+    if (body.items !== undefined && !Array.isArray(body.items)) throw new ValidationError('items must be a list');
+    const items = ((body.items || []) as any[]).map((item: any, idx: number) => {
+      const line = `Item ${idx + 1}`;
+      const qty = toNumber(item?.quantityPcs);
+      const price = toNumber(item?.unitPrice) ?? 0;
+      if (!cleanString(item?.chainItemCode) && !cleanString(item?.chainItemName)) {
+        throw new ValidationError(`${line}: item code or item name is required`);
+      }
+      if (qty === null || !Number.isInteger(qty) || qty < 0) throw new ValidationError(`${line}: quantity (pcs) must be a whole number of 0 or more`);
+      if (price < 0) throw new ValidationError(`${line}: unit price cannot be negative`);
+      return { ...item, quantityPcs: qty, unitPrice: price };
+    });
 
     // Check for existing PO number
     const existing = await prisma.chainPurchaseOrder.findUnique({ where: { poNumber } });
@@ -113,7 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch mappings to auto-populate tally info and CASE qty
-    const chainItems = (items || []) as any[];
+    const chainItems = items;
 
     // Enrich each item with mapping info
     const enrichedItems = await Promise.all(chainItems.map(async (item: any) => {
@@ -149,17 +94,17 @@ export async function POST(req: NextRequest) {
       }
 
       const pcsPerCase = mapping?.pcsPerCase || 1;
-      const quantityCase = item.quantityPcs / pcsPerCase;
+      const quantityCase = item.quantityPcs / (pcsPerCase || 1);
       return {
         chainItemCode: code,
         chainItemName: name,
         tallyItemName: mapping?.tallyItemName || item.tallyItemName || '',
         eanCode: item.eanCode || mapping?.eanCode || null,
         hsnCode: item.hsnCode || null,
-        quantityPcs: parseInt(item.quantityPcs || 0),
+        quantityPcs: item.quantityPcs,
         quantityCase,
-        unitPrice: parseFloat(item.unitPrice || 0),
-        totalPrice: parseFloat(item.quantityPcs || 0) * parseFloat(item.unitPrice || 0),
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantityPcs * item.unitPrice,
         mappingId: mapping?.id || null,
       };
     }));
@@ -170,9 +115,9 @@ export async function POST(req: NextRequest) {
       data: {
         poNumber,
         chainName: chainName.toUpperCase(),
-        poDate: parseFlexibleDate(poDate),
-        appointmentDate: appointmentDate ? parseFlexibleDate(appointmentDate) : null,
-        deliveryDate: deliveryDate ? parseFlexibleDate(deliveryDate) : null,
+        poDate,
+        appointmentDate,
+        deliveryDate,
         totalAmount,
         notes: notes || null,
         filePath: filePath || null,
@@ -186,6 +131,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(po, { status: 201 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: 'Failed to create PO' }, { status: 500 });
+    return errorResponse(err, 'Failed to create PO');
   }
 }

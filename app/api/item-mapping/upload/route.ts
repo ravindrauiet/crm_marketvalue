@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
 
     let createdCount = 0;
     let updatedCount = 0;
+    let skippedCount = 0;
 
     for (const row of rawRows) {
       const keys = Object.keys(row);
@@ -48,9 +49,11 @@ export async function POST(req: NextRequest) {
       const eanCode = String(find(['eancode', 'ean', 'barcode'])).trim();
       const companyItemCode = String(find(['companycode', 'companyitemcode'])).trim();
       const companyItemName = String(find(['companyname', 'companyitemname'])).trim();
-      const pcsPerCase = parseInt(String(find(['pcspercase', 'pcscase', 'conversion']))) || 1;
+      // null when the column is missing or invalid, so an existing value is not reset to 1
+      const pcsRaw = parseInt(String(find(['pcspercase', 'pcscase', 'conversion'])), 10);
+      const pcsPerCase = Number.isInteger(pcsRaw) && pcsRaw >= 1 ? pcsRaw : null;
 
-      if (!chainName || !chainItemCode) continue;
+      if (!chainName || !chainItemCode) { skippedCount++; continue; }
 
       const existing = await prisma.itemMapping.findFirst({
         where: {
@@ -68,11 +71,14 @@ export async function POST(req: NextRequest) {
             eanCode: eanCode || existing.eanCode || null,
             companyItemCode: companyItemCode || existing.companyItemCode || null,
             companyItemName: companyItemName || existing.companyItemName || null,
-            pcsPerCase,
+            ...(pcsPerCase ? { pcsPerCase } : {}),
+            // Re-uploading a deleted mapping brings it back
+            isActive: true,
           }
         });
         updatedCount++;
       } else {
+        if (!chainItemName || !tallyItemName) { skippedCount++; continue; }
         await prisma.itemMapping.create({
           data: {
             chainName,
@@ -82,7 +88,7 @@ export async function POST(req: NextRequest) {
             eanCode: eanCode || null,
             companyItemCode: companyItemCode || null,
             companyItemName: companyItemName || null,
-            pcsPerCase,
+            pcsPerCase: pcsPerCase ?? 1,
             isActive: true,
           }
         });
@@ -94,6 +100,7 @@ export async function POST(req: NextRequest) {
       success: true,
       created: createdCount,
       updated: updatedCount,
+      skipped: skippedCount,
       totalProcessed: createdCount + updatedCount
     });
 
