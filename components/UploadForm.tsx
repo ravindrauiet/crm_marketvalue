@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { readJson } from '@/lib/http';
 
 export default function UploadForm({
   preselectedVendor,
@@ -30,6 +31,9 @@ export default function UploadForm({
     if (preselectedVendor || vendor !== 'default') {
       try {
         let createdCount = 0;
+        let updatedCount = 0;
+        const skipped: string[] = [];
+        const warnings: string[] = [];
         const fileList = Array.from(files);
 
         for (const file of fileList) {
@@ -37,68 +41,65 @@ export default function UploadForm({
           uploadFd.append('file', file);
           uploadFd.append('chainName', activeVendor);
 
-          console.log(`[PO UPLOAD FORM] Uploading PO file "${file.name}" for chain "${activeVendor}"...`);
           const extractRes = await fetch('/api/po/upload', { method: 'POST', body: uploadFd });
-          const extractData = await extractRes.json();
+          const extractData = await readJson(extractRes, file.name);
 
           if (!extractRes.ok) {
             throw new Error(extractData.error || `Failed to extract file ${file.name}`);
           }
 
-          let poNum = extractData.poNumber || '';
-          if (!poNum || !poNum.trim()) {
-            poNum = `${activeVendor}-${Date.now().toString().slice(-6)}`;
-          }
+          const pos: any[] = extractData.purchaseOrders?.length ? extractData.purchaseOrders : [extractData];
 
-          const poPayload = {
-            poNumber: poNum.trim(),
-            chainName: extractData.detectedChain || activeVendor,
-            poDate: extractData.poDate || new Date().toISOString(),
-            appointmentDate: extractData.appointmentDate || null,
-            filePath: extractData.filePath || null,
-            fileName: file.name,
-            imagekitUrl: extractData.imagekitUrl || null,
-            rawDocumentInfo: extractData.rawDocumentInfo || null,
-            items: (extractData.items || []).map((i: any) => ({
-              chainItemCode: i.chainItemCode || '',
-              chainItemName: i.chainItemName || '',
-              eanCode: i.eanCode || '',
-              tallyItemName: i.tallyItemName || '',
-              quantityPcs: i.quantityPcs || 0,
-              unitPrice: i.unitPrice || 0,
-            })),
-          };
+          for (const po of pos) {
+            let poNum = String(po.poNumber || '').trim();
+            if (!poNum) {
+              // Never invent a PO number: ask, or skip this PO
+              poNum = (window.prompt(`No PO number was found in "${file.name}" (${(po.items || []).length} items). Enter the PO number to save it, or Cancel to skip:`) || '').trim();
+              if (!poNum) { skipped.push(file.name); continue; }
+            }
+            (po.warnings || []).forEach((w: string) => { if (!/PO number/i.test(w)) warnings.push(`${poNum}: ${w}`); });
 
-          let createRes = await fetch('/api/po', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(poPayload),
-          });
+            const poPayload = {
+              poNumber: poNum,
+              chainName: extractData.detectedChain || activeVendor,
+              poDate: po.poDate || undefined,
+              appointmentDate: po.appointmentDate || null,
+              filePath: extractData.filePath || null,
+              fileName: file.name,
+              imagekitUrl: extractData.imagekitUrl || null,
+              rawDocumentInfo: po.rawDocumentInfo || null,
+              // Uploading the same PO again updates it instead of creating a duplicate
+              replaceExisting: true,
+              items: (po.items || []).map((i: any) => ({
+                chainItemCode: i.chainItemCode || '',
+                chainItemName: i.chainItemName || '',
+                eanCode: i.eanCode || '',
+                tallyItemName: i.tallyItemName || '',
+                quantityPcs: i.quantityPcs || 0,
+                unitPrice: i.unitPrice || 0,
+              })),
+            };
 
-          // Handle duplicate PO number by appending unique suffix
-          if (createRes.status === 409) {
-            poPayload.poNumber = `${poNum.trim()}-${Math.floor(1000 + Math.random() * 9000)}`;
-            createRes = await fetch('/api/po', {
+            const createRes = await fetch('/api/po', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(poPayload),
             });
-          }
+            const createdPoData = await readJson(createRes, file.name);
+            if (!createRes.ok) {
+              throw new Error(createdPoData.error || `Failed to save PO ${poPayload.poNumber}`);
+            }
 
-          if (!createRes.ok) {
-            const createErr = await createRes.json();
-            throw new Error(createErr.error || `Failed to save PO ${poPayload.poNumber}`);
-          }
-
-          const createdPoData = await createRes.json();
-          createdCount++;
-
-          if (onSuccess) {
-            onSuccess(createdPoData?.id);
+            if (createdPoData.replaced) updatedCount++; else createdCount++;
+            if (onSuccess) onSuccess(createdPoData?.id);
           }
         }
 
-        setSuccessMsg(`Successfully processed and created ${createdCount} Purchase Order(s) for ${activeVendor}!`);
+        const parts = [`${createdCount} new PO(s) created`];
+        if (updatedCount) parts.push(`${updatedCount} existing PO(s) updated`);
+        if (skipped.length) parts.push(`skipped (no PO number): ${skipped.join(', ')}`);
+        if (warnings.length) parts.push(`please check — ${warnings.join(' | ')}`);
+        setSuccessMsg(`${activeVendor}: ${parts.join('; ')}`);
         setFiles(null);
         setLoading(false);
 

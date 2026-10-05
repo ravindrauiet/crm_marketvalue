@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import { readJson } from '@/lib/http';
 import * as XLSX from 'xlsx';
 
 type BillItem = {
@@ -85,7 +86,7 @@ export default function PurchaseBillsPage() {
 
   async function loadBills() {
     const res = await fetch('/api/purchase-bills');
-    const data = await res.json();
+    const data = await readJson(res, 'the upload');
     setBills(Array.isArray(data) ? data : []);
     setLoading(false);
   }
@@ -103,7 +104,7 @@ export default function PurchaseBillsPage() {
     if (res.ok) {
       await loadBills();
       // Trigger extraction
-      const bill = await res.json();
+      const bill = await readJson(res, 'the upload');
       fetch(`/api/purchase-bills/${bill.id}/extract`, { method: 'POST' })
         .then(() => { setTimeout(loadBills, 2000); setTimeout(loadBills, 5000); });
     } else {
@@ -145,7 +146,7 @@ export default function PurchaseBillsPage() {
         items: reviewData.items,
       })
     });
-    const data = await res.json();
+    const data = await readJson(res, 'the upload');
     if (res.ok) {
       alert('Bill approved and posted to Tally!');
       setReviews(prev => { const p = { ...prev }; delete p[billId]; return p; });
@@ -163,7 +164,7 @@ export default function PurchaseBillsPage() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ supplierName: bill.supplierName, invoiceNumber: bill.invoiceNumber, invoiceDate: bill.invoiceDate, items: bill.items })
     });
-    const data = await res.json();
+    const data = await readJson(res, 'the upload');
     if (data.tallyXml) {
       const blob = new Blob([data.tallyXml], { type: 'application/xml' });
       const url = URL.createObjectURL(blob);

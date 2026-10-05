@@ -52,9 +52,10 @@ export async function POST(req: NextRequest) {
       return { ...item, quantityPcs: qty, unitPrice: price };
     });
 
-    // Check for existing PO number
+    // Check for existing PO number. Re-uploading the same PO document (replaceExisting) updates it
+    // in place instead of creating a duplicate; remarks and status are kept.
     const existing = await prisma.chainPurchaseOrder.findUnique({ where: { poNumber } });
-    if (existing) {
+    if (existing && !(body.replaceExisting === true && existing.chainName === chainName)) {
       return NextResponse.json({ error: `PO ${poNumber} already exists` }, { status: 409 });
     }
 
@@ -105,26 +106,45 @@ export async function POST(req: NextRequest) {
         quantityPcs: item.quantityPcs,
         quantityCase,
         unitPrice: item.unitPrice,
-        totalPrice: item.quantityPcs * item.unitPrice,
+        totalPrice: Math.round(item.quantityPcs * item.unitPrice * 100) / 100,
         mappingId: mapping?.id || null,
       };
     }));
 
-    const totalAmount = enrichedItems.reduce((sum, i) => sum + i.totalPrice, 0);
+    const totalAmount = Math.round(enrichedItems.reduce((sum, i) => sum + i.totalPrice, 0) * 100) / 100;
+
+    const header = {
+      poDate,
+      appointmentDate,
+      deliveryDate,
+      totalAmount,
+      filePath: filePath || null,
+      fileName: fileName || null,
+      imagekitUrl: imagekitUrl || null,
+      rawDocumentInfo: typeof rawDocumentInfo === 'object' ? JSON.stringify(rawDocumentInfo) : (rawDocumentInfo || null),
+    };
+
+    if (existing) {
+      const po = await prisma.chainPurchaseOrder.update({
+        where: { id: existing.id },
+        data: {
+          ...header,
+          ...(notes ? { notes } : {}),
+          // A re-upload brings a removed PO back
+          ...(existing.status === 'REMOVED' ? { status: 'ACTIVE' } : {}),
+          items: { deleteMany: {}, create: enrichedItems },
+        },
+        include: { items: true }
+      });
+      return NextResponse.json({ ...po, replaced: true });
+    }
 
     const po = await prisma.chainPurchaseOrder.create({
       data: {
+        ...header,
         poNumber,
-        chainName: chainName.toUpperCase(),
-        poDate,
-        appointmentDate,
-        deliveryDate,
-        totalAmount,
+        chainName,
         notes: notes || null,
-        filePath: filePath || null,
-        fileName: fileName || null,
-        imagekitUrl: imagekitUrl || null,
-        rawDocumentInfo: typeof rawDocumentInfo === 'object' ? JSON.stringify(rawDocumentInfo) : (rawDocumentInfo || null),
         items: { create: enrichedItems }
       },
       include: { items: true }

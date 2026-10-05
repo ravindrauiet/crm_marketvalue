@@ -6,6 +6,8 @@ import { extractRecoWithAI } from '@/lib/ai';
 import { unlinkSync } from 'fs';
 import * as XLSX from 'xlsx';
 import pdf from 'pdf-parse';
+import { detectRecoChain, parseRecoSpreadsheet } from '@/lib/recoParsers';
+import { parseDate } from '@/lib/validation';
 
 export const runtime = 'nodejs';
 
@@ -70,8 +72,34 @@ export async function POST(req: NextRequest) {
     const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls') || mimeTypeLower.includes('excel') || mimeTypeLower.includes('spreadsheet');
     const isCsv = fileNameLower.endsWith('.csv') || mimeTypeLower.includes('csv');
 
-    // 1. Try AI Extraction for PDF, DOC, Images, and complex Payment Advices
-    try {
+    // 0. Excel / CSV ledgers and statements: read every row directly (fast, no AI, no timeouts)
+    let sheetHeaderText = '';
+    if (isExcel || isCsv) {
+      try {
+        const sheet = parseRecoSpreadsheet(buffer);
+        if (sheet && sheet.rows.length) {
+          sheetHeaderText = sheet.headerText;
+          normalizedRows = sheet.rows.map(r => ({
+            dateRaw: r.txnDate,
+            narration: r.narration,
+            debitAmount: r.debitAmount,
+            creditAmount: r.creditAmount,
+            balance: r.balance,
+            bankRef: r.bankRef,
+            poNumber: r.poNumber,
+            invoiceNumber: r.invoiceNumber,
+            deductionReason: r.deductionReason,
+            tdsAmount: r.deductionReason ? r.debitAmount : 0,
+          }));
+          console.log(`📊 [RECO UPLOAD API] Direct sheet parse: ${normalizedRows.length} rows | columns ${JSON.stringify(sheet.columns)}`);
+        }
+      } catch (sheetErr: any) {
+        console.warn('Sheet parse notice:', sheetErr.message);
+      }
+    }
+
+    // 1. AI extraction for PDFs, pasted text and documents without a readable table
+    if (normalizedRows.length === 0) try {
       console.log(`🤖 [RECO UPLOAD API] Running AI Extraction for Reconciliation Statement...`);
       const aiResult = await extractRecoWithAI(filepath, mimeTypeLower, statementType, chainNameHint, ikRes?.url);
       if (aiResult && aiResult.records && aiResult.records.length > 0) {
@@ -250,20 +278,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Auto-detect Retail Chain / Bank from document text & AI summary
-    const fullTextSample = (JSON.stringify(aiSummary) + ' ' + normalizedRows.map(r => `${r.narration} ${r.invoiceNumber} ${r.poNumber}`).join(' ')).toUpperCase();
-    let detectedChain = aiSummary?.chainName || 'OTHER';
-
+    // File name and document header first; UTR prefixes like "HSBCN…" (the payer's bank) are ignored
+    const docText = `${sheetHeaderText} ${aiSummary?.remitterName || ''} ${aiSummary?.payeeName === 'GLOMIN OVERSEAS' ? '' : aiSummary?.payeeName || ''}`;
+    let detectedChain = detectRecoChain(file.name, docText, chainNameHint);
     if (detectedChain === 'OTHER') {
-      if (fullTextSample.includes('RELIANCE')) detectedChain = 'RELIANCE';
-      else if (fullTextSample.includes('AMAZON')) detectedChain = 'AMAZON';
-      else if (fullTextSample.includes('BLINK COMMERCE') || fullTextSample.includes('BLINKIT')) detectedChain = 'BLINKIT';
-      else if (fullTextSample.includes('ZEPTO')) detectedChain = 'ZEPTO';
-      else if (fullTextSample.includes('HSBC')) detectedChain = 'HSBC';
-      else if (fullTextSample.includes('SWIGGY') || fullTextSample.includes('SCOOTSY')) detectedChain = 'SWIGGY';
-      else if (fullTextSample.includes('FLIPKART')) detectedChain = 'FLIPKART';
-      else if (fullTextSample.includes('BIGBASKET') || fullTextSample.includes('INNOVATIVE RETAIL')) detectedChain = 'BIGBASKET';
-      else if (fullTextSample.includes('DMART') || fullTextSample.includes('AVENUE SUPERMARTS')) detectedChain = 'DMART';
+      detectedChain = detectRecoChain('', normalizedRows.slice(0, 50).map(r => `${r.narration}`).join(' '));
     }
+    if (detectedChain === 'OTHER' && aiSummary?.chainName && aiSummary.chainName !== 'HSBC') detectedChain = aiSummary.chainName;
+    aiSummary.chainName = detectedChain;
 
     console.log(`ℹ️ [RECO UPLOAD API] Final Auto-Detected Chain: "${detectedChain}"`);
 
@@ -386,13 +408,10 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const recoRows = normalizedRows.map(row => {
+    const allRecoRows = normalizedRows.map(row => {
       const match = autoMatch(row);
-      let txnDate: Date | null = null;
-      if (row.dateRaw) {
-        txnDate = row.dateRaw instanceof Date ? row.dateRaw : new Date(row.dateRaw);
-        if (txnDate && isNaN(txnDate.getTime())) txnDate = null;
-      }
+      // Day-first parsing for documents like "23/08/2026" (new Date() would read it month-first)
+      const txnDate: Date | null = row.dateRaw ? parseDate(row.dateRaw) : null;
 
       const creditAmount = row.creditAmount || (row.netAmount && row.netAmount > 0 ? row.netAmount : 0);
       const debitAmount = row.debitAmount || (row.netAmount && row.netAmount < 0 ? Math.abs(row.netAmount) : 0);
@@ -418,7 +437,25 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    await prisma.paymentReco.createMany({ data: recoRows });
+    // Skip lines already uploaded earlier (same date, invoice, PO, amounts and reference)
+    const rowKey = (r: { txnDate: Date | null; matchedInvoiceNo: string | null; matchedPoNumber: string | null; creditAmount: number; debitAmount: number; bankRef: string | null; narration: string | null }) =>
+      [r.txnDate ? r.txnDate.toISOString().slice(0, 10) : '', r.matchedInvoiceNo || '', r.matchedPoNumber || '', r.creditAmount.toFixed(2), r.debitAmount.toFixed(2), r.bankRef || '', (r.narration || '').slice(0, 60)].join('|');
+    const existingKeys = new Set(
+      (await prisma.paymentReco.findMany({
+        where: detectedChain !== 'OTHER' ? { chainName: detectedChain } : {},
+        select: { txnDate: true, matchedInvoiceNo: true, matchedPoNumber: true, creditAmount: true, debitAmount: true, bankRef: true, narration: true },
+      })).map(rowKey)
+    );
+    const seen = new Set<string>();
+    const recoRows = allRecoRows.filter(r => {
+      const k = rowKey(r);
+      if (existingKeys.has(k) || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const duplicatesSkipped = allRecoRows.length - recoRows.length;
+
+    if (recoRows.length) await prisma.paymentReco.createMany({ data: recoRows });
 
     const matchedCount = recoRows.filter(r => r.matchStatus === 'MATCHED').length;
     const partialCount = recoRows.filter(r => r.matchStatus === 'PARTIAL').length;
@@ -426,7 +463,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.recoBatch.update({
       where: { id: batch.id },
-      data: { matchedCount: matchedCount + partialCount, unmatchedCount }
+      data: { rowCount: recoRows.length, matchedCount: matchedCount + partialCount, unmatchedCount }
     });
 
     console.log(`✅ [RECO UPLOAD SUCCESS] Batch ID: "${batch.id}" | Chain: "${detectedChain}" | Total Rows: ${recoRows.length} | Matched: ${matchedCount} | Partial: ${partialCount}`);
@@ -441,6 +478,7 @@ export async function POST(req: NextRequest) {
       matched: matchedCount,
       partial: partialCount,
       unmatched: unmatchedCount,
+      duplicatesSkipped,
       fileName: file.name,
       imagekitUrl: ikRes?.url || null,
     });

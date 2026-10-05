@@ -7,7 +7,7 @@ import { parseDate, toNumber } from '@/lib/validation';
 import { SALE_UPLOAD_WHERE } from '@/lib/billSources';
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
-const WRITE_BATCH = 10; // invoices written in parallel per batch
+const ITEM_BATCH = 2000; // invoice lines per bulk insert
 
 // Local dev convenience: the sample Tally export kept next to the project
 function readQuickImportFile(): { buffer: Buffer; name: string } | null {
@@ -170,49 +170,50 @@ export async function POST(req: NextRequest) {
       where: { AND: [SALE_UPLOAD_WHERE, { invoiceNumber: { in: parsedInvoices.map(i => i.invoiceNumber) } }] },
       select: { id: true, invoiceNumber: true },
     });
-    const existingByNumber = new Map(existingBills.map(b => [b.invoiceNumber, b.id]));
 
-    let createdCount = 0;
-    let updatedCount = 0;
-    let totalBilledAmount = 0;
+    // Bulk write (a handful of queries in total, so a month of invoices fits the hosting time limit):
+    // re-uploaded invoices are replaced, new ones created.
+    const updatedCount = existingBills.length;
+    const createdCount = parsedInvoices.length - updatedCount;
+    const totalBilledAmount = parsedInvoices.reduce((s, inv) => s + inv.items.reduce((a, it) => a + it.amount, 0), 0);
 
-    const writeInvoice = async (inv: typeof parsedInvoices[number]) => {
-      const invTotal = inv.items.reduce((sum, item) => sum + item.amount, 0);
-      totalBilledAmount += invTotal;
-      const itemsCreate = inv.items.map(item => ({
+    const oldIds = existingBills.map(b => b.id);
+    if (oldIds.length) {
+      await prisma.purchaseBillItem.deleteMany({ where: { billId: { in: oldIds } } });
+      await prisma.purchaseBill.deleteMany({ where: { id: { in: oldIds } } });
+    }
+
+    await prisma.purchaseBill.createMany({
+      data: parsedInvoices.map(inv => ({
+        invoiceNumber: inv.invoiceNumber,
+        invoiceDate: inv.invoiceDate,
+        supplierName: inv.customerName,
+        totalAmount: inv.items.reduce((s, it) => s + it.amount, 0),
+        notes: `PO:${inv.poNumber} | Party:${inv.customerName}`,
+        status: 'VERIFIED',
+        fileName,
+      })),
+    });
+
+    const newBills = await prisma.purchaseBill.findMany({
+      where: { AND: [SALE_UPLOAD_WHERE, { invoiceNumber: { in: parsedInvoices.map(i => i.invoiceNumber) } }] },
+      select: { id: true, invoiceNumber: true },
+    });
+    const idByNumber = new Map(newBills.map(b => [b.invoiceNumber, b.id]));
+    const itemRows = parsedInvoices.flatMap(inv => {
+      const billId = idByNumber.get(inv.invoiceNumber);
+      return billId ? inv.items.map(item => ({
+        billId,
         itemName: item.itemName,
         quantity: item.quantity,
         rate: item.rate,
         amount: item.amount,
         tallyItemName: item.itemName,
-        unit: 'PCS'
-      }));
-      const common = {
-        invoiceDate: inv.invoiceDate,
-        supplierName: inv.customerName,
-        totalAmount: invTotal,
-        notes: `PO:${inv.poNumber} | Party:${inv.customerName}`,
-        status: 'VERIFIED',
-        fileName,
-      };
-
-      const existingId = existingByNumber.get(inv.invoiceNumber);
-      if (existingId) {
-        await prisma.purchaseBill.update({
-          where: { id: existingId },
-          data: { ...common, items: { deleteMany: {}, create: itemsCreate } }
-        });
-        updatedCount++;
-      } else {
-        await prisma.purchaseBill.create({
-          data: { ...common, invoiceNumber: inv.invoiceNumber, items: { create: itemsCreate } }
-        });
-        createdCount++;
-      }
-    };
-
-    for (let i = 0; i < parsedInvoices.length; i += WRITE_BATCH) {
-      await Promise.all(parsedInvoices.slice(i, i + WRITE_BATCH).map(writeInvoice));
+        unit: 'PCS',
+      })) : [];
+    });
+    for (let i = 0; i < itemRows.length; i += ITEM_BATCH) {
+      await prisma.purchaseBillItem.createMany({ data: itemRows.slice(i, i + ITEM_BATCH) });
     }
 
     const uniqueDatesList = Array.from(uniqueDatesSet).sort();

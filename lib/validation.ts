@@ -78,10 +78,7 @@ export function parseDate(v: unknown): Date | null {
   // ISO: 2026-08-23 or 2026-08-23T10:00:00Z
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
   if (m) {
-    if (s.length > 10) {
-      const iso = new Date(s);
-      if (!isNaN(iso.getTime())) return iso;
-    }
+    // Time / timezone parts (e.g. 2025-04-28T00:00:00+05:30) are ignored: the calendar date is what matters
     return utcDate(+m[1], +m[2] - 1, +m[3]);
   }
 

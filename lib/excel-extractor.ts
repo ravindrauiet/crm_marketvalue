@@ -91,7 +91,8 @@ export async function extractFromExcel(
   const eanIdx = getIdx('ean/upc code', 'ean', 'barcode', 'upc', 'ean code');
   const skuIdx = getIdx('sku code', 'asin', 'fsn/isbn13', 'materialcode', 'article', 'sku', 'code', 'material', 'hsn', 'item code');
   const nameIdx = getIdx('description', 'title', 'sku desc', 'item description', 'product name', 'name', 'item', 'vertical', 'material description');
-  const qtyIdx = getIdx('quantity outstanding', 'quantity', 'qty', 'po qty', 'case quantity', 'units', 'order qty');
+  // Ordered / accepted quantity — never 'outstanding', which drops to 0 as goods are received
+  const qtyIdx = getIdx('accepted quantity', 'quantity requested', 'po qty', 'order qty', 'ordered qty', 'quantity', 'qty', 'units', 'case quantity');
   const priceIdx = getIdx('landing cost', 'basic cost', 'unit cost', 'supplier price', 'unitprice', 'unit price', 'price', 'rate', 'mrp', 'taxable value');
   const brandIdx = getIdx('brand');
 
@@ -169,7 +170,9 @@ function extractDocMetadata(rows: any[][], filePath: string, vendor: string, hea
 
     // Extract PO Number
     if (!poNumber) {
-      const m = rowStr.match(/(?:PO\s*(?:Number|No|#)?|Purchase\s*Order\s*(?:Number|No|#)?)\s*[:=\s#]\s*([A-Za-z0-9\-_]{6,30})/i);
+      // Word boundaries + a required separator, so "PO" inside other words (Pouch) or a
+      // column title row ("PO Vendor …") is not taken as a PO number
+      const m = rowStr.match(/\b(?:PO|Purchase\s*Order)\s*(?:Number|No\.?|#)?\s*[:#=-]+\s*([A-Za-z0-9][A-Za-z0-9\-_/]{4,30})/i);
       if (m && m[1] && !['NUMBER', 'DATE', 'DETAILS', 'ORDER', 'EXPIRED', 'EXPIRY'].includes(m[1].toUpperCase())) {
         poNumber = m[1];
       }
@@ -222,12 +225,12 @@ function extractDocMetadata(rows: any[][], filePath: string, vendor: string, hea
     if (!vendorName) vendorName = getColVal('vendor name', 'vendor', 'supplier');
   }
 
-  // 3. Fallback from filename (strip path and timestamp if present)
+  // 3. Fallback from the file name, only when it clearly is a PO number
+  //    ("purchase_order_FLS98XX36VZS.xlsx" -> "FLS98XX36VZS"; "PurchaseOrder (45).xlsx" -> none)
   if (!poNumber) {
-    const baseName = filePath.split(/[/\\]/).pop() || '';
-    const cleanFn = baseName.replace(/^[0-9]+_/, '');
-    const fnMatch = cleanFn.match(/([A-Za-z0-9\-_]{6,25})/);
-    if (fnMatch) poNumber = fnMatch[1];
+    const baseName = (filePath.split(/[/\\]/).pop() || '').replace(/^[0-9]{10,}_/, '').replace(/\.[^.]+$/, '');
+    const candidate = baseName.replace(/^purchase[_\s-]*order[_\s-]*/i, '').replace(/\s*\(\d+\)$/, '').trim();
+    if (/^[A-Za-z]{0,6}\d[A-Za-z0-9-]{4,30}$/.test(candidate) && /\d{4,}/.test(candidate)) poNumber = candidate;
   }
 
   return { poNumber, poDate, deliveryDate, vendorName };

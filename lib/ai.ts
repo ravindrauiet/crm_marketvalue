@@ -900,17 +900,20 @@ Analyze the document text/image below and extract:
 ${chainInstructions}
 
 CRITICAL EXTRACTION RULES:
-1. Detect Retail Chain / Remitter ("chainName"): RELIANCE, AMAZON, BLINKIT, ZEPTO, HSBC, SWIGGY, FLIPKART, BIGBASKET, DMART, or OTHER.
-2. Payment Reference / UTR / Advice Ref ("paymentRefNo"): e.g. "4200240402/2026", "366196323", "HDFCR52026081094356513", "HSBCN52026081175956016", "20260811-R11L1".
-3. Payee / Beneficiary Name ("payeeName"): e.g. "GLOMIN OVERSEAS", "SPAR TRADING COMPANY".
-4. Remitter / Paying Company ("remitterName"): e.g. "Reliance Retail Limited", "Amazon Retail", "Blink Commerce", "Zepto Limited", "HSBC".
+0. ONLY use values that appear in the Document Text below. NEVER invent values or copy values from these
+   instructions. If a field is not in the document, return "" (or 0 for numbers).
+1. Retail chain / remitter ("chainName"): the company that is PAYING (RELIANCE, AMAZON, BLINKIT, ZEPTO, SWIGGY,
+   FLIPKART, BIGBASKET, DMART or OTHER). A bank name inside a UTR / reference number is NOT the chain.
+2. Payment reference ("paymentRefNo"): the advice / document / UTR number printed on THIS document.
+3. Payee ("payeeName"): the company receiving the money, as printed.
+4. Remitter ("remitterName"): the paying company, as printed.
 5. Extract EVERY settlement row from tables.
    - txnDate: Date of transaction/invoice/doc (Format YYYY-MM-DD)
    - docNo: Internal doc number / Sr No
-   - refDocNo: Invoice / Reference doc number (e.g. "GO/2627/2604", "SPAR/2627/360", "GO/2627/801SCR", "GO/2627/2156")
+   - refDocNo: Invoice / reference document number, as printed
    - poNumber: PO Number if present
    - invoiceNumber: Invoice Number if present
-   - narration: Description / type of doc (e.g. "Invoice Payment", "Credit Memo", "TDS Amount", "GST TAX HOLD", "Variance", "Discrepancy Note")
+   - narration: Description / type of the line, as printed (payment, credit memo, TDS, hold, variance, etc.)
    - creditAmount: Gross / Base invoice amount or deposit amount
    - debitAmount: Deduction / Debit / Discount amount if any
    - tdsAmount: TDS tax deducted amount
@@ -969,6 +972,10 @@ Return ONLY valid JSON matching this schema:
       temperature: 0.1,
       max_tokens: 4000,
       response_format: { type: 'json_object' }
+    }, {
+      // Stay inside the hosting limit (Netlify functions stop at 26s) so the user gets a clear error, not a 502
+      timeout: 20000,
+      maxRetries: 0,
     });
 
     const responseText = completion.choices[0]?.message?.content || '{}';
@@ -976,6 +983,20 @@ Return ONLY valid JSON matching this schema:
 
     const summary = result.summary || {};
     const records = Array.isArray(result.records) ? result.records : [];
+
+    // Guard against values copied from the prompt's examples: any reference the AI returns
+    // must actually appear in the document text, otherwise it is cleared.
+    const docCompact = (text || '').replace(/\s+/g, '').toUpperCase();
+    const inDoc = (v: any) => {
+      const s = String(v || '').replace(/\s+/g, '').toUpperCase();
+      return !s || !docCompact || docCompact.includes(s);
+    };
+    if (!inDoc(summary.paymentRefNo)) summary.paymentRefNo = '';
+    for (const r of records as any[]) {
+      for (const f of ['refDocNo', 'invoiceNumber', 'poNumber', 'bankRef', 'docNo', 'chequeNo']) {
+        if (!inDoc(r[f])) r[f] = '';
+      }
+    }
 
     console.log(`✅ [AI RECO EXTRACT SUCCESS] Chain: "${summary.chainName}" | Ref: "${summary.paymentRefNo}" | Records Extracted: ${records.length}`);
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SALE_UPLOAD_WHERE, poNumberFromSaleNotes } from '@/lib/billSources';
+import { cleanPoNumber, dcNameFromAddress } from '@/lib/poParsers';
 
 // Whole-token match: PO 12345 must not match 123456 or AB12345
 function containsToken(text: string, token: string) {
@@ -98,10 +99,10 @@ export async function GET(req: NextRequest) {
       try {
         if (po.rawDocumentInfo) {
           const raw = typeof po.rawDocumentInfo === 'string' ? JSON.parse(po.rawDocumentInfo) : po.rawDocumentInfo;
-          if (raw.shippingAddress) {
-            const firstLine = String(raw.shippingAddress).split('\n')[0].split(',')[0].trim();
-            if (firstLine.length > 2) return firstLine;
-          }
+          if (raw.dcName) return String(raw.dcName);
+          // Short DC name from the ship-to address (skips company names like "… Private Limited")
+          const fromAddress = dcNameFromAddress(raw.shippingAddress);
+          if (fromAddress) return fromAddress;
         }
       } catch {}
       if (po.notes && po.notes.includes('Location:')) {
@@ -112,7 +113,9 @@ export async function GET(req: NextRequest) {
 
     // Build Reconciled PO List
     let reportRows = pos.map(po => {
-      const poNumLower = (po.poNumber || '').toLowerCase().trim();
+      // Old uploads stored file-name style numbers ("purchase_order_FLS…"); match and show the bare PO number
+      const displayPoNumber = cleanPoNumber(po.poNumber || '');
+      const poNumLower = displayPoNumber.toLowerCase();
       const chainNameUpper = po.chainName.toUpperCase();
       const dcLocation = getDcLocation(po);
       const poExpMonth = getMonthStr(po.deliveryDate || po.appointmentDate || po.poDate);
@@ -304,7 +307,7 @@ export async function GET(req: NextRequest) {
         accountName: chainNameUpper,
         brand: primaryBrand,
         allBrands: Object.keys(brandCounts),
-        poNumber: po.poNumber,
+        poNumber: displayPoNumber,
         dcLocation,
         poDate: po.poDate ? po.poDate.toISOString().split('T')[0] : '',
         poExpDate: po.deliveryDate ? po.deliveryDate.toISOString().split('T')[0] : (po.appointmentDate ? po.appointmentDate.toISOString().split('T')[0] : ''),

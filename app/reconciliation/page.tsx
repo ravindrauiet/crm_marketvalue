@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import { readJson } from '@/lib/http';
 
 type RecoRow = {
   id: string;
@@ -92,7 +93,7 @@ export default function ReconciliationPage() {
       const params = new URLSearchParams();
       if (filterStatus) params.set('status', filterStatus);
       const res = await fetch(`/api/reconciliation?${params}`);
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       setRows(Array.isArray(data.rows) ? data.rows : []);
       setBatches(Array.isArray(data.batches) ? data.batches : []);
       setSummary(data.summary || {});
@@ -112,14 +113,8 @@ export default function ReconciliationPage() {
 
     try {
       const res = await fetch('/api/reconciliation/upload', { method: 'POST', body: fd });
-      let data: any = {};
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        data = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(res.status === 504 ? 'Server timed out (504 Gateway Timeout)' : `Server error (${res.status}): ${text.slice(0, 100)}`);
-      }
+      // Readable message even when the host returns an HTML / non-JSON error page
+      const data: any = await readJson(res, `"${file.name}"`);
 
       if (res.ok) {
         setUploadResult({ ...data, success: true, statementType });
@@ -446,6 +441,7 @@ export default function ReconciliationPage() {
                   </div>
                   <div>
                     Extracted <strong>{uploadResult.total || 0}</strong> transaction records · Matched: <strong>{uploadResult.matched || 0}</strong> · Partial: <strong>{uploadResult.partial || 0}</strong> · Unmatched: <strong>{uploadResult.unmatched || 0}</strong>
+                    {uploadResult.duplicatesSkipped > 0 && <> · Already uploaded (skipped): <strong>{uploadResult.duplicatesSkipped}</strong></>}
                   </div>
                   {uploadResult.summary?.paymentRefNo && (
                     <div style={{ fontSize: 12, opacity: 0.9 }}>

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
+import { readJson } from '@/lib/http';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 
@@ -156,7 +157,7 @@ export default function POFillRateReportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ poId, [field]: val }),
       });
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       if (!res.ok) throw new Error(data.error || 'Save failed');
       setRows(prev => prev.map(r => r.id === poId ? { ...r, [field]: val.trim() } : r));
       setRemarkSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
@@ -198,7 +199,7 @@ export default function POFillRateReportPage() {
       if (saleTo) params.set('to', saleTo);
       if (saleSearch) params.set('search', saleSearch);
       const res = await fetch(`/api/po/reconciliation-report/sale-items?${params.toString()}`);
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       if (!res.ok) throw new Error(data.error || 'Failed to load sale invoice items');
       setSaleRows(data.rows || []);
       setSaleTotals(data.totals || { invoices: 0, lines: 0, quantity: 0, amount: 0 });
@@ -254,7 +255,7 @@ export default function POFillRateReportPage() {
       if (search) params.set('search', search);
 
       const res = await fetch(`/api/po/reconciliation-report?${params.toString()}`);
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       if (!res.ok) throw new Error(data.error || 'Failed to load report');
 
       setRows(data.rows || []);
@@ -289,7 +290,7 @@ export default function POFillRateReportPage() {
         method: 'POST',
         body: formData,
       });
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       if (!res.ok) throw new Error(data.error || 'Upload failed');
 
       setUploadStatus({ type: 'success', message: data.message || 'Report uploaded successfully!' });
@@ -312,7 +313,7 @@ export default function POFillRateReportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quickImport: true }),
       });
-      const data = await res.json();
+      const data = await readJson(res, 'the upload');
       if (!res.ok) throw new Error(data.error || 'Quick import failed');
 
       setUploadStatus({ type: 'success', message: data.message || 'Quick import completed!' });
