@@ -451,7 +451,7 @@ export default function POPage() {
 
                       {/* Total */}
                       <div style={{ textAlign: 'right', flex: 'none' }}>
-                        <div style={{ fontWeight: 700, fontSize: 16 }}>₹{po.totalAmount.toLocaleString('en-IN')}</div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                         <div className="muted" style={{ fontSize: 11 }}>total value</div>
                       </div>
 
@@ -512,9 +512,9 @@ export default function POPage() {
                                   <div><strong>11. Buyer GSTIN:</strong> {info.buyerGST || 'N/A'}</div>
                                   <div><strong>12. Shipping Address:</strong> {info.shippingAddress || 'N/A'}</div>
                                   <div><strong>13. Payment Terms:</strong> {info.paymentTerms || 'N/A'}</div>
-                                  <div><strong>14. Subtotal:</strong> ₹{info.subtotal ? Number(info.subtotal).toLocaleString('en-IN') : '0'}</div>
-                                  <div><strong>15. Tax Amount:</strong> ₹{info.taxAmount ? Number(info.taxAmount).toLocaleString('en-IN') : '0'}</div>
-                                  <div><strong>16. Total Amount:</strong> ₹{info.totalAmount ? Number(info.totalAmount).toLocaleString('en-IN') : po.totalAmount.toLocaleString('en-IN')}</div>
+                                  <div><strong>14. Subtotal:</strong> ₹{info.subtotal ? Number(info.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}</div>
+                                  <div><strong>15. Tax Amount:</strong> ₹{info.taxAmount ? Number(info.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}</div>
+                                  <div><strong>16. Total Amount:</strong> ₹{info.totalAmount ? Number(info.totalAmount).toLocaleString('en-IN') : po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                 </div>
                               );
                             })()}
@@ -537,8 +537,8 @@ export default function POPage() {
                                 <td style={{ padding: '10px 16px', fontWeight: 600 }}>{item.tallyItemName || <span className="muted">—</span>}</td>
                                 <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>{item.quantityPcs.toLocaleString()}</td>
                                 <td style={{ padding: '10px 16px', textAlign: 'right' }}>{item.quantityCase.toFixed(2)}</td>
-                                <td style={{ padding: '10px 16px', textAlign: 'right' }}>₹{item.unitPrice.toLocaleString()}</td>
-                                <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>₹{item.totalPrice.toLocaleString()}</td>
+                                <td style={{ padding: '10px 16px', textAlign: 'right' }}>₹{item.unitPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600 }}>₹{item.totalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                               </tr>
                             ))}
                           </tbody>

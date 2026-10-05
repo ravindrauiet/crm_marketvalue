@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from 'react';
+import { Fragment, useState, useEffect, useMemo } from 'react';
 import { readJson } from '@/lib/http';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
@@ -905,10 +905,10 @@ export default function POFillRateReportPage() {
           <div className="card" style={{ padding: 18, borderLeft: '4px solid #2563eb', background: '#fff' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Total PO Value</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
-              ₹{summary.totalPOValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              ₹{summary.totalPOValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
-              Billed: <strong style={{ color: '#16a34a' }}>₹{summary.totalBilledValue.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong>
+              Billed: <strong style={{ color: '#16a34a' }}>₹{summary.totalBilledValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
           </div>
 
@@ -1005,7 +1005,7 @@ export default function POFillRateReportPage() {
             <span>Invoices: <strong>{saleTotals.invoices}</strong></span>
             <span>Item Lines: <strong>{saleTotals.lines}</strong></span>
             <span>Total Qty: <strong>{saleTotals.quantity.toLocaleString('en-IN')}</strong> Pcs</span>
-            <span>Total Amount: <strong style={{ color: '#16a34a' }}>₹{saleTotals.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</strong></span>
+            <span>Total Amount: <strong style={{ color: '#16a34a' }}>₹{saleTotals.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
           </div>
 
           {saleLoading ? (
@@ -1040,8 +1040,8 @@ export default function POFillRateReportPage() {
                       <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: '#2563eb' }}>{s.poNumber || '—'}</td>
                       <td style={{ padding: '10px 12px' }}>{s.itemName}</td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700 }}>{s.quantity.toLocaleString('en-IN')}</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>₹{s.rate.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>₹{s.amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>₹{s.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>₹{s.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1103,8 +1103,8 @@ export default function POFillRateReportPage() {
                 const r4 = editedRemarks[r.id]?.remarks4 ?? r.remarks4 ?? '';
 
                 return (
-                  <>
-                    <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0', background: isExpanded ? '#f8fafc' : '#fff' }}>
+                  <Fragment key={r.id}>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', background: isExpanded ? '#f8fafc' : '#fff' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
                         <span style={{
                           padding: '2px 8px',
@@ -1152,12 +1152,12 @@ export default function POFillRateReportPage() {
                       </td>
 
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
-                        ₹{r.poValueInRs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        ₹{r.poValueInRs.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* [1] PO DELIVERED VALUE */}
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a', background: '#eff6ff' }}>
-                        ₹{r.deliveryValueInRs.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        ₹{r.deliveryValueInRs.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
 
                       {/* [2] PO QUANTITY */}
@@ -1372,10 +1372,10 @@ export default function POFillRateReportPage() {
                                         <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: '#2563eb' }}>{inst.bankRef}</td>
                                         <td style={{ padding: '6px 10px', fontFamily: 'monospace' }}>{inst.matchedInvoiceNo}</td>
                                         <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
-                                          ₹{inst.amountPaid.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                          ₹{inst.amountPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
                                         <td style={{ padding: '6px 10px', textAlign: 'right', color: '#dc2626' }}>
-                                          ₹{inst.tdsAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                          ₹{inst.tdsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </td>
                                         <td style={{ padding: '6px 10px', color: '#475569' }}>{inst.narration}</td>
                                       </tr>
@@ -1389,7 +1389,7 @@ export default function POFillRateReportPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -1472,13 +1472,13 @@ export default function POFillRateReportPage() {
                   <td style={{ padding: '10px 12px', fontFamily: 'monospace', color: '#2563eb' }}>{inst.bankRef}</td>
                   <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{inst.matchedInvoiceNo}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
-                    ₹{inst.amountPaid.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{inst.amountPaid.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>
-                    ₹{inst.tdsAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{inst.tdsAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600 }}>
-                    ₹{inst.netPendingBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    ₹{inst.netPendingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                     <span style={{

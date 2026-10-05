@@ -173,9 +173,12 @@ export async function GET(req: NextRequest) {
         deliveredQty = poQty;
       }
 
-      // PO Status Label
+      // PO Status Label. A PO with nothing delivered is only "closed" once it has expired —
+      // expiry / appointment date, or 15 days after the PO date when the PO states neither.
+      const expiry = po.deliveryDate || po.appointmentDate || (po.poDate ? new Date(po.poDate.getTime() + 15 * 24 * 3600 * 1000) : null);
+      const isExpired = !!expiry && expiry.getTime() < Date.now() - 24 * 3600 * 1000;
       let displayStatus = 'Open / Pending';
-      if (isClosedStatus || (deliveredQty === 0 && !isDeliveredStatus && poValue > 0)) {
+      if (isClosedStatus || (deliveredQty === 0 && billedValue === 0 && !isDeliveredStatus && isExpired)) {
         displayStatus = 'PO Closed';
       } else if (isDeliveredStatus || (poValue > 0 && billedValue >= poValue * 0.995) || (poQty > 0 && deliveredQty >= poQty)) {
         displayStatus = 'Full Delivery';
@@ -210,7 +213,9 @@ export async function GET(req: NextRequest) {
         const itemFillRatePct = item.quantityPcs > 0 ? Math.min(100, Math.round((itemDeliveredQty / item.quantityPcs) * 100)) : 0;
         
         let itemRemark = 'Full Delivered';
-        if (itemDeliveredQty === 0) {
+        if (itemDeliveredQty === 0 && displayStatus === 'Open / Pending') {
+          itemRemark = 'Awaiting delivery';
+        } else if (itemDeliveredQty === 0) {
           itemRemark = `ITEM NOT BILLED BY DEPO (${item.chainItemName})`;
         } else if (shortageQty > 0) {
           itemRemark = `${item.chainItemName} Short by ${shortageQty} PCS`;
@@ -277,7 +282,11 @@ export async function GET(req: NextRequest) {
       let remarks = 'Full Delivered';
       let remarks1 = 'Full Supplied';
       const shortItems = itemDetails.filter(i => i.shortageQtyPcs > 0 || i.deliveredQtyPcs === 0);
-      if (displayStatus === 'PO Closed' && deliveredQty === 0) {
+      if (displayStatus === 'Open / Pending' && deliveredQty === 0) {
+        const exp = expiry ? expiry.toISOString().slice(0, 10) : '';
+        remarks = exp ? `Awaiting delivery (PO valid till ${exp})` : 'Awaiting delivery';
+        remarks1 = remarks;
+      } else if (displayStatus === 'PO Closed' && deliveredQty === 0) {
         remarks = 'ITEM NOT BILLED BY DEPO';
         remarks1 = 'ITEM NOT BILLED BY DEPO';
       } else if (shortItems.length > 0) {
@@ -325,7 +334,8 @@ export async function GET(req: NextRequest) {
         poQtyPcs: poQty,
         deliveredQtyPcs: deliveredQty,
         invoiceNo: invoiceNoStr,
-        invoiceDate: matchingBills[0]?.invoiceDate ? matchingBills[0].invoiceDate.toISOString().split('T')[0] : (po.poDate ? po.poDate.toISOString().split('T')[0] : ''),
+        // Only a real invoice date — an undelivered PO has none
+        invoiceDate: matchingBills[0]?.invoiceDate ? matchingBills[0].invoiceDate.toISOString().split('T')[0] : '',
         fillRateValuePct,
         fillRateQtyPct,
         fillRatePct: fillRateValuePct,

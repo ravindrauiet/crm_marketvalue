@@ -73,12 +73,17 @@ export function dcNameFromAddress(address: string | null | undefined): string {
     .filter(p => !/^[\d\s/.\-]+$/.test(p))
     .map(p => p.replace(/\b\d{6}\b/, '').trim())
     .filter(p => p.length > 1);
+  // A specific first part (e.g. Zepto "GUR-DRY-MH-FARUKHNAGAR (GUR033M)") is the DC on its own
+  if (parts[0] && /\([A-Z0-9]+\)/.test(parts[0])) return parts[0].slice(0, 60);
   return parts.slice(0, 2).join(', ').slice(0, 60);
 }
 
 /** Strip "purchase_order_" style prefixes that come from file names */
 export function cleanPoNumber(po: string): string {
-  return clean(po).replace(/^purchase[_\s-]*order[_\s-]*(no\.?)?[_\s:#-]*/i, '').trim();
+  const original = clean(po);
+  const stripped = original.replace(/^purchase[_\s-]*order[_\s-]*(no\.?)?[_\s:#-]*/i, '').trim();
+  // Only strip when what remains looks like a real PO number ("FLS98XX36V", not "43_")
+  return /^[A-Za-z0-9][A-Za-z0-9-]{5,}$/.test(stripped) && /\d/.test(stripped) ? stripped : original;
 }
 
 // ─── Spreadsheet helpers ────────────────────────────────────────────────────

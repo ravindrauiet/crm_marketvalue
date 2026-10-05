@@ -318,7 +318,7 @@ function ShortfallContent() {
                         <span style={{ background: (CHAIN_COLORS[po.chainName] || '#999') + '22', color: CHAIN_COLORS[po.chainName] || '#999', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700 }}>{po.chainName}</span>
                         <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14, flex: 1 }}>{po.poNumber}</span>
                         <span className="muted" style={{ fontSize: 13 }}>{po.items.length} items</span>
-                        <span style={{ fontWeight: 700 }}>₹{po.totalAmount.toLocaleString('en-IN')}</span>
+                        <span style={{ fontWeight: 700 }}>₹{po.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     );
                   })}
