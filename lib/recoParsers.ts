@@ -23,7 +23,10 @@ const clean = (v: unknown) => {
 };
 
 const SYNONYMS = {
-  invoice: ['vendor invoice id', 'invoice number', 'invoice no', 'invoice no.', 'inv no', 'bill no', 'invoice', 'ref doc no', 'vch no', 'voucher no'],
+  invoice: ['vendor invoice id', 'invoice number', 'invoice no', 'invoice no.', 'inv no', 'bill no', 'invoice', 'ref doc no', 'vch no', 'voucher no', 'reference no'],
+  // Ledgers with one signed amount column plus a type column (e.g. Zepto: INVOICE / PAYMENT / DEBIT_NOTE_…)
+  signed: ['amount', 'amount (inr)', 'amount in inr', 'amt'],
+  type: ['type/description', 'transaction type', 'document type', 'doc type', 'type', 'vch type'],
   po: ['po id', 'po number', 'po no', 'po #', 'purchase order', 'po', 'order no'],
   invoiceAmount: ['invoice amount', 'invoice amt', 'gross amount', 'bill amount'],
   paid: ['payment amount', 'amount paid', 'paid amount', 'net amount', 'net paid', 'credit', 'credit amount', 'deposit', 'deposits', 'cr'],
@@ -71,7 +74,12 @@ export type ParsedRecoSheet = { rows: RecoRow[]; headerText: string; columns: Re
 
 /** Returns null when the sheet does not look like a ledger / statement table */
 export function parseRecoSpreadsheet(buf: Buffer): ParsedRecoSheet | null {
-  const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });
+  // Excel files are zip (PK) or OLE (D0 CF); anything else is CSV / pasted text and is read as
+  // plain strings — otherwise the library re-interprets "2026-09-05" style dates and swaps day/month
+  const isBinary = (buf[0] === 0x50 && buf[1] === 0x4b) || (buf[0] === 0xd0 && buf[1] === 0xcf);
+  const wb = isBinary
+    ? XLSX.read(buf, { type: 'buffer', cellDates: true })
+    : XLSX.read(buf.toString('utf8').replace(/^﻿/, ''), { type: 'string', raw: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = expandTabRows(XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '', raw: false, dateNF: 'yyyy-mm-dd' }));
   const h = findHeader(rows);
@@ -98,16 +106,26 @@ export function parseRecoSpreadsheet(buf: Buffer): ParsedRecoSheet | null {
     deduction: col('deduction'),
     invoice: col('invoice'),
     po: col('po'),
+    // before 'reason', so "Type/Description" is the line type (not taken as a description)
+    type: col('type'),
     reason: col('reason'),
     ref: col('ref'),
     balance: col('balance'),
     date: col('date'),
+    date2: col('date'),   // second date column (e.g. invoice date) used when the first is empty
+    signed: col('signed'),
   };
-  if (c.paid === -1 && c.deduction === -1 && c.invoiceAmount === -1) return null;
+  const signedMode = c.paid === -1 && c.deduction === -1 && c.invoiceAmount === -1 && c.signed >= 0;
+  if (c.paid === -1 && c.deduction === -1 && c.invoiceAmount === -1 && !signedMode) return null;
+
+  // Default reference for advices that print it once above the table ("Payment number: 370964663")
+  const preamble = rows.slice(0, h).map(r => r.join(' ')).join(' ');
+  const defaultRef = (preamble.match(/payment\s*(?:number|no\.?|ref(?:erence)?)\s*:?\s*\[?"?([A-Z0-9/-]{5,})/i) || [])[1] || '';
   // Bank / Tally 'Debit' columns are invoices or withdrawals, not chain deductions
   const debitIsDeduction = c.deduction >= 0 && !/^(debit|dr|debit amount|withdrawal|withdrawals)$/.test(header[c.deduction]);
 
   const out: RecoRow[] = [];
+  let lastInvoice = ''; let lastDate: Date | null = null;
   for (let r = h + 1; r < rows.length; r++) {
     const row = rows[r];
     if (!row || row.every(v => !v)) continue;
@@ -120,27 +138,46 @@ export function parseRecoSpreadsheet(buf: Buffer): ParsedRecoSheet | null {
     // Negative payment lines (TDS / credit memos in Amazon remittances) are deductions
     if (credit < 0) { debit += Math.abs(credit); credit = 0; }
     const invoiceAmount = toNumber(get(c.invoiceAmount)) ?? 0;
+    const typeText = get(c.type);
+    let isDeductionLine = false;
+
+    if (signedMode) {
+      // Classify by the line type: payments received, deductions (debit notes, TDS, claims), invoices
+      const amt = toNumber(get(c.signed)) ?? 0;
+      if (/opening|closing/i.test(typeText)) continue;
+      if (/payment|receipt/i.test(typeText)) { if (amt >= 0) credit = amt; else debit = -amt; }
+      else if (/debit.?note|deduct|tds|claim|shortage|penalty|discount|chargeback|commission|fee|return/i.test(typeText)) { debit = Math.abs(amt); isDeductionLine = true; }
+      // An invoice is an amount billed (debit, like Tally ledgers) — not a deduction
+      else if (/invoice|bill|sale/i.test(typeText)) debit = Math.abs(amt);
+      else if (amt >= 0) credit = amt; else debit = -amt;
+    }
     if (credit === 0 && debit === 0 && invoiceAmount === 0) continue;
 
     // Tally ledgers put 'To' / 'By' under Particulars and the account name in the next column
-    let reason = get(c.reason);
+    let reason = get(c.reason) || (signedMode ? [typeText.replace(/_/g, ' '), get(c.reason)].filter(Boolean).join(' ') : '');
     if (/^(to|by)$/i.test(reason) && c.reason >= 0) reason = [reason, clean(row[c.reason + 1])].filter(Boolean).join(' ');
     const invoiceNumber = get(c.invoice);
     const poNumber = (get(c.po) || poFromText(reason)).replace(/^PO\s*#\s*/i, '');
+    // Deduction / TDS lines often have no date: use the second date column, else the date of the
+    // line above when it belongs to the same invoice
+    let txnDate = parseDate(get(c.date)) || parseDate(get(c.date2));
+    if (!txnDate && invoiceNumber && invoiceNumber === lastInvoice) txnDate = lastDate;
+    if (invoiceNumber) { lastInvoice = invoiceNumber; if (txnDate) lastDate = txnDate; }
     out.push({
-      txnDate: parseDate(get(c.date)),
+      txnDate,
       narration: reason || (invoiceNumber ? `Invoice ${invoiceNumber}` : 'Ledger entry'),
       creditAmount: credit,
       debitAmount: debit,
       balance: toNumber(get(c.balance)) ?? 0,
-      bankRef: get(c.ref),
+      bankRef: get(c.ref) || defaultRef,
       invoiceNumber,
       poNumber,
-      deductionReason: debit > 0 && debitIsDeduction ? reason : '',
+      deductionReason: debit > 0 && (isDeductionLine || (!signedMode && debitIsDeduction)) ? reason : '',
     });
   }
 
-  const headerText = rows.slice(0, h).map(r => r.join(' ')).join(' ');
+  // Includes the column header row, which identifies some formats (e.g. Amazon remittances)
+  const headerText = rows.slice(0, h + 1).map(r => r.join(' ')).join(' ');
   const columns = Object.fromEntries(Object.entries(c).map(([k, i]) => [k, i >= 0 ? rows[h][i] : '']));
   return { rows: out, headerText, columns };
 }
@@ -158,6 +195,8 @@ export function detectRecoChain(fileName: string, text: string, hint = 'OTHER'):
   if (/RELIANCE/.test(s)) return 'RELIANCE';
   if (/DMART|AVENUE SUPERMARTS/.test(s)) return 'DMART';
   if (/CITYMALL/.test(s)) return 'CITYMALL';
+  // Amazon remittance layout / Amazon FC-coded descriptions ("57L2ABKV/HNR4/##YES")
+  if (/DISCOUNT TAKEN[\s\S]{0,40}AMOUNT PAID|SUPPLIER SITE NAME|\b[A-Z0-9]{8}\/[A-Z]{3,4}\d\/#/.test(s)) return 'AMAZON';
   if (/\bHSBC\b(?!N)/.test(fileName.toUpperCase())) return 'HSBC';
   return 'OTHER';
 }

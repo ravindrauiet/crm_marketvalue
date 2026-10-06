@@ -14,7 +14,7 @@ import pdf from 'pdf-parse';
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
-type RawItem = { chainItemCode: string; chainItemName: string; eanCode: string; quantityPcs: number; unitPrice: number };
+type RawItem = { chainItemCode: string; chainItemName: string; eanCode: string; quantityPcs: number; unitPrice: number; totalPrice?: number };
 
 /** Extracted PO before item-mapping enrichment */
 type ExtractedPO = {
@@ -41,6 +41,7 @@ function fromParsed(p: ParsedPO): ExtractedPO {
       eanCode: i.eanCode,
       quantityPcs: i.quantityPcs,
       unitPrice: i.unitPrice,
+      totalPrice: i.totalPrice, // the document's own line value (avoids rounding drift from qty × rounded price)
     })),
     warnings: p.warnings,
     rawDocumentInfo: {
@@ -210,6 +211,9 @@ export async function POST(req: NextRequest) {
     else if (parser.startsWith('flipkart')) activeChain = 'FLIPKART';
     else if (parser.startsWith('swiggy')) activeChain = 'SWIGGY';
     else if (parser.startsWith('dmart')) activeChain = 'DMART';
+    else if (parser.startsWith('zepto')) activeChain = 'ZEPTO';
+    else if (parser.startsWith('reliance')) activeChain = 'RELIANCE';
+    else if (parser.startsWith('bigbasket')) activeChain = 'BIGBASKET';
     else if (fullDocText.includes('AMAZON') || fullDocText.includes('ASIN')) activeChain = 'AMAZON';
     else if (fullDocText.includes('BLINK COMMERCE') || fullDocText.includes('BLINKIT')) activeChain = 'BLINKIT';
     else if (fullDocText.includes('ZEPTO')) activeChain = 'ZEPTO';
@@ -272,6 +276,7 @@ export async function POST(req: NextRequest) {
         pcsPerCase: mapping?.pcsPerCase || 1,
         quantityPcs: Number(item.quantityPcs) || 0,
         unitPrice: Number(item.unitPrice) || 0,
+        ...(item.totalPrice !== undefined ? { totalPrice: Number(item.totalPrice) } : {}),
         matched: !!mapping,
       };
     }));

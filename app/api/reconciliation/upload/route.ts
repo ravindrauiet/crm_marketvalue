@@ -71,10 +71,12 @@ export async function POST(req: NextRequest) {
 
     const isExcel = fileNameLower.endsWith('.xlsx') || fileNameLower.endsWith('.xls') || mimeTypeLower.includes('excel') || mimeTypeLower.includes('spreadsheet');
     const isCsv = fileNameLower.endsWith('.csv') || mimeTypeLower.includes('csv');
+    // Pasted payment-advice text is usually a tab-separated table; free-form text still goes to AI
+    const isText = fileNameLower.endsWith('.txt') || mimeTypeLower.startsWith('text/plain');
 
     // 0. Excel / CSV ledgers and statements: read every row directly (fast, no AI, no timeouts)
     let sheetHeaderText = '';
-    if (isExcel || isCsv) {
+    if (isExcel || isCsv || isText) {
       try {
         const sheet = parseRecoSpreadsheet(buffer);
         if (sheet && sheet.rows.length) {
@@ -446,13 +448,9 @@ export async function POST(req: NextRequest) {
         select: { txnDate: true, matchedInvoiceNo: true, matchedPoNumber: true, creditAmount: true, debitAmount: true, bankRef: true, narration: true },
       })).map(rowKey)
     );
-    const seen = new Set<string>();
-    const recoRows = allRecoRows.filter(r => {
-      const k = rowKey(r);
-      if (existingKeys.has(k) || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    });
+    // Only lines saved by an EARLIER upload are skipped; identical lines inside one file
+    // (e.g. two equal TDS deductions on an invoice) are genuine and kept
+    const recoRows = allRecoRows.filter(r => !existingKeys.has(rowKey(r)));
     const duplicatesSkipped = allRecoRows.length - recoRows.length;
 
     if (recoRows.length) await prisma.paymentReco.createMany({ data: recoRows });

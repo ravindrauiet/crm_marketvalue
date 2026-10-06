@@ -77,6 +77,7 @@ export default function UploadForm({
                 tallyItemName: i.tallyItemName || '',
                 quantityPcs: i.quantityPcs || 0,
                 unitPrice: i.unitPrice || 0,
+                ...(i.totalPrice !== undefined ? { totalPrice: i.totalPrice } : {}),
               })),
             };
 

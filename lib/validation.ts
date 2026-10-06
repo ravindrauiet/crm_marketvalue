@@ -72,7 +72,8 @@ export function parseDate(v: unknown): Date | null {
     return null;
   }
 
-  const s = String(v).trim();
+  // A trailing clock time ("01/04/2026 00:00", "28/03/2026 05:30:00 PM") does not change the date
+  const s = String(v).trim().replace(/^(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?$/i, '$1');
   if (!s) return null;
 
   // ISO: 2026-08-23 or 2026-08-23T10:00:00Z

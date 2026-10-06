@@ -87,9 +87,9 @@ async function parse(fileName: string, buf: Buffer): Promise<ParsedPO[] | null> 
     const check = p.docTaxableTotal
       ? (Math.abs(p.docTaxableTotal - newTotal) <= 1 ? 'matches document total' : `!! document says ${inr(p.docTaxableTotal)}`)
       : (p.docGrandTotal ? `doc grand total incl. GST ${inr(p.docGrandTotal)}` : 'no document total to check');
+    if (!changes.length) { unchanged++; continue; }
     if (p.warnings.length) changes.push(`warnings: ${p.warnings.join(' / ')}`);
     changes.push(check);
-    if (!changes.length) { unchanged++; continue; }
 
     console.log(`FIX  [${p.parser}] ${po.chainName} ${po.poNumber}: ${changes.join('; ')}`);
     fixed++;

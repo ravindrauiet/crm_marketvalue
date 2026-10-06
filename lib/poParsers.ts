@@ -255,6 +255,63 @@ export function parseAmazonExcel(rows: any[][]): ParsedPO[] {
   return [...groups.values()];
 }
 
+// ─── BigBasket Excel ────────────────────────────────────────────────────────
+
+export function isBigBasketPoSheet(rows: any[][]): boolean {
+  return rows.slice(0, 25).some(r => r.some(c => /^PO Number\s*:/i.test(clean(c))))
+    && rows.slice(0, 30).some(r => r.map(c => clean(c).toLowerCase()).includes('basic cost'));
+}
+
+export function parseBigBasketExcel(rows: any[][]): ParsedPO {
+  const warnings: string[] = [];
+  const cellValue = (label: RegExp) => {
+    for (const r of rows.slice(0, 25)) for (const c of r) {
+      const m = clean(c).match(label);
+      if (m) return m[1].trim();
+    }
+    return '';
+  };
+  const poNumber = cellValue(/^PO Number\s*:\s*(\S+)/i);
+  const poDate = iso(parseDate(cellValue(/^PO Date\s*:\s*(.+)$/i)));
+  const delivery = iso(parseDate(cellValue(/^PO Expiry date\s*:\s*(.+)$/i)));
+  // Warehouse name sits under "Warehouse Address" / "Delivery Address"
+  const whIdx = rows.findIndex(r => r.some(c => /^warehouse address$/i.test(clean(c))));
+  const dcName = whIdx >= 0 ? clean((rows[whIdx + 1] || [])[0]) : clean((rows[0] || [])[0]);
+  const shipTo = whIdx >= 0 ? [1, 2, 3, 4].map(k => clean((rows[whIdx + k] || [])[0])).filter(Boolean).join(', ') : dcName;
+
+  const h = rows.findIndex(r => r.map(c => clean(c).toLowerCase()).includes('basic cost'));
+  const head = (rows[h] || []).map(c => clean(c).toLowerCase());
+  const col = (n: string) => head.indexOf(n);
+  const cSku = col('sku code'), cDesc = col('description'), cEan = col('ean/upc code'), cHsn = col('hsn code');
+  const cQty = col('quantity'), cBasic = col('basic cost'), cMrp = col('mrp'), cTotal = col('total value');
+
+  const items: ParsedPOItem[] = [];
+  let grand = 0;
+  for (let r = h + 1; r < rows.length; r++) {
+    const row = rows[r] || [];
+    if (!/^\d+$/.test(clean(row[0]))) { if (/total/i.test(row.map(clean).join(' '))) break; continue; }
+    const qty = toNumber(row[cQty]) ?? 0;
+    const basic = toNumber(row[cBasic]) ?? 0;
+    grand += toNumber(row[cTotal]) ?? 0;
+    const ean = clean(row[cEan]);
+    items.push({
+      chainItemCode: clean(row[cSku]),
+      eanCode: /^\d{12,14}$/.test(ean) ? ean : '',
+      chainItemName: clean(row[cDesc]),
+      hsnCode: clean(row[cHsn]) || undefined,
+      quantityPcs: Math.round(qty),
+      unitPrice: basic,
+      totalPrice: round2(qty * basic),
+      mrp: toNumber(row[cMrp]) ?? undefined,
+    });
+  }
+  if (!poNumber) warnings.push('PO number not found in the BigBasket sheet');
+  return {
+    chain: 'BIGBASKET', parser: 'bigbasket-excel', poNumber, poDate, deliveryDate: delivery,
+    shipTo, dcName, items, docTaxableTotal: null, docGrandTotal: round2(grand), warnings,
+  };
+}
+
 // ─── PDF helpers ────────────────────────────────────────────────────────────
 
 /**
@@ -391,7 +448,9 @@ export function parseSwiggyPdf(text: string): ParsedPO {
   // (taxable always has 2 decimals, possibly wrapped: "2057.1\n4"; it may be glued to the rate: "986.670.00%")
   // (the quantity may also sit on its own line: "09109100\n80\n65.0044.57")
   // (taxable is normally 2 decimals, occasionally printed with 1: "5785.7")
-  const itemRe = /(?<!\d)(\d{8})\s*\n?\s*(\d[\d\s]*?)\.(\d{2})(\d+)\.(\d{2})([\d\s]*\.\s*(?:\d\s*\d|\d))(?=\s*\d+\.\d{2}%)/g;
+  // (some pages put every value on its own line: "19024090108\n100.00\n71.43\n7714.2\n9")
+  // (rarely the taxable value is split around the line: "12312." before the item, "00" after the prices)
+  const itemRe = /(?<!\d)(\d{8})\s*\n?\s*(\d[\d\s]*?)\.(\d{2})\s*(\d+)\.(\d{2})((?:[\d\s]*\.\s*(?:\d\s*\d|\d))|(?:\s*\n\d{2}\s*))(?=\s*\d+\.\d{2}%)/g;
   const items: ParsedPOItem[] = [];
   let sno = 1;
   let chunkStart = 0;
@@ -399,6 +458,8 @@ export function parseSwiggyPdf(text: string): ParsedPO {
   while ((m = itemRe.exec(section))) {
     // Text before the HSN = "<sno><item code>" + description (previous line total may lead the chunk)
     const chunkLines = section.slice(chunkStart, m.index).split('\n').map(l => l.trim()).filter(Boolean);
+    // Integer part of a split taxable value ("12312.") that was printed before the item
+    const splitInt = [...chunkLines].reverse().find(l => /^\d+\.$/.test(l));
     // Drop leftovers before the item: column headers ("Rate", "Amt (INR)") and the previous line total
     while (chunkLines.length && !/^\d/.test(chunkLines[0])) chunkLines.shift();
     while (chunkLines.length && /^[\d.]*\.\d+$|^[\d.%]+$/.test(chunkLines[0]) && !/^\d+$/.test(chunkLines[0])) chunkLines.shift();
@@ -418,8 +479,20 @@ export function parseSwiggyPdf(text: string): ParsedPO {
     if (tokens.length === 1 && code.startsWith(String(sno)) && code.length > String(sno).length) code = code.slice(String(sno).length);
     const desc = chunkLines.slice(descStart).join(' ').trim();
 
-    const taxable = toNumber(m[6].replace(/\s+/g, '')) ?? 0;
+    const taxableRaw = m[6].replace(/\s+/g, '');
     const base = parseFloat(`${m[4]}.${m[5]}`);
+    let taxable = (taxableRaw.includes('.') ? toNumber(taxableRaw) : null) ?? 0;
+    if (!taxableRaw.includes('.') && splitInt) {
+      // The fragment may carry a stray serial-number digit ("112312." for 12312.00): use the
+      // longest tail that gives a whole quantity matching the quantity digits
+      const digits = splitInt.replace('.', '');
+      const qtyDigits = m[2].replace(/\s+/g, '');
+      for (let k = 0; k < digits.length; k++) {
+        const v = parseFloat(`${digits.slice(k)}.${taxableRaw}`);
+        const q = base > 0 ? Math.round(v / base) : 0;
+        if (q > 0 && Math.abs(q * base - v) <= Math.max(0.05, v * 0.002) && qtyDigits.startsWith(String(q))) { taxable = v; break; }
+      }
+    }
     const qty = base > 0 ? Math.round(taxable / base) : 0;
     let mrp: number | undefined;
     const qtyMrp = m[2].replace(/\s+/g, '');
@@ -516,23 +589,148 @@ export function parseDmartPdf(text: string): ParsedPO {
   };
 }
 
+// ─── Zepto PDF ──────────────────────────────────────────────────────────────
+
+export function isZeptoPoText(text: string) {
+  return /ZEPTO\s+LIMITED|Kiranakart/i.test(text) && /PO\s*No:\s*P\d+/i.test(text);
+}
+
+export function parseZeptoPdf(text: string): ParsedPO {
+  const t = text.replace(/\t/g, ' ').replace(/\r/g, '');
+  const warnings: string[] = [];
+  const grab = (re: RegExp) => ((t.match(re) || [])[1] || '').trim();
+
+  const poNumber = grab(/PO\s*No:\s*(P\d+)/i);
+  const poDate = iso(parseDate(grab(/PO\s*Date:\s*(\d{4}-\d{2}-\d{2})/i)));
+  const delivery = iso(parseDate(grab(/PO\s*Expiry\s*Date:\s*(\d{4}-\d{2}-\d{2})/i) || grab(/Expected\s*Delivery\s*Date:\s*(\d{4}-\d{2}-\d{2})/i)));
+  // DC code line follows the "ZEPTO LIMITED (Formerly known as …)" line, e.g. "FBD-DRY-MH (FBD001M)"
+  const dc = grab(/ZEPTO LIMITED[^\n]*\n([^\n]+)/i);
+  const shipTo = [dc, grab(/ZEPTO LIMITED[^\n]*\n[^\n]+\n([^\n]+)/i)].filter(Boolean).join(', ');
+
+  const tableStart = t.search(/RateAMTRateAMT/i);
+  const tableEnd = t.search(/Total\s+Taxable\s+Amount/i);
+  const section = t.slice(tableStart >= 0 ? tableStart : 0, tableEnd >= 0 ? tableEnd : undefined).replace(/^RateAMT[^\n]*\n/i, '');
+
+  // "<HSN 8><EAN 13><qty><MRP>.<2d><base>.<2d><taxable>.<2d>" glued to the first GST rate
+  const itemRe = /(\d{8})(\d{13})(\d+)\.(\d{2})(\d+)\.(\d{2})(\d+)\.(\d{2})(?=\d+\.\d{2}%)/g;
+  const items: ParsedPOItem[] = [];
+  let chunkStart = 0; let sno = 1;
+  let m: RegExpExecArray | null;
+  while ((m = itemRe.exec(section))) {
+    const lines = section.slice(chunkStart, m.index).split('\n').map(l => l.trim()).filter(Boolean)
+      .filter(l => !/^[0-9a-f]{4,}(-[0-9a-f]*)+$|^[0-9a-f-]{8,}$/i.test(l)); // drop SKU UUID fragments
+    while (lines.length && !/^\d/.test(lines[0])) lines.shift();
+    const head = lines.shift() || '';
+    let code = (head.match(/^(\d+)/) || [])[1] || '';
+    if (code.startsWith(String(sno)) && code.length > String(sno).length) code = code.slice(String(sno).length);
+    const name = [head.replace(/^\d+/, ''), ...lines].join(' ').replace(/\s+/g, ' ').trim();
+
+    const base = parseFloat(`${m[5]}.${m[6]}`);
+    const taxable = parseFloat(`${m[7]}.${m[8]}`);
+    const qty = base > 0 ? Math.round(taxable / base) : 0;
+    let mrp: number | undefined;
+    if (qty > 0 && m[3].startsWith(String(qty))) mrp = parseFloat(`${m[3].slice(String(qty).length)}.${m[4]}`);
+    else warnings.push(`Line ${sno}: quantity cross-check failed`);
+
+    // Zepto item mappings are keyed by the material code (e.g. 145619); EAN kept separately
+    items.push({ chainItemCode: code || m[2], eanCode: m[2], chainItemName: name, hsnCode: m[1], quantityPcs: qty, unitPrice: base, totalPrice: round2(taxable), mrp });
+    sno++;
+    const rest = section.slice(itemRe.lastIndex);
+    const nl = rest.search(/\n/);
+    chunkStart = itemRe.lastIndex + (nl >= 0 ? nl : rest.length);
+  }
+
+  return {
+    chain: 'ZEPTO', parser: 'zepto-pdf', poNumber, poDate, deliveryDate: delivery,
+    shipTo, dcName: dc || dcNameFromAddress(shipTo), items,
+    docTaxableTotal: toNumber(grab(/Total\s+Taxable\s+Amount\s*\(INR\)\s*([\d,.]+)/i)),
+    docGrandTotal: toNumber(grab(/Grand\s+Total\s+Amount\s*\(INR\)\s*([\d,.]+)/i)),
+    warnings,
+  };
+}
+
+// ─── Reliance (RCCL / Metro) PDF ────────────────────────────────────────────
+
+export function isReliancePoText(text: string) {
+  return /Reliance\s+(Cash\s+And\s+Carry|Retail)/i.test(text) && /PO\s*NO\.?\s*:\s*\d+/i.test(text);
+}
+
+export function parseReliancePdf(text: string): ParsedPO {
+  const t = text.replace(/\t/g, ' ').replace(/\r/g, '');
+  const warnings: string[] = [];
+  const grab = (re: RegExp) => ((t.match(re) || [])[1] || '').trim();
+
+  const poNumber = grab(/PO\s*NO\.?\s*:\s*(\d+)/i);
+  const poDate = iso(parseDate(grab(/PO\s*Date\s*:\s*([\d.\/-]+)/i)));
+  const delivery = iso(parseDate(grab(/DELIVERY\s+DATE\s*:\s*([\d.\/-]+)/i)));
+  // Store name printed above the acceptance paragraph, e.g. "RCCL Semra Lucknow"
+  const store = grab(/\n\s*(RCCL[^\n]+|Reliance (?:Retail|Smart)[^\n]*?(?:Store|DC)[^\n]*)\n/i);
+  const site = grab(/Site\s*:\s*([A-Z0-9]+)/i);
+
+  const lines = t.split('\n').map(l => l.trim());
+  const items: ParsedPOItem[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const head = lines[i].match(/^(\d{1,3})\s+(\d{6,12})$/);
+    if (!head) continue;
+    // Item block runs until the next item or the grand total
+    let j = i + 1;
+    while (j < lines.length && !/^\d{1,3}\s+\d{6,12}$/.test(lines[j]) && !/^Grand Total of Qty/i.test(lines[j])) j++;
+    const block = lines.slice(i + 1, j).filter(Boolean);
+    const hsn = block.find(l => /^\d{8}$/.test(l)) || '';
+    const ean = block.find(l => /^\d{13}$/.test(l)) || '';
+    const name = block.find(l => /[A-Za-z]{3,}/.test(l) && !/^(CAR|EA|PC|KG)$/i.test(l) && !/^[A-Z0-9]{3,5}$/.test(l)) || '';
+    // Quantities have 3 decimals: first = order unit (e.g. 4 CAR), second = pieces (96 EA)
+    const qtys = block.filter(l => /^[\d,]+\.\d{3}$/.test(l)).map(l => toNumber(l) ?? 0);
+    const money = block.flatMap(l => l.split(/\s{2,}/)).filter(s => /^[\d,]+\.\d{2}$/.test(s.trim())).map(s => toNumber(s) ?? 0);
+    const totalBase = money.length ? money[money.length - 1] : 0;
+    const pcs = qtys.length > 1 ? qtys[1] : (qtys[0] || 0);
+    if (!pcs || !totalBase) { warnings.push(`Item ${head[1]}: could not read quantity / value`); continue; }
+    items.push({
+      chainItemCode: head[2], eanCode: ean, chainItemName: name, hsnCode: hsn || undefined,
+      quantityPcs: Math.round(pcs), unitPrice: round2(totalBase / pcs), totalPrice: round2(totalBase),
+    });
+    i = j - 1;
+  }
+
+  const docTaxableTotal = toNumber(grab(/TOTAL\s+BASIC\s+VALUE\s*INR\s*([\d,.]+)/i));
+  return {
+    chain: 'RELIANCE', parser: 'reliance-pdf', poNumber, poDate, deliveryDate: delivery,
+    shipTo: [store, site].filter(Boolean).join(' / '), dcName: store || site,
+    items, docTaxableTotal,
+    docGrandTotal: toNumber(grab(/Total\s+Order\s+Value\s*:?\s*INR\s*([\d,.]+)/i)),
+    warnings,
+  };
+}
+
 // ─── Entry points ───────────────────────────────────────────────────────────
 
 /** Tries the known chain layouts for a spreadsheet; returns null when none match */
 export function parseKnownPoSpreadsheet(buf: Buffer): ParsedPO[] | null {
   let rows: any[][];
   try { rows = sheetRows(buf); } catch { return null; }
-  if (isFlipkartPoSheet(rows)) return [parseFlipkartExcel(rows)];
-  if (isAmazonPoSheet(rows)) return parseAmazonExcel(rows);
+  if (isFlipkartPoSheet(rows)) return [withTotalCheck(parseFlipkartExcel(rows))];
+  if (isAmazonPoSheet(rows)) return parseAmazonExcel(rows).map(withTotalCheck);
+  if (isBigBasketPoSheet(rows)) return [withTotalCheck(parseBigBasketExcel(rows))];
   return null;
 }
 
 /** Tries the known chain layouts for PDF text; returns null when none match */
 export function parseKnownPoPdfText(text: string): ParsedPO | null {
-  if (isAmazonPoText(text)) return parseAmazonPdf(text);
-  if (isSwiggyPoText(text)) return parseSwiggyPdf(text);
-  if (isDmartPoText(text)) return parseDmartPdf(text);
+  if (isAmazonPoText(text)) return withTotalCheck(parseAmazonPdf(text));
+  if (isSwiggyPoText(text)) return withTotalCheck(parseSwiggyPdf(text));
+  if (isDmartPoText(text)) return withTotalCheck(parseDmartPdf(text));
+  if (isZeptoPoText(text)) return withTotalCheck(parseZeptoPdf(text));
+  if (isReliancePoText(text)) return withTotalCheck(parseReliancePdf(text));
   return null;
+}
+
+/** Warns when the items read do not add up to the total printed on the PO (₹1 rounding allowed) */
+function withTotalCheck(p: ParsedPO): ParsedPO {
+  const sum = round2(p.items.reduce((s, i) => s + i.totalPrice, 0));
+  if (p.docTaxableTotal !== null && p.docTaxableTotal > 0 && Math.abs(sum - p.docTaxableTotal) > 1) {
+    p.warnings.push(`Items add up to ₹${sum.toLocaleString('en-IN')} but the PO total is ₹${p.docTaxableTotal.toLocaleString('en-IN')} — some lines may be missing; please check before relying on this PO.`);
+  }
+  return p;
 }
 
 /**

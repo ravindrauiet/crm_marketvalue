@@ -49,7 +49,12 @@ export async function POST(req: NextRequest) {
       }
       if (qty === null || !Number.isInteger(qty) || qty < 0) throw new ValidationError(`${line}: quantity (pcs) must be a whole number of 0 or more`);
       if (price < 0) throw new ValidationError(`${line}: unit price cannot be negative`);
-      return { ...item, quantityPcs: qty, unitPrice: price };
+      // Keep the document's own line value when supplied and consistent with qty × price
+      // (prices are rounded to 2 decimals, so recomputing would drift by a few paise)
+      const computed = Math.round(qty * price * 100) / 100;
+      const given = toNumber(item?.totalPrice);
+      const lineTotal = given !== null && given >= 0 && Math.abs(given - computed) <= Math.max(1, computed * 0.01) ? given : computed;
+      return { ...item, quantityPcs: qty, unitPrice: price, lineTotal };
     });
 
     // Check for existing PO number. Re-uploading the same PO document (replaceExisting) updates it
@@ -106,7 +111,7 @@ export async function POST(req: NextRequest) {
         quantityPcs: item.quantityPcs,
         quantityCase,
         unitPrice: item.unitPrice,
-        totalPrice: Math.round(item.quantityPcs * item.unitPrice * 100) / 100,
+        totalPrice: Math.round(item.lineTotal * 100) / 100,
         mappingId: mapping?.id || null,
       };
     }));
