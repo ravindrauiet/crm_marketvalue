@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SALE_UPLOAD_WHERE, poNumberFromSaleNotes } from '@/lib/billSources';
 import { cleanPoNumber, dcNameFromAddress } from '@/lib/poParsers';
+import { bestPoItemIndex } from '@/lib/itemMatch';
 
 // Whole-token match: PO 12345 must not match 123456 or AB12345
 function containsToken(text: string, token: string) {
@@ -186,27 +187,37 @@ export async function GET(req: NextRequest) {
         displayStatus = 'Part Delivery';
       }
 
-      // Item Level Sub-Tab Breakdown
-      const itemDetails = po.items.map(item => {
-        const itemBrand = getBrandName(chainNameUpper, item.chainItemCode, item.chainItemName, item.eanCode);
-        
-        // Find matching billed item
-        let itemDeliveredQty = 0;
-        let itemBilledRate = item.unitPrice;
+      // Assign every billed (Tally) line to the PO item it belongs to. Tally and the chain
+      // name the same product differently, so match on mapped Tally name / pack size / wording.
+      const poItemsForMatch = po.items.map(item => {
+        const mapItem = mappingMap.get(`${chainNameUpper}::${(item.chainItemCode || '').toLowerCase()}`)
+          || (item.eanCode ? mappingMap.get(`EAN::${item.eanCode.toLowerCase()}`) : null);
+        return {
+          chainItemName: item.chainItemName,
+          tallyItemName: item.tallyItemName || mapItem?.tallyItemName || '',
+          unitPrice: item.unitPrice,
+        };
+      });
+      const billedByItem = po.items.map(() => ({ qty: 0, amount: 0 }));
+      matchingBills.forEach(b => {
+        b.items?.forEach(bi => {
+          const idx = bestPoItemIndex(poItemsForMatch, bi);
+          if (idx === -1) return;
+          billedByItem[idx].qty += bi.quantity || 0;
+          billedByItem[idx].amount += bi.amount || (bi.quantity || 0) * (bi.rate || 0);
+        });
+      });
 
-        if (matchingBills.length > 0) {
-          matchingBills.forEach(b => {
-            b.items?.forEach(bi => {
-              if (bi.itemName.toLowerCase().includes(item.chainItemName.toLowerCase()) || bi.itemName.toLowerCase().includes((item.chainItemCode || 'xyz').toLowerCase())) {
-                itemDeliveredQty += bi.quantity || 0;
-                if (bi.rate) itemBilledRate = bi.rate;
-              }
-            });
-          });
-        }
+      // Item Level Sub-Tab Breakdown
+      const itemDetails = po.items.map((item, itemIdx) => {
+        const itemBrand = getBrandName(chainNameUpper, item.chainItemCode, item.chainItemName, item.eanCode);
+
+        let itemDeliveredQty = billedByItem[itemIdx].qty;
+        let itemBilledAmount = billedByItem[itemIdx].amount;
 
         if (itemDeliveredQty === 0 && isDeliveredStatus) {
           itemDeliveredQty = item.quantityPcs;
+          itemBilledAmount = item.quantityPcs * item.unitPrice;
         }
 
         const shortageQty = Math.max(0, item.quantityPcs - itemDeliveredQty);
@@ -225,7 +236,7 @@ export async function GET(req: NextRequest) {
           id: item.id,
           chainItemCode: item.chainItemCode,
           chainItemName: item.chainItemName,
-          tallyItemName: item.tallyItemName || '',
+          tallyItemName: poItemsForMatch[itemIdx].tallyItemName,
           brandName: itemBrand,
           eanCode: item.eanCode || '',
           poQtyPcs: item.quantityPcs,
@@ -233,7 +244,7 @@ export async function GET(req: NextRequest) {
           shortageQtyPcs: shortageQty,
           unitPrice: item.unitPrice,
           poTotalPrice: item.totalPrice,
-          billedTotalPrice: itemDeliveredQty * itemBilledRate,
+          billedTotalPrice: itemBilledAmount,
           itemFillRatePct,
           itemRemark
         };
