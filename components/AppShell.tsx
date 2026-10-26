@@ -3,48 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Icon from './Icon';
-
-type NavItem = { href: string; label: string; icon: string };
-type NavGroup = { title: string; items: NavItem[] };
-
-export const NAV: NavGroup[] = [
-  {
-    title: 'Overview',
-    items: [
-      { href: '/', label: 'Dashboard', icon: 'dashboard' },
-      { href: '/analytics', label: 'Analytics', icon: 'analytics' },
-    ],
-  },
-  {
-    title: 'Chain Operations',
-    items: [
-      { href: '/po', label: 'Purchase Orders', icon: 'po' },
-      { href: '/po/reconciliation-report', label: 'Fill Rate Report', icon: 'fillRate' },
-      { href: '/shortfall', label: 'Shortfall Planner', icon: 'shortfall' },
-      { href: '/item-mapping', label: 'Item Mapping', icon: 'mapping' },
-    ],
-  },
-  {
-    title: 'Finance',
-    items: [
-      { href: '/reconciliation', label: 'Payment Reconciliation', icon: 'reco' },
-      { href: '/purchase-bills', label: 'Purchase Bills (OCR)', icon: 'bills' },
-      { href: '/invoices', label: 'Invoices', icon: 'invoices' },
-      { href: '/payments', label: 'Payments', icon: 'payments' },
-    ],
-  },
-  {
-    title: 'Sales & Inventory',
-    items: [
-      { href: '/orders', label: 'Orders', icon: 'orders' },
-      { href: '/grn', label: 'Goods Received', icon: 'grn' },
-      { href: '/products', label: 'Products', icon: 'products' },
-      { href: '/products/import', label: 'Stock Import', icon: 'import' },
-      { href: '/customers', label: 'Customers', icon: 'customers' },
-      { href: '/records', label: 'Documents', icon: 'records' },
-    ],
-  },
-];
+import { NAV } from '@/lib/nav';
 
 const ALL_ITEMS = NAV.flatMap(g => g.items.map(i => ({ ...i, group: g.title })));
 
@@ -97,6 +56,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={`sidebar-link${isActive ? ' active' : ''}`}
                     aria-current={isActive ? 'page' : undefined}
+                    title={item.hint}
                   >
                     <Icon name={item.icon} size={17} />
                     <span>{item.label}</span>

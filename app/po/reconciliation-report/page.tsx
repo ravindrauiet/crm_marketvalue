@@ -14,6 +14,7 @@ type ItemDetail = {
   poQtyPcs: number;
   deliveredQtyPcs: number;
   shortageQtyPcs: number;
+  excessQtyPcs: number;
   unitPrice: number;
   poTotalPrice: number;
   billedTotalPrice: number;
@@ -49,7 +50,9 @@ type ReportRow = {
   deliveryValueInRs: number;
   totalPaymentsReceived: number;
   netPendingBalance: number;
-  setOffStatus: 'FULLY_SET_OFF' | 'PARTIAL_PAID' | 'UNPAID';
+  setOffStatus: SetOffStatus;
+  unmatchedBilledValue: number;
+  warnings: string[];
   paymentInstallments: PaymentInstallment[];
   installmentCount: number;
   poQtyPcs: number;
@@ -75,19 +78,23 @@ type ReportSummary = {
   openPOs: number;
   totalPOValue: number;
   totalBilledValue: number;
+  unmatchedBilledValue: number;
+  posWithWarnings: number;
   totalPOQty: number;
   totalDeliveredQty: number;
   overallValueFillRatePct: number;
   overallQtyFillRatePct: number;
 };
 
-const CHAINS = ['ALL', 'RELIANCE', 'SWIGGY', 'ZEPTO', 'BIGBASKET', 'BLINKIT', 'FLIPKART', 'DMART', 'CITYMALL', 'DEERIKA', 'VISHAL', 'OTHER'];
-const BRANDS = ['ALL', 'HEALTHY HUNGER', 'MARVEL', 'EASTERN', "MOTHER'S RECIPE", 'DILBAHAR', 'GENERAL'];
+type SetOffStatus = 'FULLY_SET_OFF' | 'PARTIAL_PAID' | 'UNPAID' | 'NOT_BILLED';
+const SET_OFF_LABEL: Record<SetOffStatus, { text: string; bg: string; color: string }> = {
+  FULLY_SET_OFF: { text: 'Set-off', bg: '#dcfce7', color: '#15803d' },
+  PARTIAL_PAID: { text: 'Partly paid', bg: '#fef3c7', color: '#b45309' },
+  UNPAID: { text: 'Unpaid', bg: '#fee2e2', color: '#b91c1c' },
+  NOT_BILLED: { text: 'Not billed', bg: '#f1f5f9', color: '#475569' },
+};
 const STATUSES = ['ALL', 'Full Delivery', 'Part Delivery', 'PO Closed', 'Open / Pending'];
-const MONTHS: Array<[string, string]> = [
-  ['JAN', 'January'], ['FEB', 'February'], ['MAR', 'March'], ['APR', 'April'], ['MAY', 'May'], ['JUN', 'June'],
-  ['JUL', 'July'], ['AUG', 'August'], ['SEP', 'September'], ['OCT', 'October'], ['NOV', 'November'], ['DEC', 'December'],
-];
+const localDay = (d: Date) => d.toLocaleDateString('en-CA'); // YYYY-MM-DD in the user's timezone
 type RemarkField = 'remarks1' | 'remarks2' | 'remarks3' | 'remarks4';
 
 type SaleItemRow = {
@@ -117,9 +124,13 @@ export default function POFillRateReportPage() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 1);
-    return d.toISOString().split('T')[0];
+    return localDay(d);
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => localDay(new Date()));
+  // Filter choices come from the data (every chain with POs, brands and expiry months in range)
+  const [chainOptions, setChainOptions] = useState<string[]>([]);
+  const [brandOptions, setBrandOptions] = useState<string[]>([]);
+  const [monthOptions, setMonthOptions] = useState<string[]>([]);
   const [search, setSearch] = useState('');
 
   // UI View States
@@ -157,7 +168,7 @@ export default function POFillRateReportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ poId, [field]: val }),
       });
-      const data = await readJson(res, 'the upload');
+      const data = await readJson(res, 'the remark');
       if (!res.ok) throw new Error(data.error || 'Save failed');
       setRows(prev => prev.map(r => r.id === poId ? { ...r, [field]: val.trim() } : r));
       setRemarkSaveStatus(prev => ({ ...prev, [key]: 'saved' }));
@@ -199,7 +210,7 @@ export default function POFillRateReportPage() {
       if (saleTo) params.set('to', saleTo);
       if (saleSearch) params.set('search', saleSearch);
       const res = await fetch(`/api/po/reconciliation-report/sale-items?${params.toString()}`);
-      const data = await readJson(res, 'the upload');
+      const data = await readJson(res, 'the sale invoice list');
       if (!res.ok) throw new Error(data.error || 'Failed to load sale invoice items');
       setSaleRows(data.rows || []);
       setSaleTotals(data.totals || { invoices: 0, lines: 0, quantity: 0, amount: 0 });
@@ -255,11 +266,14 @@ export default function POFillRateReportPage() {
       if (search) params.set('search', search);
 
       const res = await fetch(`/api/po/reconciliation-report?${params.toString()}`);
-      const data = await readJson(res, 'the upload');
+      const data = await readJson(res, 'the report');
       if (!res.ok) throw new Error(data.error || 'Failed to load report');
 
       setRows(data.rows || []);
       setSummary(data.summary || null);
+      setChainOptions(data.availableChains || []);
+      setBrandOptions(data.availableBrands || []);
+      setMonthOptions(data.availableMonths || []);
       setEditedRemarks({});
       setRemarkSaveStatus({});
       if (data.uploadedDatesMap) {
@@ -375,6 +389,7 @@ export default function POFillRateReportPage() {
         'PO Number': r.poNumber,
         'FC / DC Location': r.dcLocation,
         'PO Date': r.poDate,
+        'PO Expiry Date': r.poExpDate,
         'PO Exp Month': r.poExpMonth,
         'PO Status': r.poStatus,
         'PO Value (Rs.)': r.poValueInRs,
@@ -383,7 +398,13 @@ export default function POFillRateReportPage() {
         'PO Delivered Qty (Pcs)': r.deliveredQtyPcs,
         'Invoice Date': r.invoiceDate,
         'Invoice No': r.invoiceNo,
-        'Fill Rate %': `${r.fillRatePct}%`,
+        'Fill Rate % (Value)': `${r.fillRateValuePct}%`,
+        'Fill Rate % (Qty)': `${r.fillRateQtyPct}%`,
+        'Billed For Items Not On PO (Rs.)': Math.round(r.unmatchedBilledValue),
+        'Payments Received (Rs.)': r.totalPaymentsReceived,
+        'Pending Balance (Rs.)': r.netPendingBalance,
+        'Set-Off Status': SET_OFF_LABEL[r.setOffStatus].text,
+        'Data Check': r.warnings.join('; '),
         'REMARKS 1': r1,
         'REMARKS 2': r2,
         'REMARKS 3': r3,
@@ -570,7 +591,7 @@ export default function POFillRateReportPage() {
           {/* 1. Date Range Picker (1 Year Filter) */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              From Date (1-Year Filter)
+              PO date from
             </label>
             <input
               type="date"
@@ -583,7 +604,7 @@ export default function POFillRateReportPage() {
 
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              To Date
+              PO date to
             </label>
             <input
               type="date"
@@ -597,7 +618,7 @@ export default function POFillRateReportPage() {
           {/* 2. Month Selector */}
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 4 }}>
-              Expiry / PO Month
+              PO expiry month
             </label>
             <select
               className="input"
@@ -606,8 +627,8 @@ export default function POFillRateReportPage() {
               style={{ padding: '8px 12px', fontSize: 13 }}
             >
               <option value="ALL">All Months</option>
-              {MONTHS.map(([code, name]) => (
-                <option key={code} value={code}>{code} ({name})</option>
+              {monthOptions.map(m => (
+                <option key={m} value={m}>{m}</option>
               ))}
             </select>
           </div>
@@ -623,8 +644,9 @@ export default function POFillRateReportPage() {
               onChange={e => setSelectedChain(e.target.value)}
               style={{ padding: '8px 12px', fontSize: 13 }}
             >
-              {CHAINS.map(c => (
-                <option key={c} value={c}>{c === 'ALL' ? 'All Retail Chains' : c}</option>
+              <option value="ALL">All Retail Chains</option>
+              {chainOptions.map(c => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
@@ -640,8 +662,9 @@ export default function POFillRateReportPage() {
               onChange={e => setSelectedBrand(e.target.value)}
               style={{ padding: '8px 12px', fontSize: 13 }}
             >
-              {BRANDS.map(b => (
-                <option key={b} value={b}>{b === 'ALL' ? 'All Brands' : b}</option>
+              <option value="ALL">All Brands</option>
+              {brandOptions.map(b => (
+                <option key={b} value={b}>{b}</option>
               ))}
             </select>
           </div>
@@ -670,9 +693,10 @@ export default function POFillRateReportPage() {
           <input
             type="text"
             className="input"
-            placeholder="Search by PO Number, Invoice #, Brand, DC Location, Item Code, Remarks..."
+            placeholder="Search by PO Number, Invoice #, Brand, DC Location, Item Code / Name, Remarks... (press Enter)"
             value={search}
             onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') fetchReport(); }}
             style={{ padding: '9px 14px', fontSize: 13 }}
           />
           <button onClick={fetchReport} className="btn primary" style={{ fontSize: 13, padding: '8px 16px' }}>
@@ -686,7 +710,7 @@ export default function POFillRateReportPage() {
         <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', alignSelf: 'center', marginRight: 4 }}>
           Brand Tabs:
         </span>
-        {BRANDS.map(brand => (
+        {['ALL', ...brandOptions].map(brand => (
           <button
             key={brand}
             onClick={() => setSelectedBrand(brand)}
@@ -843,6 +867,7 @@ export default function POFillRateReportPage() {
 
             const isUploaded = !!day.uploadedData;
             const stats = day.uploadedData;
+            const isFuture = day.dateKey > localDay(new Date());
 
             return (
               <div
@@ -878,7 +903,7 @@ export default function POFillRateReportPage() {
                     }}>
                       ✓ Uploaded
                     </span>
-                  ) : (
+                  ) : isFuture ? null : (
                     <span style={{ fontSize: 10, color: '#94a3b8' }}>Pending</span>
                   )}
                 </div>
@@ -888,7 +913,7 @@ export default function POFillRateReportPage() {
                     <div>{stats.invoicesCount} Invoices</div>
                     <div style={{ fontSize: 9, color: '#047857' }}>₹{stats.totalAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
                   </div>
-                ) : (
+                ) : isFuture ? null : (
                   <div style={{ fontSize: 9, color: '#cbd5e1', marginTop: 4 }}>No report</div>
                 )}
               </div>
@@ -910,6 +935,11 @@ export default function POFillRateReportPage() {
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
               Billed: <strong style={{ color: '#16a34a' }}>₹{summary.totalBilledValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
+            {summary.unmatchedBilledValue > 0 && (
+              <div style={{ fontSize: 11.5, color: '#b45309', marginTop: 2 }} title="Tally invoice lines booked against a PO whose item is not on that PO. Check the Order No. in Tally or the item mapping.">
+                incl. ₹{Math.round(summary.unmatchedBilledValue).toLocaleString('en-IN')} for items not on the PO
+              </div>
+            )}
           </div>
 
           <div className="card" style={{ padding: 18, borderLeft: '4px solid #16a34a', background: '#fff' }}>
@@ -920,6 +950,7 @@ export default function POFillRateReportPage() {
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
               Qty Fill Rate: <strong>{summary.overallQtyFillRatePct}%</strong>
             </div>
+            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>Each line counts up to its ordered qty</div>
           </div>
 
           <div className="card" style={{ padding: 18, borderLeft: '4px solid #8b5cf6', background: '#fff' }}>
@@ -940,6 +971,9 @@ export default function POFillRateReportPage() {
             <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
               <span style={{ color: '#16a34a', fontWeight: 600 }}>{summary.deliveredPOs} Full</span> • <span style={{ color: '#d97706', fontWeight: 600 }}>{summary.partDeliveredPOs ?? 0} Part</span> • <span style={{ color: '#dc2626', fontWeight: 600 }}>{summary.closedPOs} Closed</span> • <span>{summary.openPOs} Open</span>
             </div>
+            {summary.posWithWarnings > 0 && (
+              <div style={{ fontSize: 11.5, color: '#b45309', marginTop: 2 }}>{summary.posWithWarnings} PO(s) need a data check (⚠ next to the PO number)</div>
+            )}
           </div>
 
         </div>
@@ -1014,7 +1048,7 @@ export default function POFillRateReportPage() {
             <div style={{ padding: 20, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 8 }}>{saleError}</div>
           ) : saleRows.length === 0 ? (
             <div style={{ padding: 48, textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-              No sale invoices uploaded for this date range. Use "Upload Daily Sale Invoice" to upload the Tally sale report.
+              No sale invoices uploaded for this date range. Use "Upload daily sale invoices" at the top of the page to upload the Tally sale report.
             </div>
           ) : (
             <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
@@ -1074,12 +1108,12 @@ export default function POFillRateReportPage() {
                 <th style={{ padding: '10px 12px' }}>PO No</th>
                 <th style={{ padding: '10px 12px' }}>FC / Location</th>
                 <th style={{ padding: '10px 12px' }}>PO Date</th>
-                <th style={{ padding: '10px 12px' }}>Exp Month</th>
+                <th style={{ padding: '10px 12px' }}>Expiry</th>
                 <th style={{ padding: '10px 12px' }}>PO Status</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO Value (₹)</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERD VALUE</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERED VALUE</th>
                 <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO QUANTITY</th>
-                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERD QTY.</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right' }}>PO DELIVERED QTY.</th>
                 <th style={{ padding: '10px 12px' }}>INVOICE DATE</th>
                 <th style={{ padding: '10px 12px' }}>Invoice No</th>
                 <th style={{ padding: '10px 12px', textAlign: 'center' }}>Fill Rate %</th>
@@ -1121,8 +1155,11 @@ export default function POFillRateReportPage() {
                         {r.brand}
                       </td>
 
-                      <td style={{ padding: '10px 12px', fontWeight: 700, fontFamily: 'monospace' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
                         {r.poNumber}
+                        {r.warnings.length > 0 && (
+                          <span title={r.warnings.join('\n')} aria-label={'Data check: ' + r.warnings.join('; ')} style={{ marginLeft: 6, color: '#b45309', cursor: 'help', fontFamily: 'inherit' }}>⚠</span>
+                        )}
                       </td>
 
                       <td style={{ padding: '10px 12px', color: '#475569' }}>
@@ -1133,8 +1170,8 @@ export default function POFillRateReportPage() {
                         {r.poDate}
                       </td>
 
-                      <td style={{ padding: '10px 12px', fontWeight: 600, color: '#475569' }}>
-                        {r.poExpMonth}
+                      <td style={{ padding: '10px 12px', color: '#475569', whiteSpace: 'nowrap' }} title={r.poExpMonth}>
+                        {r.poExpDate || '—'}
                       </td>
 
                       <td style={{ padding: '10px 12px' }}>
@@ -1191,6 +1228,7 @@ export default function POFillRateReportPage() {
                         }}>
                           {r.fillRatePct}%
                         </span>
+                        <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }} title="Quantity fill rate">Qty {r.fillRateQtyPct}%</div>
                       </td>
 
                       {/* [5] REMARKS 1 (ITEM NOT SUPPLY FROM BRAND) */}
@@ -1336,7 +1374,7 @@ export default function POFillRateReportPage() {
                                     <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: item.itemFillRatePct >= 90 ? '#16a34a' : '#d97706' }}>
                                       {item.itemFillRatePct}%
                                     </td>
-                                    <td style={{ padding: '6px 10px', color: item.itemRemark.includes('Short') || item.itemRemark.includes('NOT BILLED') ? '#b91c1c' : '#16a34a' }}>
+                                    <td style={{ padding: '6px 10px', color: /Short|Not billed|Over-billed/.test(item.itemRemark) ? '#b91c1c' : item.itemRemark === 'Awaiting delivery' ? '#64748b' : '#16a34a' }}>
                                       {item.itemRemark}
                                     </td>
                                   </tr>
@@ -1433,7 +1471,7 @@ export default function POFillRateReportPage() {
                   <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 700, color: item.itemFillRatePct >= 90 ? '#16a34a' : '#d97706' }}>
                     {item.itemFillRatePct}%
                   </td>
-                  <td style={{ padding: '10px 12px', color: item.itemRemark.includes('Short') || item.itemRemark.includes('NOT BILLED') ? '#b91c1c' : '#16a34a', fontSize: 11 }}>
+                  <td style={{ padding: '10px 12px', color: /Short|Not billed|Over-billed/.test(item.itemRemark) ? '#b91c1c' : item.itemRemark === 'Awaiting delivery' ? '#64748b' : '#16a34a', fontSize: 11 }}>
                     {item.itemRemark}
                   </td>
                 </tr>
@@ -1486,10 +1524,10 @@ export default function POFillRateReportPage() {
                       borderRadius: 12,
                       fontSize: 11,
                       fontWeight: 700,
-                      background: inst.setOffStatus === 'FULLY_SET_OFF' ? '#dcfce7' : '#fef3c7',
-                      color: inst.setOffStatus === 'FULLY_SET_OFF' ? '#15803d' : '#b45309'
+                      background: SET_OFF_LABEL[inst.setOffStatus as SetOffStatus].bg,
+                      color: SET_OFF_LABEL[inst.setOffStatus as SetOffStatus].color
                     }}>
-                      {inst.setOffStatus === 'FULLY_SET_OFF' ? 'Set-Off' : 'Partial'}
+                      {SET_OFF_LABEL[inst.setOffStatus as SetOffStatus].text}
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', color: '#475569', fontSize: 11 }}>{inst.narration}</td>

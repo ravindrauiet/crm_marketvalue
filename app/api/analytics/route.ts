@@ -1,87 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSalesAnalytics, getStockAnalytics, getRecentActivity } from '@/lib/analytics';
+import { getAnalytics, getSalesAnalytics, getStockAnalytics, getRecentActivity } from '@/lib/analytics';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
+// ?type=sales|stock|activity (default: all) · ?month=YYYY-MM|latest|all (sales only)
 export async function GET(req: NextRequest) {
-  const searchParams = req.nextUrl.searchParams;
-  const type = searchParams.get('type') || 'all';
-  
-  const startDate = searchParams.get('startDate') ? new Date(searchParams.get('startDate')!) : undefined;
-  const endDate = searchParams.get('endDate') ? new Date(searchParams.get('endDate')!) : undefined;
+  const type = req.nextUrl.searchParams.get('type') || 'all';
+  const month = req.nextUrl.searchParams.get('month') || 'all';
 
   try {
-    if (type === 'sales') {
-      try {
-        const analytics = await getSalesAnalytics(startDate, endDate);
-        return NextResponse.json(analytics);
-      } catch (error: any) {
-        // Return empty data if Order table doesn't exist
-        return NextResponse.json({
-          totalRevenue: 0,
-          totalOrders: 0,
-          totalItems: 0,
-          averageOrderValue: 0,
-          topProducts: []
-        });
-      }
-    }
-    
-    if (type === 'stock') {
-      try {
-        const analytics = await getStockAnalytics();
-        return NextResponse.json(analytics);
-      } catch (error: any) {
-        // Return basic data if columns don't exist
-        return NextResponse.json({
-          totalValue: 0,
-          totalProducts: 0,
-          lowStockCount: 0,
-          lowStockProducts: []
-        });
-      }
-    }
-    
-    if (type === 'activity') {
-      try {
-        const activity = await getRecentActivity();
-        return NextResponse.json(activity);
-      } catch (error: any) {
-        return NextResponse.json({
-          recentOrders: [],
-          recentTransactions: []
-        });
-      }
-    }
-
-    // Return all analytics
-    const [sales, stock, activity] = await Promise.all([
-      getSalesAnalytics(startDate, endDate).catch(() => ({
-        totalRevenue: 0,
-        totalOrders: 0,
-        totalItems: 0,
-        averageOrderValue: 0,
-        topProducts: []
-      })),
-      getStockAnalytics().catch(() => ({
-        totalValue: 0,
-        totalProducts: 0,
-        lowStockCount: 0,
-        lowStockProducts: []
-      })),
-      getRecentActivity().catch(() => ({
-        recentOrders: [],
-        recentTransactions: []
-      }))
-    ]);
-
-    return NextResponse.json({ sales, stock, activity });
+    if (type === 'sales') return NextResponse.json(await getSalesAnalytics(month));
+    if (type === 'stock') return NextResponse.json(await getStockAnalytics());
+    if (type === 'activity') return NextResponse.json(await getRecentActivity());
+    return NextResponse.json(await getAnalytics(month));
   } catch (error: any) {
     console.error('Analytics error:', error);
-    return NextResponse.json({ 
-      error: 'Analytics unavailable. Please run database migration first.',
-      details: error.message 
-    }, { status: 500 });
+    return NextResponse.json({ error: 'Analytics unavailable', details: error.message }, { status: 500 });
   }
 }
-

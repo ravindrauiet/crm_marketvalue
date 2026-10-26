@@ -58,18 +58,18 @@ function sameWord(a: string, b: string): boolean {
   return (2 * common) / (ba.length + bigrams(b).length) >= 0.55;
 }
 
-// Share of distinguishing words in common (0..1), and whether one name's words are all in the other
-function nameScore(a: string, b: string): { score: number; subset: boolean } {
+// Share of distinguishing words in common (0..1), how many are shared, and whether one name's words are all in the other
+function nameScore(a: string, b: string): { score: number; common: number; subset: boolean } {
   const ta = nameTokens(a);
   const tb = nameTokens(b);
-  if (!ta.length || !tb.length) return { score: 0, subset: false };
+  if (!ta.length || !tb.length) return { score: 0, common: 0, subset: false };
   const rest = [...tb];
   let common = 0;
   ta.forEach(t => {
     const i = rest.findIndex(r => sameWord(t, r));
     if (i !== -1) { common++; rest.splice(i, 1); }
   });
-  return { score: (2 * common) / (ta.length + tb.length), subset: common === Math.min(ta.length, tb.length) };
+  return { score: (2 * common) / (ta.length + tb.length), common, subset: common === Math.min(ta.length, tb.length) };
 }
 
 export type PoItemForMatch = { chainItemName: string; tallyItemName?: string | null; unitPrice?: number };
@@ -90,12 +90,17 @@ export function itemMatchScore(po: PoItemForMatch, billed: BilledItemForMatch): 
   const byChain = nameScore(po.chainItemName, billed.itemName);
   const byTally = nameScore(po.tallyItemName || '', billed.itemName);
   const { score, subset } = byTally.score > byChain.score ? byTally : byChain;
+  const common = Math.max(byChain.common, byTally.common);
   const rateClose = !!po.unitPrice && !!billed.rate && Math.abs(po.unitPrice - billed.rate) / po.unitPrice <= 0.05;
+  const rateSame = !!po.unitPrice && !!billed.rate && Math.abs(po.unitPrice - billed.rate) <= Math.max(0.05, po.unitPrice * 0.005);
 
   // "Mango Pickle" vs "Mixed Pickle" share half their words but are different items
   if (score >= 0.6 || (subset && score >= 0.5)) {
     return score + (sizeEqual ? 0.2 : 0) + (rateClose ? 0.1 : 0);
   }
+  // Long marketplace titles ("MTR Rice Idli Mix - Breakfast Mix | Quick Breakfast | … 500g") dilute the word
+  // score; the same billed price plus a shared distinguishing word is still the same item
+  if (rateSame && common >= 1) return 0.55 + (sizeEqual ? 0.2 : 0);
   return 0;
 }
 

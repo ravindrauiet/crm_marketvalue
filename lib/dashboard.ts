@@ -2,10 +2,10 @@ import { prisma } from './prisma';
 import { getStockStatistics } from './stockStatus';
 import { OCR_BILL_WHERE, SALE_UPLOAD_WHERE } from './billSources';
 
-const CLOSED_PO_STATUSES = ['REMOVED', 'CLOSED', 'PO CLOSED', 'CANCELLED', 'COMPLETED', 'DELIVERED'];
+export const CLOSED_PO_STATUSES = ['REMOVED', 'CLOSED', 'PO CLOSED', 'CANCELLED', 'COMPLETED', 'DELIVERED'];
 
 /** Short display name for a chain party, e.g. "Flipkart India Private Limited" -> "Flipkart India" */
-function shortParty(name: string) {
+export function shortParty(name: string) {
   return name
     .replace(/\b(private|pvt\.?|limited|ltd\.?|llp|india)\b/gi, '')
     .replace(/[.,]/g, ' ')

@@ -88,8 +88,9 @@ export function cleanPoNumber(po: string): string {
 
 // ─── Spreadsheet helpers ────────────────────────────────────────────────────
 
-function sheetRows(buf: Buffer): any[][] {
-  const wb = XLSX.read(buf, { type: 'buffer' });
+// raw: keep CSV cells as the original text (SheetJS shifts CSV date-times like "2026-10-29 23:59:59" into the next day)
+function sheetRows(buf: Buffer, raw = false): any[][] {
+  const wb = XLSX.read(buf, { type: 'buffer', raw });
   const ws = wb.Sheets[wb.SheetNames[0]];
   return XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
 }
@@ -649,6 +650,63 @@ export function parseZeptoPdf(text: string): ParsedPO {
   };
 }
 
+// ─── Zepto CSV / Excel (vendor portal export) ───────────────────────────────
+
+const zeptoHeader = (rows: any[][]) => (rows[0] || []).map(c => clean(c).toLowerCase());
+
+export function isZeptoPoSheet(rows: any[][]): boolean {
+  const head = zeptoHeader(rows);
+  return ['ponumber', 'skudesc', 'quantity', 'unitbasecost'].every(h => head.includes(h));
+}
+
+/** One file can hold several POs (one row per line, PoNumber repeated); returns one ParsedPO each */
+export function parseZeptoSheet(rows: any[][]): ParsedPO[] {
+  const head = zeptoHeader(rows);
+  const col = (n: string) => head.indexOf(n);
+  const c = {
+    po: col('ponumber'), store: col('storename'), date: col('podate'), expiry: col('poexpirydate'),
+    loc: col('deliverylocation'), total: col('pototalamount'), code: col('materialcode'), desc: col('skudesc'),
+    ean: col('ean'), hsn: col('hsn'), mrp: col('mrp'), qty: col('quantity'), base: col('unitbasecost'),
+  };
+
+  const byPo = new Map<string, ParsedPO>();
+  for (const row of rows.slice(1)) {
+    const poNumber = clean(row[c.po]);
+    if (!/^P\d+$/i.test(poNumber)) continue;
+    let po = byPo.get(poNumber);
+    if (!po) {
+      const store = clean(row[c.store]);
+      const loc = c.loc >= 0 ? clean(row[c.loc]) : '';
+      const dcName = loc ? `${store} (${loc})` : store;
+      po = {
+        chain: 'ZEPTO', parser: 'zepto-sheet', poNumber,
+        // Text from CSV, or a serial number from an .xlsx export; parseDate handles both
+        poDate: iso(parseDate(row[c.date])),
+        deliveryDate: c.expiry >= 0 ? iso(parseDate(row[c.expiry])) : null,
+        shipTo: dcName, dcName, items: [],
+        docTaxableTotal: null,
+        // PoTotalAmount is the landing (GST-inclusive) value
+        docGrandTotal: c.total >= 0 ? toNumber(row[c.total]) : null,
+        warnings: [],
+      };
+      byPo.set(poNumber, po);
+    }
+    const qty = toNumber(row[c.qty]) ?? 0;
+    const base = toNumber(row[c.base]) ?? 0;
+    po.items.push({
+      chainItemCode: clean(row[c.code]) || clean(row[c.ean]),
+      eanCode: c.ean >= 0 ? clean(row[c.ean]) : '',
+      chainItemName: clean(row[c.desc]),
+      hsnCode: c.hsn >= 0 ? clean(row[c.hsn]) : undefined,
+      quantityPcs: Math.round(qty),
+      unitPrice: round2(base),
+      totalPrice: round2(qty * base),
+      mrp: c.mrp >= 0 ? toNumber(row[c.mrp]) ?? undefined : undefined,
+    });
+  }
+  return Array.from(byPo.values());
+}
+
 // ─── Reliance (RCCL / Metro) PDF ────────────────────────────────────────────
 
 export function isReliancePoText(text: string) {
@@ -711,6 +769,10 @@ export function parseKnownPoSpreadsheet(buf: Buffer): ParsedPO[] | null {
   if (isFlipkartPoSheet(rows)) return [withTotalCheck(parseFlipkartExcel(rows))];
   if (isAmazonPoSheet(rows)) return parseAmazonExcel(rows).map(withTotalCheck);
   if (isBigBasketPoSheet(rows)) return [withTotalCheck(parseBigBasketExcel(rows))];
+  if (isZeptoPoSheet(rows)) {
+    const pos = parseZeptoSheet(sheetRows(buf, true));
+    return pos.length ? pos.map(withTotalCheck) : null;
+  }
   return null;
 }
 

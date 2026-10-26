@@ -66,7 +66,8 @@ export function parseDate(v: unknown): Date | null {
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   if (typeof v === 'number') {
     if (v > 20000 && v < 80000) {
-      const p = XLSX.SSF.parse_date_code(v);
+      // Whole days only: a time of 23:59:59 must not round up into the next day
+      const p = XLSX.SSF.parse_date_code(Math.floor(v));
       if (p) return utcDate(p.y, p.m - 1, p.d);
     }
     return null;
@@ -103,8 +104,8 @@ export function parseDate(v: unknown): Date | null {
     if (mon !== undefined) return utcDate(+m[3], mon, +m[1]);
   }
 
-  // Aug 23, 2026
-  m = s.match(/^([A-Za-z]{3,9})[\s\-]+(\d{1,2}),?[\s\-]+(\d{4})$/);
+  // Aug 23, 2026 · Blinkit "Aug. 10, 2026, 12:26 p.m." (trailing time ignored)
+  m = s.match(/^([A-Za-z]{3,9})\.?[\s\-]+(\d{1,2}),?[\s\-]+(\d{4})(?:,?\s+\d{1,2}:\d{2}.*)?$/);
   if (m) {
     const mon = MONTHS[m[1].toLowerCase().slice(0, 3)];
     if (mon !== undefined) return utcDate(+m[3], mon, +m[2]);

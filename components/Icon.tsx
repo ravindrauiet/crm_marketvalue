@@ -26,6 +26,9 @@ const PATHS: Record<string, string> = {
   check: 'M20 6 9 17l-5-5',
   clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
   plus: 'M12 5v14M5 12h14',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
+  book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5zM4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5',
+  chevronDown: 'm6 9 6 6 6-6',
 };
 
 export type IconName = keyof typeof PATHS;

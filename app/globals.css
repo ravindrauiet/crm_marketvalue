@@ -943,3 +943,350 @@ label.btn.secondary {
   .sidebar-group + .sidebar-group { margin-top: 6px; }
   .sidebar-group-title { padding: 4px 10px 2px; }
 }
+
+/* ─── Dashboard help & onboarding ───────────────────────────────── */
+/* Explanations are visible by default; HelpToggle sets html[data-help="off"] to hide them */
+html[data-help='off'] .help-only,
+html[data-help='off'] .help-text {
+  display: none !important;
+}
+
+.help-text {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 4px;
+}
+
+.section-help {
+  margin: 0 0 10px;
+}
+
+.card-help {
+  margin: -6px 0 14px;
+}
+
+.kpi-help {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.alert-why {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.85;
+  margin-top: 1px;
+}
+
+.bar-share {
+  display: inline-block;
+  min-width: 38px;
+  margin-left: 6px;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Getting-started workflow */
+.guide {
+  margin-bottom: 20px;
+  background: linear-gradient(180deg, var(--primary-soft), var(--panel) 70%);
+  border-color: #bfdbfe;
+}
+
+.guide .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.guide-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
+  gap: 12px;
+}
+
+.guide-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.guide-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  margin-bottom: 4px;
+}
+
+.guide-step-title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.guide-step-text {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.guide-step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Quick actions */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+  gap: 10px;
+}
+
+.action-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.action-card:hover {
+  border-color: #bfdbfe;
+  background: var(--primary-soft);
+  color: inherit;
+}
+
+.action-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+}
+
+.action-title {
+  display: block;
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.action-text {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Module guide */
+.module-guide {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.module-group {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.module-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.module-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 7px 8px;
+  margin: 0 -8px;
+  border-radius: var(--radius-sm);
+}
+
+.module-item svg {
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+
+.module-item:hover {
+  background: var(--bg-secondary);
+  color: inherit;
+}
+
+.module-name {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.module-hint {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Glossary */
+.glossary {
+  margin: 0;
+}
+
+.glossary-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.glossary-row:first-child {
+  padding-top: 0;
+}
+
+.glossary-row:last-child {
+  border-bottom: 0;
+}
+
+.glossary dt {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.glossary dd {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* ─── Analytics ─────────────────────────────────────────────────── */
+.period-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.period-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.period-pill {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.period-pill:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.period-pill.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.bar-link {
+  border-radius: var(--radius-sm);
+}
+
+.bar-link:hover {
+  color: inherit;
+}
+
+.bar-link.dim .bar-fill {
+  opacity: 0.35;
+}
+
+.stack-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stack-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stack-item:last-child {
+  border-bottom: 0;
+}
+
+.stack-title {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.stack-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tx-mark {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.tx-mark.success { background: var(--success-bg); color: var(--success); }
+.tx-mark.error { background: var(--error-bg); color: var(--error); }
+.tx-mark.info { background: var(--info-bg); color: var(--info); }
