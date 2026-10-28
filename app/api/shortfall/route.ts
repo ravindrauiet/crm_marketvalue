@@ -1,146 +1,156 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isObjectId } from '@/lib/validation';
+import { SALE_UPLOAD_WHERE, poNumberFromSaleNotes } from '@/lib/billSources';
+import { cleanPoNumber } from '@/lib/poParsers';
+import { assignBilledLines, normPo } from '@/lib/poDelivery';
+import { makeMappingFinder } from '@/lib/mappingLookup';
+
+// Tally names carry stray double spaces ("Hing)  120 x 50g"); compare on a normalised key
+const nameKey = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+export type ShortfallStatus = 'SHORT' | 'OK' | 'DELIVERED' | 'NOT_MAPPED' | 'NO_STOCK_RECORD';
 
 // POST /api/shortfall
 // Body: { poIds: string[] }
-// Returns: detailed shortfall list with 16 fields per item
+// Per PO line: quantity still to deliver (ordered − already billed in Tally), stock allocated to it
+// (most urgent PO first) and the shortfall to order from the company, plus the same shortfall
+// combined per company item for the order sheet.
 export async function POST(req: NextRequest) {
   try {
-    const { poIds } = await req.json();
+    const { poIds } = await req.json().catch(() => ({}));
     if (!Array.isArray(poIds) || poIds.length === 0) {
-      return NextResponse.json({ error: 'poIds array is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Select at least one PO' }, { status: 400 });
     }
     if (!poIds.every(isObjectId)) {
       return NextResponse.json({ error: 'poIds contains an invalid id' }, { status: 400 });
     }
 
-    // Fetch all selected POs, earliest appointment first so stock is allocated to the most urgent PO
-    const pos = (await prisma.chainPurchaseOrder.findMany({
-      where: { id: { in: poIds } },
-      include: { items: true }
-    })).sort((a, b) =>
-      (a.appointmentDate?.getTime() ?? a.poDate.getTime()) - (b.appointmentDate?.getTime() ?? b.poDate.getTime())
-    );
+    // Most urgent first (appointment, else expiry, else PO date) so stock goes to the earliest delivery
+    const dueOf = (po: { appointmentDate: Date | null; deliveryDate: Date | null; poDate: Date }) => po.appointmentDate || po.deliveryDate || po.poDate;
+    const pos = (await prisma.chainPurchaseOrder.findMany({ where: { id: { in: poIds } }, include: { items: true } }))
+      .sort((a, b) => dueOf(a).getTime() - dueOf(b).getTime());
 
-    // Get list of unique chain names to fetch mappings efficiently
-    const chainNames = [...new Set(pos.map(po => po.chainName.toUpperCase()))];
-    const mappings = await prisma.itemMapping.findMany({
-      where: { chainName: { in: chainNames }, isActive: true }
+    const [mappings, products, stockRows, saleBills] = await Promise.all([
+      prisma.itemMapping.findMany({ where: { isActive: true } }),
+      prisma.product.findMany({ select: { name: true, sku: true, stocks: { select: { quantity: true, location: true } } } }),
+      prisma.stock.aggregate({ _count: { _all: true }, _max: { updatedAt: true } }),
+      prisma.purchaseBill.findMany({
+        where: { AND: [SALE_UPLOAD_WHERE, { OR: pos.map(po => ({ notes: { startsWith: `PO:${cleanPoNumber(po.poNumber)}` } })) }] },
+        include: { items: true },
+      }),
+    ]);
+
+    const findMapping = makeMappingFinder(mappings);
+
+    const stockByKey = new Map<string, { qty: number; locations: string }>();
+    products.forEach(p => {
+      const entry = {
+        qty: p.stocks.reduce((s, st) => s + st.quantity, 0),
+        locations: [...new Set(p.stocks.map(st => st.location).filter(Boolean))].join(', '),
+      };
+      [p.name, p.sku].forEach(k => { if (k) stockByKey.set(nameKey(k), entry); });
     });
 
-    // Helper to find mapping in memory
-    const findMapping = (chainName: string, code: string, name: string) => {
-      const c = code.trim().toLowerCase();
-      const n = name.trim().toLowerCase();
-      
-      // Match by code or eanCode first
-      if (c) {
-        const m = mappings.find(m => m.chainName === chainName && (
-          m.chainItemCode.toLowerCase() === c || 
-          (m.eanCode && m.eanCode.toLowerCase() === c)
-        ));
-        if (m) return m;
-      }
-      // Match by name if code fails or is empty
-      if (n) {
-        const m = mappings.find(m => m.chainName === chainName && m.chainItemName.toLowerCase() === n);
-        if (m) return m;
-      }
-      return null;
-    };
+    const billsByPo = new Map<string, typeof saleBills>();
+    saleBills.forEach(b => {
+      const k = normPo(poNumberFromSaleNotes(b.notes));
+      if (k) billsByPo.set(k, [...(billsByPo.get(k) || []), b]);
+    });
 
-    // Collect all unique Tally item names to query stock in one go
-    const tallyNames = new Set<string>();
-    for (const po of pos) {
-      for (const item of po.items) {
-        const mapping = findMapping(po.chainName.toUpperCase(), item.chainItemCode || '', item.chainItemName || '');
-        const tallyName = mapping?.tallyItemName || item.tallyItemName || item.chainItemName;
-        if (tallyName) tallyNames.add(tallyName);
-      }
-    }
+    const remaining = new Map<string, number>(); // stock left after earlier lines took theirs
+    const shortfallItems = pos.flatMap(po => {
+      const chain = po.chainName.toUpperCase();
+      const lines = po.items.map(item => {
+        const mapping = findMapping(chain, item.chainItemCode || '', item.eanCode || '', item.chainItemName || '');
+        return { item, mapping, tallyItemName: mapping?.tallyItemName || item.tallyItemName || '' };
+      });
+      const { byItem: delivered } = assignBilledLines(
+        lines.map(l => ({ chainItemName: l.item.chainItemName, tallyItemName: l.tallyItemName, unitPrice: l.item.unitPrice })),
+        billsByPo.get(normPo(cleanPoNumber(po.poNumber))) || [],
+      );
 
-    // Fetch stock from database. Matching is case-insensitive (imported SKUs are upper-case,
-    // Tally names in mappings may not be), so keys are normalised to lower case.
-    const wanted = new Set([...tallyNames].map(n => n.trim().toLowerCase()));
-    const products = (await prisma.product.findMany({
-      select: { name: true, sku: true, stocks: { select: { quantity: true, location: true } } }
-    })).filter(p => wanted.has(p.name.trim().toLowerCase()) || (p.sku && wanted.has(p.sku.trim().toLowerCase())));
+      return lines.map(({ item, mapping, tallyItemName }, idx) => {
+        const pcsPerCase = mapping?.pcsPerCase && mapping.pcsPerCase > 0 ? mapping.pcsPerCase : 1;
+        const deliveredPcs = Math.round(delivered[idx].qty);
+        const reqPcs = Math.max(0, item.quantityPcs - deliveredPcs);
+        const key = nameKey(tallyItemName);
+        const stock = key ? stockByKey.get(key) : undefined;
+        if (key && stock && !remaining.has(key)) remaining.set(key, stock.qty);
+        const availableStock = key && stock ? Math.max(0, remaining.get(key)!) : 0;
 
-    const stockMap: Record<string, number> = {};
-    const locationMap: Record<string, string> = {};
+        let status: ShortfallStatus;
+        let shortfallPcs = 0;
+        if (reqPcs === 0) status = 'DELIVERED';
+        else if (!tallyItemName) { status = 'NOT_MAPPED'; shortfallPcs = reqPcs; }
+        else if (!stock) { status = 'NO_STOCK_RECORD'; shortfallPcs = reqPcs; }
+        else {
+          shortfallPcs = Math.max(0, reqPcs - availableStock);
+          status = shortfallPcs > 0 ? 'SHORT' : 'OK';
+          // Reserve what this line uses so the same stock isn't offered to the next PO
+          remaining.set(key, Math.max(0, availableStock - reqPcs));
+        }
 
-    for (const p of products) {
-      const totalStock = p.stocks.reduce((sum, s) => sum + s.quantity, 0);
-      const locs = p.stocks.map(s => s.location).filter(Boolean);
-      const locDisplay = locs.length > 0 ? locs.join(', ') : 'TOTAL';
-      for (const key of [p.name, p.sku]) {
-        if (!key) continue;
-        const k = key.trim().toLowerCase();
-        stockMap[k] = totalStock;
-        locationMap[k] = locDisplay;
-      }
-    }
-
-    // Stock still available after earlier PO lines have been allocated
-    const remainingStock: Record<string, number> = { ...stockMap };
-
-    // Construct shortfall item rows
-    const shortfallItems = [];
-    for (const po of pos) {
-      for (const item of po.items) {
-        const mapping = findMapping(po.chainName.toUpperCase(), item.chainItemCode || '', item.chainItemName || '');
-        const tallyName = mapping?.tallyItemName || item.tallyItemName || item.chainItemName;
-        const brand = mapping?.brandName || '';
-        const eanCode = mapping?.eanCode || '';
-        const companyItemCode = mapping?.companyItemCode || '';
-        const companyItemName = mapping?.companyItemName || '';
-        const pcsPerCase = mapping?.pcsPerCase || 1;
-
-        const reqPcs = item.quantityPcs;
-        const reqCase = reqPcs / pcsPerCase;
-
-        const key = (tallyName || '').trim().toLowerCase();
-        const availableStock = remainingStock[key] || 0;
-        const location = locationMap[key] || 'TOTAL';
-
-        const shortfallPcs = Math.max(0, reqPcs - availableStock);
-        const shortfallCases = Math.max(0, reqCase - (availableStock / pcsPerCase));
-        // Reserve what this PO line consumes so the same stock isn't offered to the next PO
-        remainingStock[key] = Math.max(0, availableStock - reqPcs);
-        const roundedShortfallCases = Math.round(shortfallCases);
-
-        shortfallItems.push({
+        return {
+          poId: po.id,
           chainItemCode: item.chainItemCode,
           chainItemName: item.chainItemName,
-          chainName: po.chainName,
-          brandName: brand,
-          tallyItemName: tallyName,
-          eanCode,
-          companyItemCode,
-          companyItemName,
+          chainName: chain,
+          brandName: mapping?.brandName || '',
+          tallyItemName,
+          eanCode: item.eanCode || mapping?.eanCode || '',
+          companyItemCode: mapping?.companyItemCode || '',
+          companyItemName: mapping?.companyItemName || '',
           pcsPerCase,
+          caseSizeKnown: !!mapping?.pcsPerCase && mapping.pcsPerCase > 1,
+          orderedPcs: item.quantityPcs,
+          deliveredPcs,
           reqPcs,
-          reqCase,
-          availableStock, // left for this PO after earlier POs were allocated
-          totalStock: stockMap[key] || 0,
+          reqCase: reqPcs / pcsPerCase,
+          availableStock,
+          totalStock: stock?.qty ?? 0,
           shortfallPcs,
-          shortfallCases: roundedShortfallCases, // rounded shortfall cases
-          sourcePo: po.poNumber,
+          // Whole cases only, rounded up so the order covers the shortfall
+          shortfallCases: Math.ceil(shortfallPcs / pcsPerCase),
+          status,
+          sourcePo: cleanPoNumber(po.poNumber),
           appointmentDate: po.appointmentDate ? po.appointmentDate.toISOString() : null,
-          location
-        });
-      }
-    }
+          dueDate: dueOf(po).toISOString(),
+          location: stock?.locations || '',
+        };
+      });
+    });
 
+    // Company order: one line per company item (or Tally item), cases rounded up on the combined shortfall
+    const orderMap = new Map<string, any>();
+    shortfallItems.filter(i => i.status === 'SHORT' || i.status === 'NO_STOCK_RECORD').forEach(i => {
+      const key = (i.companyItemCode || i.tallyItemName).toLowerCase();
+      const o = orderMap.get(key) || {
+        companyItemCode: i.companyItemCode, companyItemName: i.companyItemName, tallyItemName: i.tallyItemName,
+        brandName: i.brandName, eanCode: i.eanCode, pcsPerCase: i.pcsPerCase, caseSizeKnown: i.caseSizeKnown,
+        shortfallPcs: 0, sourcePos: new Set<string>(), earliestDue: i.dueDate,
+      };
+      o.shortfallPcs += i.shortfallPcs;
+      o.sourcePos.add(i.sourcePo);
+      if (i.dueDate < o.earliestDue) o.earliestDue = i.dueDate;
+      orderMap.set(key, o);
+    });
+    const orderLines = [...orderMap.values()]
+      .map(o => ({ ...o, orderCases: Math.ceil(o.shortfallPcs / o.pcsPerCase), sourcePos: [...o.sourcePos] }))
+      .sort((a, b) => a.earliestDue.localeCompare(b.earliestDue) || a.tallyItemName.localeCompare(b.tallyItemName));
+
+    const count = (s: ShortfallStatus) => shortfallItems.filter(i => i.status === s).length;
     return NextResponse.json({
       shortfallItems,
+      orderLines,
       poCount: pos.length,
       totalItems: shortfallItems.length,
-      itemsWithShortfall: shortfallItems.filter(i => i.shortfallPcs > 0).length,
+      itemsWithShortfall: count('SHORT') + count('NO_STOCK_RECORD'),
+      counts: { SHORT: count('SHORT'), OK: count('OK'), DELIVERED: count('DELIVERED'), NOT_MAPPED: count('NOT_MAPPED'), NO_STOCK_RECORD: count('NO_STOCK_RECORD') },
+      stock: { loaded: stockRows._count._all > 0, lastUpdated: stockRows._max.updatedAt },
     });
   } catch (err) {
-    console.error(err);
+    console.error('❌ [SHORTFALL ERROR]', err);
     return NextResponse.json({ error: 'Failed to calculate shortfall' }, { status: 500 });
   }
 }

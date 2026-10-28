@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SALE_UPLOAD_WHERE, poNumberFromSaleNotes } from '@/lib/billSources';
 import { cleanPoNumber, dcNameFromAddress } from '@/lib/poParsers';
-import { bestPoItemIndex } from '@/lib/itemMatch';
+import { assignBilledLines, normPo } from '@/lib/poDelivery';
+import { inferBrand } from '@/lib/brands';
 
 // Money convention: PO values and Tally sale amounts are both ex-GST (taxable) values.
 // Fill rate follows the chains' definition: per line, delivered quantity counts up to the ordered
@@ -21,23 +22,6 @@ function containsToken(text: string, token: string) {
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i').test(text);
 }
-
-/** "PO#P3960925" / "PO P3960925" -> "p3960925" */
-const normPo = (s: string | null | undefined) => (s || '').replace(/^\s*po\s*[#:.-]?\s*/i, '').trim().toLowerCase();
-
-// Brand from item wording when no item mapping names one (checked in order)
-const BRAND_PATTERNS: Array<[RegExp, string]> = [
-  [/HEALTHY HUNGER|HUNGER JAGGERY|JAGGRY/, 'HEALTHY HUNGER'],
-  [/MOTHER'?S RECIPE|\bMOTHERS?\b/, "MOTHER'S RECIPE"],
-  [/\bMTR\b/, 'MTR'],
-  [/\bEASTERN\b/, 'EASTERN'],
-  [/SALSALITO|TEX[\s-]?MEX/, 'SALSALITO'],
-  [/MOM'?S CHOICE/, "MOM'S CHOICE"],
-  [/\bMARVEL\b/, 'MARVEL'],
-  [/DILBAHAR/, 'DILBAHAR'],
-  [/HANDBRAND/, 'HANDBRAND'],
-  [/CAMPAIGN/, 'CAMPAIGN'],
-];
 
 export async function GET(req: NextRequest) {
   try {
@@ -65,8 +49,7 @@ export async function GET(req: NextRequest) {
     const getBrandName = (chainName: string, itemCode: string, itemName: string, eanCode?: string | null): string => {
       const mapItem = mappingMap.get(`${chainName}::${(itemCode || '').toLowerCase()}`) || (eanCode ? mappingMap.get(`EAN::${eanCode.toLowerCase()}`) : undefined);
       if (mapItem?.brandName) return mapItem.brandName.toUpperCase();
-      const text = `${itemName || ''} ${itemCode || ''}`.toUpperCase();
-      return BRAND_PATTERNS.find(([re]) => re.test(text))?.[1] || 'GENERAL';
+      return inferBrand(itemName, itemCode) || 'GENERAL';
     };
 
     const [pos, saleBills, paymentRecos] = await Promise.all([
@@ -143,21 +126,7 @@ export async function GET(req: NextRequest) {
           || (item.eanCode ? mappingMap.get(`EAN::${item.eanCode.toLowerCase()}`) : undefined);
         return { chainItemName: item.chainItemName, tallyItemName: item.tallyItemName || mapItem?.tallyItemName || '', unitPrice: item.unitPrice };
       });
-      const billedByItem = po.items.map(() => ({ qty: 0, amount: 0 }));
-      const unmatchedLines = new Map<string, { qty: number; amount: number }>();
-      matchingBills.forEach(b => b.items.forEach(bi => {
-        const amount = bi.amount || (bi.quantity || 0) * (bi.rate || 0);
-        const idx = bestPoItemIndex(poItemsForMatch, bi);
-        if (idx === -1) {
-          const u = unmatchedLines.get(bi.itemName) || { qty: 0, amount: 0 };
-          u.qty += bi.quantity || 0;
-          u.amount += amount;
-          unmatchedLines.set(bi.itemName, u);
-          return;
-        }
-        billedByItem[idx].qty += bi.quantity || 0;
-        billedByItem[idx].amount += amount;
-      }));
+      const { byItem: billedByItem, unmatched: unmatchedLines } = assignBilledLines(poItemsForMatch, matchingBills);
       const unmatchedBilledValue = [...unmatchedLines.values()].reduce((s, u) => s + u.amount, 0);
 
       const itemDetails = po.items.map((item, itemIdx) => {

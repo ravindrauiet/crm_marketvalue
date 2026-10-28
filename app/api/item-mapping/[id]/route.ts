@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { badRequest, isObjectId, pick } from '@/lib/validation';
+import { normalizeChain } from '@/lib/chains';
 
 const EDITABLE_FIELDS = [
   'chainName', 'chainItemCode', 'chainItemName', 'tallyItemName', 'tallyItemSku',
@@ -19,12 +20,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
     for (const key of Object.keys(data)) {
       if (key === 'pcsPerCase' || key === 'isActive') continue;
-      data[key] = data[key] === null || data[key] === undefined ? null : String(data[key]).trim();
+      data[key] = data[key] === null || data[key] === undefined || String(data[key]).trim() === '' ? null : String(data[key]).trim();
     }
     for (const key of REQUIRED_TEXT) {
       if (key in data && !data[key]) return badRequest(`${key} cannot be blank`);
     }
-    if (data.chainName) data.chainName = data.chainName.toUpperCase();
+    if (data.chainName) data.chainName = normalizeChain(data.chainName);
     if ('pcsPerCase' in data) {
       const pcs = Number(data.pcsPerCase);
       if (!Number.isInteger(pcs) || pcs < 1) return badRequest('Pcs per case must be a whole number of 1 or more');
@@ -42,7 +43,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           chainItemCode: { equals: data.chainItemCode || current.chainItemCode, mode: 'insensitive' },
         }
       });
-      if (clash) return badRequest('Another mapping already uses this chain + item code', 409);
+      if (clash) return badRequest(clash.isActive
+        ? 'Another mapping already uses this chain + item code'
+        : 'A deleted mapping uses this chain + item code. Use “Add mapping” with that code to restore and update it instead.', 409);
     }
 
     const mapping = await prisma.itemMapping.update({

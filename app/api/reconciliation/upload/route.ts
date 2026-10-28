@@ -8,6 +8,8 @@ import * as XLSX from 'xlsx';
 import pdf from 'pdf-parse';
 import { detectRecoChain, parseRecoSpreadsheet } from '@/lib/recoParsers';
 import { parseDate } from '@/lib/validation';
+import { KIND_LABEL, isDeductionKind, matchFields, matchLine, withNotes } from '@/lib/recoMatch';
+import { loadInvoiceIndex } from '@/lib/recoData';
 
 export const runtime = 'nodejs';
 
@@ -291,190 +293,81 @@ export async function POST(req: NextRequest) {
 
     console.log(`ℹ️ [RECO UPLOAD API] Final Auto-Detected Chain: "${detectedChain}"`);
 
-    // Fetch database records for matching & set-off
-    const [invoices, chainPOs, purchaseBills, existingRecos] = await Promise.all([
-      prisma.invoice.findMany({ select: { invoiceNumber: true, totalAmount: true, status: true } }),
-      prisma.chainPurchaseOrder.findMany({ select: { poNumber: true, totalAmount: true, chainName: true } }),
-      prisma.purchaseBill.findMany({ select: { invoiceNumber: true, totalAmount: true, supplierName: true } }),
-      prisma.paymentReco.findMany({ where: { matchStatus: { in: ['UNMATCHED', 'PARTIAL'] } } }),
-    ]);
-
-    // Matching & Set-off logic
-    const autoMatch = (row: any) => {
-      const narr = String(row.narration || '').toLowerCase();
-      const amt = row.creditAmount > 0 ? row.creditAmount : (row.netAmount && Math.abs(row.netAmount) > 0 ? Math.abs(row.netAmount) : Math.abs(row.debitAmount));
-      const poNum = String(row.poNumber || '').trim().toLowerCase();
-      const invNum = String(row.invoiceNumber || row.refDocNo || '').trim().toLowerCase();
-
-      // 1. Match by PO Number
-      if (poNum || narr) {
-        const po = chainPOs.find(p => {
-          if (!p.poNumber) return false;
-          const pNo = p.poNumber.toLowerCase();
-          return (poNum && pNo === poNum) || (pNo.length >= 3 && narr.includes(pNo));
-        });
-        if (po) {
-          const diff = Math.abs(amt - po.totalAmount);
-          return {
-            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
-            matchedPoNumber: po.poNumber,
-            matchedAmount: Math.min(amt, po.totalAmount),
-            pendingAmount: Math.max(0, po.totalAmount - amt),
-            deductionAmount: diff >= 1 ? diff : 0,
-            chainName: po.chainName || detectedChain,
-          };
-        }
-      }
-
-      // 2. Match by Invoice Number
-      if (invNum || narr) {
-        const inv = invoices.find(i => {
-          if (!i.invoiceNumber) return false;
-          const iNo = i.invoiceNumber.toLowerCase();
-          return (invNum && iNo === invNum) || (iNo.length >= 3 && narr.includes(iNo));
-        });
-        if (inv) {
-          const diff = Math.abs(amt - inv.totalAmount);
-          return {
-            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
-            matchedInvoiceNo: inv.invoiceNumber,
-            matchedAmount: Math.min(amt, inv.totalAmount),
-            pendingAmount: Math.max(0, inv.totalAmount - amt),
-            deductionAmount: diff >= 1 ? diff : 0,
-            chainName: detectedChain !== 'OTHER' ? detectedChain : undefined,
-          };
-        }
-
-        const bill = purchaseBills.find(b => {
-          if (!b.invoiceNumber) return false;
-          const bNo = b.invoiceNumber.toLowerCase();
-          return (invNum && bNo === invNum) || (bNo.length >= 3 && narr.includes(bNo));
-        });
-        if (bill) {
-          const diff = Math.abs(amt - bill.totalAmount);
-          return {
-            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
-            matchedInvoiceNo: bill.invoiceNumber || undefined,
-            matchedAmount: Math.min(amt, bill.totalAmount),
-            pendingAmount: Math.max(0, bill.totalAmount - amt),
-            deductionAmount: diff >= 1 ? diff : 0,
-            chainName: bill.supplierName || detectedChain,
-          };
-        }
-      }
-
-      // 3. Cross set-off with existing Tally/VendorReco rows in DB
-      if (poNum || invNum || narr) {
-        const reco = existingRecos.find(r => {
-          const rPo = r.matchedPoNumber ? r.matchedPoNumber.toLowerCase() : '';
-          const rInv = r.matchedInvoiceNo ? r.matchedInvoiceNo.toLowerCase() : '';
-          const rNarr = r.narration ? r.narration.toLowerCase() : '';
-          return (
-            (poNum && rPo === poNum) ||
-            (invNum && rInv === invNum) ||
-            (poNum && poNum.length >= 3 && rNarr.includes(poNum)) ||
-            (invNum && invNum.length >= 3 && rNarr.includes(invNum))
-          );
-        });
-        if (reco) {
-          const recoAmt = reco.creditAmount > 0 ? reco.creditAmount : reco.debitAmount;
-          const diff = Math.abs(amt - recoAmt);
-          return {
-            matchStatus: diff < 1 ? 'MATCHED' : 'PARTIAL',
-            matchedPoNumber: reco.matchedPoNumber || (poNum ? poNum.toUpperCase() : undefined),
-            matchedInvoiceNo: reco.matchedInvoiceNo || (invNum ? invNum.toUpperCase() : undefined),
-            matchedAmount: Math.min(amt, recoAmt),
-            pendingAmount: Math.max(0, Math.abs(amt - recoAmt)),
-            deductionAmount: diff >= 1 ? diff : 0,
-            chainName: reco.chainName || detectedChain,
-          };
-        }
-      }
-
-      return { matchStatus: 'UNMATCHED', pendingAmount: amt, chainName: detectedChain !== 'OTHER' ? detectedChain : undefined };
-    };
-
-    // Calculate total batch amounts
-    const totalCredit = normalizedRows.reduce((s, r) => s + (r.creditAmount || (r.netAmount > 0 ? r.netAmount : 0)), 0);
-    const totalDebit = normalizedRows.reduce((s, r) => s + (r.debitAmount || (r.netAmount < 0 ? Math.abs(r.netAmount) : 0)), 0);
-
-    // Create RecoBatch record
-    const batch = await prisma.recoBatch.create({
-      data: {
-        fileName: file.name,
-        rowCount: normalizedRows.length,
-        totalCredit: totalCredit || (aiSummary?.totalAmount || 0),
-        totalDebit,
-        imagekitUrl: ikRes?.url || null,
-        notes: `Chain: ${detectedChain} | Type: ${statementType.toUpperCase()} ${aiSummary?.paymentRefNo ? '| Ref: ' + aiSummary.paymentRefNo : ''}`
-      }
-    });
-
-    const allRecoRows = normalizedRows.map(row => {
-      const match = autoMatch(row);
-      // Day-first parsing for documents like "23/08/2026" (new Date() would read it month-first)
-      const txnDate: Date | null = row.dateRaw ? parseDate(row.dateRaw) : null;
-
+    // Match every line to a Tally sale invoice (by invoice number, else a PO billed in one invoice)
+    const index = await loadInvoiceIndex();
+    const prepared = normalizedRows.map(row => {
       const creditAmount = row.creditAmount || (row.netAmount && row.netAmount > 0 ? row.netAmount : 0);
       const debitAmount = row.debitAmount || (row.netAmount && row.netAmount < 0 ? Math.abs(row.netAmount) : 0);
-      const pendingAmt = match.pendingAmount !== undefined ? match.pendingAmount : (creditAmount > 0 ? creditAmount : debitAmount);
-
+      const line = {
+        narration: row.narration || row.deductionReason || 'Payment advice line',
+        creditAmount, debitAmount,
+        invoiceNumber: row.invoiceNumber || row.refDocNo || '',
+        poNumber: row.poNumber || '',
+        deductionReason: row.deductionReason || '',
+        chainName: detectedChain,
+      };
+      const m = matchLine(line, index);
+      // Day-first parsing for documents like "23/08/2026" (new Date() would read it month-first)
+      const txnDate: Date | null = row.dateRaw ? parseDate(row.dateRaw) : null;
       return {
-        batchId: batch.id,
-        txnDate,
-        narration: row.narration || row.deductionReason || 'Payment Advice Row',
-        debitAmount,
-        creditAmount,
-        balance: row.balance || 0,
-        bankRef: row.bankRef || aiSummary?.paymentRefNo || null,
-        matchStatus: match.matchStatus || 'UNMATCHED',
-        matchedInvoiceNo: match.matchedInvoiceNo || (row.invoiceNumber ? row.invoiceNumber.toUpperCase() : null),
-        matchedPoNumber: match.matchedPoNumber || (row.poNumber ? row.poNumber.toUpperCase() : null),
-        matchedAmount: match.matchedAmount || 0,
-        pendingAmount: pendingAmt,
-        deductionAmount: row.tdsAmount || match.deductionAmount || 0,
-        deductionReason: row.deductionReason || null,
-        chainName: match.chainName || (detectedChain !== 'OTHER' ? detectedChain : null),
-        notes: `Source: ${statementType.toUpperCase()}`
+        // Duplicate check uses what the document says, not the match result (which can change)
+        key: [txnDate ? txnDate.toISOString().slice(0, 10) : '', (line.invoiceNumber || '').toUpperCase(), creditAmount.toFixed(2), debitAmount.toFixed(2), (row.bankRef || '').toUpperCase(), line.narration.slice(0, 60)].join('|'),
+        data: {
+          batchId: '',
+          txnDate,
+          narration: line.narration,
+          debitAmount,
+          creditAmount,
+          balance: row.balance || 0,
+          bankRef: row.bankRef || aiSummary?.paymentRefNo || null,
+          ...matchFields(m, row.tdsAmount || 0),
+          deductionReason: row.deductionReason || (isDeductionKind(m.kind) ? KIND_LABEL[m.kind] : null),
+          notes: withNotes(`Source: ${statementType.toUpperCase()}`, m.kind, false),
+        },
       };
     });
 
-    // Skip lines already uploaded earlier (same date, invoice, PO, amounts and reference)
-    const rowKey = (r: { txnDate: Date | null; matchedInvoiceNo: string | null; matchedPoNumber: string | null; creditAmount: number; debitAmount: number; bankRef: string | null; narration: string | null }) =>
-      [r.txnDate ? r.txnDate.toISOString().slice(0, 10) : '', r.matchedInvoiceNo || '', r.matchedPoNumber || '', r.creditAmount.toFixed(2), r.debitAmount.toFixed(2), r.bankRef || '', (r.narration || '').slice(0, 60)].join('|');
-    const existingKeys = new Set(
-      (await prisma.paymentReco.findMany({
-        where: detectedChain !== 'OTHER' ? { chainName: detectedChain } : {},
-        select: { txnDate: true, matchedInvoiceNo: true, matchedPoNumber: true, creditAmount: true, debitAmount: true, bankRef: true, narration: true },
-      })).map(rowKey)
-    );
+    const existingKeys = new Set((await prisma.paymentReco.findMany({
+      select: { txnDate: true, narration: true, creditAmount: true, debitAmount: true, bankRef: true, matchedInvoiceNo: true },
+    })).flatMap(r => {
+      const base = (inv: string) => [r.txnDate ? r.txnDate.toISOString().slice(0, 10) : '', inv, r.creditAmount.toFixed(2), r.debitAmount.toFixed(2), (r.bankRef || '').toUpperCase(), (r.narration || '').slice(0, 60)].join('|');
+      return [base((r.matchedInvoiceNo || '').toUpperCase()), base('')];
+    }));
     // Only lines saved by an EARLIER upload are skipped; identical lines inside one file
     // (e.g. two equal TDS deductions on an invoice) are genuine and kept
-    const recoRows = allRecoRows.filter(r => !existingKeys.has(rowKey(r)));
-    const duplicatesSkipped = allRecoRows.length - recoRows.length;
+    const fresh = prepared.filter(p => !existingKeys.has(p.key) && !existingKeys.has(p.key.replace(/^([^|]*)\|[^|]*\|/, '$1||')));
+    const duplicatesSkipped = prepared.length - fresh.length;
 
-    if (recoRows.length) await prisma.paymentReco.createMany({ data: recoRows });
+    const totalCredit = fresh.reduce((s, p) => s + p.data.creditAmount, 0);
+    const totalDebit = fresh.reduce((s, p) => s + p.data.debitAmount, 0);
+    const matchedCount = fresh.filter(p => p.data.matchStatus === 'MATCHED').length;
+    const unmatchedCount = fresh.length - matchedCount;
 
-    const matchedCount = recoRows.filter(r => r.matchStatus === 'MATCHED').length;
-    const partialCount = recoRows.filter(r => r.matchStatus === 'PARTIAL').length;
-    const unmatchedCount = recoRows.length - matchedCount - partialCount;
-
-    await prisma.recoBatch.update({
-      where: { id: batch.id },
-      data: { rowCount: recoRows.length, matchedCount: matchedCount + partialCount, unmatchedCount }
+    const batch = await prisma.recoBatch.create({
+      data: {
+        fileName: file.name,
+        rowCount: fresh.length,
+        matchedCount,
+        unmatchedCount,
+        totalCredit,
+        totalDebit,
+        imagekitUrl: ikRes?.url || null,
+        notes: `Chain: ${detectedChain} | Type: ${statementType.toUpperCase()}${aiSummary?.paymentRefNo ? ' | Ref: ' + aiSummary.paymentRefNo : ''}`,
+      }
     });
+    if (fresh.length) await prisma.paymentReco.createMany({ data: fresh.map(p => ({ ...p.data, batchId: batch.id })) });
 
-    console.log(`✅ [RECO UPLOAD SUCCESS] Batch ID: "${batch.id}" | Chain: "${detectedChain}" | Total Rows: ${recoRows.length} | Matched: ${matchedCount} | Partial: ${partialCount}`);
+    console.log(`✅ [RECO UPLOAD SUCCESS] Batch ID: "${batch.id}" | Chain: "${detectedChain}" | Rows: ${fresh.length} | Matched: ${matchedCount} | Duplicates skipped: ${duplicatesSkipped}`);
     console.log(`==================================================\n`);
+
 
     return NextResponse.json({
       success: true,
       batchId: batch.id,
       detectedChain,
       summary: aiSummary,
-      total: recoRows.length,
+      total: fresh.length,
       matched: matchedCount,
-      partial: partialCount,
       unmatched: unmatchedCount,
       duplicatesSkipped,
       fileName: file.name,

@@ -1,501 +1,363 @@
 "use client";
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import * as XLSX from 'xlsx';
+import Icon from '@/components/Icon';
+import HelpToggle from '@/components/HelpToggle';
 import { readJson } from '@/lib/http';
+import { CHAINS } from '@/lib/chains';
 
-type RecoRow = {
-  id: string;
-  txnDate?: string;
-  narration: string;
-  debitAmount: number;
-  creditAmount: number;
-  balance: number;
-  bankRef?: string;
-  matchStatus: string;
-  matchedInvoiceNo?: string;
-  matchedPoNumber?: string;
-  matchedAmount: number;
-  pendingAmount: number;
-  chainName?: string;
-  deductionAmount: number;
-  deductionReason?: string;
-  notes?: string;
+type Kind = 'PAYMENT' | 'TDS' | 'CLAIM' | 'CREDIT_NOTE' | 'GST_DEBIT' | 'INVOICE' | 'OTHER';
+type Line = {
+  id: string; batchId: string; txnDate: string | null; narration: string; creditAmount: number; debitAmount: number; bankRef: string | null;
+  matchStatus: string; matchedInvoiceNo: string | null; matchedPoNumber: string | null; chainName: string | null;
+  deductionAmount: number; deductionReason: string | null; kind: Kind; amount: number; manual: boolean;
 };
-
-type StatementType = 'vendor' | 'tally' | 'ledger' | 'party_advice';
-
-type Batch = {
-  id: string;
-  fileName: string;
-  uploadedAt: string;
-  rowCount: number;
-  matchedCount: number;
-  unmatchedCount: number;
-  totalCredit: number;
-  totalDebit: number;
-  imagekitUrl?: string;
-  notes?: string;
+type Batch = { id: string; fileName: string; uploadedAt: string; rowCount: number; matchedCount: number; unmatchedCount: number; totalCredit: number; imagekitUrl?: string | null; notes?: string | null };
+type Invoice = {
+  invoiceNumber: string; invoiceDate: string; chain: string; poNumber: string; taxable: number; invoiceValue: number | null;
+  received: number; deductions: number; balance: number; status: 'PAID' | 'PART' | 'UNPAID' | 'NIL'; ageDays: number | null; lastPayment: string; lineCount: number;
 };
+type ChainRow = { chain: string; invoices: number; billed: number; received: number; deductions: number; outstanding: number; paid: number; part: number; unpaid: number; unallocated: number; aging: { d0_30: number; d31_60: number; d61_90: number; d90: number } };
+type InvoiceData = { invoices: Invoice[]; shown: number; total: number; totals: { billed: number; received: number; deductions: number; outstanding: number; paid: number; part: number; unpaid: number }; chains: ChainRow[]; unallocatedTotal: number };
 
-type Summary = {
-  totalCredit: number;
-  totalMatched: number;
-  totalPartial: number;
-  totalUnmatched: number;
-  totalPending: number;
+const KIND_INFO: Record<Kind, { label: string; tone: string }> = {
+  PAYMENT: { label: 'Payment', tone: 'success' }, TDS: { label: 'TDS', tone: 'warn' }, CLAIM: { label: 'Claim / shortage', tone: 'error' },
+  CREDIT_NOTE: { label: 'Credit note', tone: 'warn' }, GST_DEBIT: { label: 'GST debit', tone: 'warn' }, INVOICE: { label: 'Invoice entry', tone: 'info' }, OTHER: { label: 'Other', tone: '' },
 };
+const INV_STATUS: Record<Invoice['status'], { label: string; tone: string }> = {
+  PAID: { label: 'Paid', tone: 'success' }, PART: { label: 'Part paid', tone: 'warn' }, UNPAID: { label: 'Unpaid', tone: 'error' }, NIL: { label: 'No value', tone: '' },
+};
+const STATEMENT_TYPES = [
+  ['party_advice', 'Payment / remittance advice (PDF, Excel, CSV or pasted text)'],
+  ['ledger', 'Party ledger statement from the chain'],
+  ['tally', 'Tally ledger of the party'],
+  ['bank', 'Bank statement'],
+] as const;
 
-const STATUS = {
-  MATCHED: { label: 'Matched', color: '#065f46', bg: '#d1fae5' },
-  PARTIAL: { label: 'Partial', color: '#92400e', bg: '#fef3c7' },
-  UNMATCHED: { label: 'Unmatched', color: '#991b1b', bg: '#fee2e2' },
-  IGNORED: { label: 'Ignored', color: '#6b7280', bg: '#f3f4f6' },
-};
-
-const CHAIN_COLORS: Record<string, string> = {
-  RELIANCE: '#004B93',
-  FLIPKART: '#F7CA41',
-  AMAZON: '#FF9900',
-  ZEPTO: '#8C5CF6',
-  BLINKIT: '#0FA956',
-  HSBC: '#DB0011',
-  SWIGGY: '#FC8019',
-  BIGBASKET: '#84C225',
-  DMART: '#E91B23',
-  CITYMALL: '#E11D48',
-  DEERIKA: '#CA8A04',
-  OTHER: '#64748b',
-};
+const inr = (n: number) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
+const fmtDate = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }) : '—');
 
 export default function ReconciliationPage() {
-  const [tab, setTab] = useState<'upload' | 'match' | 'dashboard'>('upload');
-  const [rows, setRows] = useState<RecoRow[]>([]);
+  const [tab, setTab] = useState<'overview' | 'invoices' | 'lines' | 'upload'>('overview');
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error' | 'warn'; text: string } | null>(null);
+
+  // Invoices / overview
+  const [inv, setInv] = useState<InvoiceData | null>(null);
+  const [invLoading, setInvLoading] = useState(true);
+  const [invChain, setInvChain] = useState('');
+  const [invStatus, setInvStatus] = useState('');
+  const [invFrom, setInvFrom] = useState('');
+  const [invTo, setInvTo] = useState('');
+  const [invSearch, setInvSearch] = useState('');
+
+  // Statement lines
+  const [lines, setLines] = useState<Line[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
-  const [summary, setSummary] = useState<Summary>({ totalCredit: 0, totalMatched: 0, totalPartial: 0, totalUnmatched: 0, totalPending: 0 });
-  const [loading, setLoading] = useState(true);
+  const [lineSummary, setLineSummary] = useState({ received: 0, deductions: 0, matched: 0, unmatched: 0, unmatchedAmount: 0, ignored: 0, totalRows: 0 });
+  const [linesLoading, setLinesLoading] = useState(true);
+  const [lineStatus, setLineStatus] = useState('');
+  const [lineKind, setLineKind] = useState('');
+  const [lineChain, setLineChain] = useState('');
+  const [lineSearch, setLineSearch] = useState('');
+  const [lineBatch, setLineBatch] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [linking, setLinking] = useState<Line | null>(null);
+  const [linkInvoice, setLinkInvoice] = useState('');
+  const [linkKind, setLinkKind] = useState<Kind>('PAYMENT');
+  const [linkError, setLinkError] = useState('');
+
+  // Upload
+  const [statementType, setStatementType] = useState<string>('party_advice');
+  const [uploadChain, setUploadChain] = useState('AUTO');
   const [uploading, setUploading] = useState(false);
-  const [selectedChain, setSelectedChain] = useState('AUTO');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterChain, setFilterChain] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [pasted, setPasted] = useState('');
+  const [rematching, setRematching] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const fileVendorRef = useRef<HTMLInputElement>(null);
-  const fileTallyRef = useRef<HTMLInputElement>(null);
-  const fileBankRef = useRef<HTMLInputElement>(null);
-  const filePartyAdviceRef = useRef<HTMLInputElement>(null);
-  const [pastedAdvice, setPastedAdvice] = useState('');
+  useEffect(() => { loadInvoices(); }, [invChain, invStatus, invFrom, invTo]);
+  useEffect(() => { loadLines(); }, []);
 
-  useEffect(() => { loadData(); }, [filterStatus, filterChain]);
-
-  async function loadData() {
-    setLoading(true);
+  async function loadInvoices() {
+    setInvLoading(true);
+    const p = new URLSearchParams();
+    if (invChain) p.set('chain', invChain);
+    if (invStatus) p.set('status', invStatus);
+    if (invFrom) p.set('from', invFrom);
+    if (invTo) p.set('to', invTo);
+    if (invSearch.trim()) p.set('search', invSearch.trim());
     try {
-      const params = new URLSearchParams();
-      if (filterStatus) params.set('status', filterStatus);
-      const res = await fetch(`/api/reconciliation?${params}`);
-      const data = await readJson(res, 'the upload');
-      setRows(Array.isArray(data.rows) ? data.rows : []);
-      setBatches(Array.isArray(data.batches) ? data.batches : []);
-      setSummary(data.summary || {});
-    } catch (err) {
-      console.error('Failed to load reco data', err);
+      const res = await fetch(`/api/reconciliation/invoices?${p}`);
+      const data = await readJson(res, 'the invoice list');
+      if (!res.ok) throw new Error(data.error || 'Could not load invoices');
+      setInv(data);
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    } finally {
+      setInvLoading(false);
     }
-    setLoading(false);
   }
 
-  async function uploadFile(file: File, statementType: StatementType = 'ledger') {
-    if (!file) return;
-    setUploading(true); setUploadResult(null);
+  async function loadLines() {
+    setLinesLoading(true);
+    try {
+      const res = await fetch('/api/reconciliation');
+      const data = await readJson(res, 'the statement lines');
+      if (!res.ok) throw new Error(data.error || 'Could not load statement lines');
+      setLines(data.rows || []);
+      setBatches(data.batches || []);
+      setLineSummary(data.summary);
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    } finally {
+      setLinesLoading(false);
+    }
+  }
+  const refreshAll = () => Promise.all([loadInvoices(), loadLines()]);
+
+  async function upload(file: File) {
+    setUploading(true); setNotice(null);
     const fd = new FormData();
     fd.append('file', file);
     fd.append('statementType', statementType);
-    fd.append('chainName', selectedChain !== 'AUTO' ? selectedChain : 'OTHER');
-
+    fd.append('chainName', uploadChain === 'AUTO' ? 'OTHER' : uploadChain);
     try {
       const res = await fetch('/api/reconciliation/upload', { method: 'POST', body: fd });
-      // Readable message even when the host returns an HTML / non-JSON error page
-      const data: any = await readJson(res, `"${file.name}"`);
-
-      if (res.ok) {
-        setUploadResult({ ...data, success: true, statementType });
-        await loadData();
-        setTab('match');
-      } else {
-        setUploadResult({ error: data.error || 'Upload failed' });
-      }
-    } catch (err: any) {
-      setUploadResult({ error: err.message });
+      const data = await readJson(res, `"${file.name}"`);
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setNotice({
+        tone: data.unmatched ? 'warn' : 'success',
+        text: `${file.name}: ${data.total} line(s) read (chain ${data.detectedChain}) — ${data.matched} linked to an invoice, ${data.unmatched} to check` +
+          (data.duplicatesSkipped ? `, ${data.duplicatesSkipped} already uploaded before (skipped)` : '') + '.',
+      });
+      await refreshAll();
+      setTab(data.unmatched ? 'lines' : 'overview');
+      if (data.unmatched) { setLineStatus('UNMATCHED'); setLineSearch(''); }
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   }
 
-  // Pasted email / payment advice text is sent as a .txt file so it goes through the same AI parser
-  async function uploadPastedAdvice() {
-    const text = pastedAdvice.trim();
+  async function uploadPasted() {
+    const text = pasted.trim();
     if (!text) return;
-    const file = new File([text], `pasted_payment_advice_${Date.now()}.txt`, { type: 'text/plain' });
-    await uploadFile(file, 'party_advice');
-    setPastedAdvice('');
+    await upload(new File([text], `pasted_payment_advice_${Date.now()}.txt`, { type: 'text/plain' }));
+    setPasted('');
   }
 
-  async function handleResetAllReco() {
-    if (!confirm('Are you sure you want to clear/reset ALL reconciliation statement data and batches?')) return;
+  async function rematch() {
+    setRematching(true); setNotice(null);
     try {
-      const res = await fetch('/api/reconciliation?resetAll=true', { method: 'DELETE' });
-      if (res.ok) {
-        setUploadResult({ success: true, message: 'All reconciliation statement data cleared successfully' });
-        await loadData();
-      } else {
-        alert('Failed to reset reconciliation data');
-      }
-    } catch (err: any) {
-      alert('Reset failed: ' + err.message);
+      const res = await fetch('/api/reconciliation/rematch', { method: 'POST' });
+      const data = await readJson(res, 're-matching');
+      if (!res.ok) throw new Error(data.error || 'Re-match failed');
+      setNotice({ tone: 'success', text: `Re-checked ${data.checked} line(s) against the uploaded Tally invoices: ${data.byStatus.MATCHED || 0} linked, ${(data.byStatus.UNMATCHED || 0) + (data.byStatus.PARTIAL || 0)} still to check.${data.keptManual ? ` ${data.keptManual} line(s) you matched or ignored by hand were left as they are.` : ''}` });
+      await refreshAll();
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    } finally {
+      setRematching(false);
     }
   }
 
-  async function handleDeleteBatch(batchId: string) {
-    if (!confirm('Are you sure you want to delete this batch and all its extracted records?')) return;
+  async function lineAction(line: Line, body: Record<string, unknown>) {
+    setBusyId(line.id);
     try {
-      const res = await fetch(`/api/reconciliation?batchId=${batchId}`, { method: 'DELETE' });
-      if (res.ok) {
-        await loadData();
-      } else {
-        alert('Failed to delete batch');
-      }
-    } catch (err: any) {
-      alert('Delete failed: ' + err.message);
+      const res = await fetch(`/api/reconciliation/${line.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await readJson(res, 'the line');
+      if (!res.ok) throw new Error(data.error || 'Update failed');
+      await refreshAll();
+      return true;
+    } catch (e: any) {
+      if (body.action === 'match') setLinkError(e.message); else setNotice({ tone: 'error', text: e.message });
+      return false;
+    } finally {
+      setBusyId(null);
     }
   }
 
-  const filteredRows = rows.filter(r => {
-    const matchesStatus = !filterStatus || r.matchStatus === filterStatus;
-    const matchesChain = !filterChain || r.chainName === filterChain;
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = !q ||
-      (r.narration && r.narration.toLowerCase().includes(q)) ||
-      (r.matchedInvoiceNo && r.matchedInvoiceNo.toLowerCase().includes(q)) ||
-      (r.matchedPoNumber && r.matchedPoNumber.toLowerCase().includes(q)) ||
-      (r.bankRef && r.bankRef.toLowerCase().includes(q)) ||
-      (r.deductionReason && r.deductionReason.toLowerCase().includes(q));
+  async function deleteLine(line: Line) {
+    if (!confirm(`Delete this ${KIND_INFO[line.kind].label.toLowerCase()} line of ${inr(line.amount)}? Use “Ignore” instead if you may need it later.`)) return;
+    setBusyId(line.id);
+    try {
+      const res = await fetch(`/api/reconciliation/${line.id}`, { method: 'DELETE' });
+      const data = await readJson(res, 'the delete');
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      await refreshAll();
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    } finally {
+      setBusyId(null);
+    }
+  }
 
-    return matchesStatus && matchesChain && matchesSearch;
-  });
+  async function deleteBatch(b: Batch) {
+    if (!confirm(`Delete the upload “${b.fileName}” and its ${b.rowCount} line(s)?`)) return;
+    try {
+      const res = await fetch(`/api/reconciliation?batchId=${b.id}`, { method: 'DELETE' });
+      const data = await readJson(res, 'the delete');
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      setNotice({ tone: 'success', text: data.message });
+      await refreshAll();
+    } catch (e: any) {
+      setNotice({ tone: 'error', text: e.message });
+    }
+  }
 
-  const chains = [...new Set(rows.filter(r => r.chainName).map(r => r.chainName!))];
+  function openLink(line: Line) {
+    setLinking(line);
+    setLinkInvoice(line.matchedInvoiceNo || '');
+    setLinkKind(line.kind === 'OTHER' ? 'PAYMENT' : line.kind);
+    setLinkError('');
+  }
 
-  // Chain-wise outstanding for dashboard
-  const chainStats = chains.map(chain => {
-    const chainRows = rows.filter(r => r.chainName === chain && r.creditAmount > 0);
-    return {
-      chain,
-      received: chainRows.reduce((s, r) => s + r.matchedAmount, 0),
-      pending: chainRows.reduce((s, r) => s + r.pendingAmount, 0),
-      total: chainRows.reduce((s, r) => s + r.creditAmount, 0),
-      txns: chainRows.length,
-    };
-  }).sort((a, b) => b.pending - a.pending);
+  function showInvoiceLines(invoiceNo: string) {
+    setLineStatus(''); setLineKind(''); setLineChain(''); setLineBatch(''); setLineSearch(invoiceNo); setTab('lines');
+  }
+
+  function exportInvoices() {
+    if (!inv?.invoices.length) return;
+    const ws = XLSX.utils.json_to_sheet(inv.invoices.map(i => ({
+      'Invoice No': i.invoiceNumber, 'Invoice Date': i.invoiceDate, 'Chain': i.chain, 'PO Number': i.poNumber,
+      'Taxable Value': Math.round(i.taxable * 100) / 100, 'Invoice Value (incl. GST, from ledger)': i.invoiceValue ?? '',
+      'Received': i.received, 'Deductions': i.deductions, 'Balance': i.balance, 'Status': INV_STATUS[i.status].label,
+      'Age (days)': i.ageDays ?? '', 'Last Payment': i.lastPayment,
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Receivables');
+    XLSX.writeFile(wb, `Receivables_${new Date().toLocaleDateString('en-CA')}.xlsx`);
+  }
+
+  const lineChains = useMemo(() => [...new Set(lines.map(l => l.chainName).filter(Boolean) as string[])].sort(), [lines]);
+  const shownLines = useMemo(() => {
+    const q = lineSearch.trim().toLowerCase();
+    return lines.filter(l =>
+      (!lineStatus || (lineStatus === 'UNMATCHED' ? l.matchStatus === 'UNMATCHED' || l.matchStatus === 'PARTIAL' : l.matchStatus === lineStatus)) &&
+      (!lineKind || l.kind === lineKind) &&
+      (!lineChain || l.chainName === lineChain) &&
+      (!lineBatch || l.batchId === lineBatch) &&
+      (!q || [l.narration, l.matchedInvoiceNo, l.matchedPoNumber, l.bankRef, l.deductionReason].some(v => (v || '').toLowerCase().includes(q))));
+  }, [lines, lineStatus, lineKind, lineChain, lineSearch, lineBatch]);
+  // Unmatched lines that name an invoice: usually that month's Tally sales aren't uploaded yet
+  const waitingForInvoices = lines.filter(l => (l.matchStatus === 'UNMATCHED' || l.matchStatus === 'PARTIAL') && l.matchedInvoiceNo && l.kind !== 'INVOICE').length;
+  const totals = inv?.totals;
 
   return (
     <div className="container fade-in">
-      {/* Top Header & Actions */}
       <div className="page-header">
         <div>
           <h1 className="page-title">Payment Reconciliation</h1>
-          <p className="page-subtitle">
-            Upload payment advices, party ledger statements and remittance details — lines are extracted and set off against POs and invoices.
-          </p>
+          <p className="page-subtitle">Match chain payments, TDS and claims to your Tally sale invoices, and see what each chain still owes.</p>
         </div>
-
-        {rows.length > 0 && (
-          <div className="page-actions">
-            <button onClick={handleResetAllReco} className="btn danger">
-              Clear reconciliation data
-            </button>
-          </div>
-        )}
+        <div className="page-actions">
+          <HelpToggle />
+          <button className="btn secondary" onClick={rematch} disabled={rematching} title="Link saved lines to invoices uploaded since">
+            <Icon name="reco" size={16} />{rematching ? 'Re-matching…' : 'Re-match lines'}
+          </button>
+          <button className="btn" onClick={() => setTab('upload')}><Icon name="import" size={16} />Upload statement</button>
+        </div>
       </div>
 
-      {/* Summary KPIs */}
+      <div className="help-only card" style={{ marginBottom: 16, padding: 16 }}>
+        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.7, color: 'var(--text-secondary)' }}>
+          <li><strong>Upload</strong> what the chain sends — payment / remittance advice, party ledger — or paste the payment email.</li>
+          <li>Each line is read as a <strong>payment</strong>, <strong>TDS</strong>, <strong>claim</strong>, <strong>credit note</strong> or an <strong>invoice entry</strong>, and linked to the Tally sale invoice it names.</li>
+          <li><strong>Statement lines</strong> lists anything that couldn’t be linked: link it to an invoice yourself, or ignore it.</li>
+          <li><strong>Invoices</strong> shows every Tally invoice as paid, part paid or unpaid, and <strong>Overview</strong> what each chain still owes, by age.</li>
+        </ol>
+      </div>
+
+      {notice && (
+        <div className={`alert ${notice.tone}`} style={{ marginBottom: 14 }}>
+          <Icon name={notice.tone === 'success' ? 'check' : 'alert'} size={16} />
+          <span style={{ flex: 1 }}>{notice.text}</span>
+          <button className="btn ghost sm" onClick={() => setNotice(null)} aria-label="Dismiss"><Icon name="close" size={14} /></button>
+        </div>
+      )}
+
       <div className="kpi-grid">
-        {[
-          { label: 'Total received', value: `₹${(summary.totalCredit || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, foot: 'Credits across all uploads' },
-          { label: 'Matched', value: (summary.totalMatched || 0).toLocaleString('en-IN'), foot: 'Fully set off', tone: 'success' },
-          { label: 'Partial', value: (summary.totalPartial || 0).toLocaleString('en-IN'), foot: 'Amount differs from PO / invoice', tone: 'warn' },
-          { label: 'Unmatched', value: (summary.totalUnmatched || 0).toLocaleString('en-IN'), foot: 'Needs manual matching', tone: 'error' },
-          { label: 'Pending amount', value: `₹${(summary.totalPending || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`, foot: 'Not yet set off' },
-        ].map(s => (
-          <div key={s.label} className="kpi">
-            <span className="kpi-label">
-              {s.tone && <span className={`status-dot ${s.tone}`} aria-hidden="true" />}
-              {s.label}
-            </span>
-            <span className="kpi-value">{s.value}</span>
-            <span className="kpi-foot">{s.foot}</span>
-          </div>
-        ))}
+        <div className="kpi">
+          <span className="kpi-label">Billed (Tally invoices)</span>
+          <span className="kpi-value">{inr(totals?.billed || 0)}</span>
+          <span className="kpi-foot">{inv?.total.toLocaleString('en-IN') || 0} invoices{invChain ? ` · ${invChain}` : ''}</span>
+          <span className="help-text kpi-help">Taxable value of the uploaded Tally sale invoices (GST-inclusive where a Tally ledger gave it).</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot success" aria-hidden="true" />Received</span>
+          <span className="kpi-value">{inr(totals?.received || 0)}</span>
+          <span className="kpi-foot">{totals?.paid || 0} paid · {totals?.part || 0} part paid</span>
+          <span className="help-text kpi-help">Payments linked to these invoices.</span>
+        </div>
+        <div className="kpi">
+          <span className="kpi-label"><span className="status-dot warn" aria-hidden="true" />Deductions</span>
+          <span className="kpi-value">{inr(totals?.deductions || 0)}</span>
+          <span className="kpi-foot">TDS, claims, credit notes</span>
+          <span className="help-text kpi-help">Amounts the chain kept back — they settle the invoice without money arriving.</span>
+        </div>
+        <button type="button" className="kpi" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => { setInvStatus('UNPAID'); setTab('invoices'); }}>
+          <span className="kpi-label"><span className="status-dot error" aria-hidden="true" />Outstanding</span>
+          <span className="kpi-value">{inr(totals?.outstanding || 0)}</span>
+          <span className="kpi-foot">{totals?.unpaid || 0} unpaid invoices</span>
+          <span className="help-text kpi-help">Still owed: invoice value minus payments and deductions.</span>
+        </button>
+        <button type="button" className="kpi" style={{ textAlign: 'left', cursor: 'pointer' }} onClick={() => { setLineStatus('UNMATCHED'); setLineKind(''); setTab('lines'); }}>
+          <span className="kpi-label"><span className="status-dot warn" aria-hidden="true" />To check</span>
+          <span className="kpi-value">{lineSummary.unmatched}</span>
+          <span className="kpi-foot">{inr(lineSummary.unmatchedAmount)} not linked to an invoice</span>
+          <span className="help-text kpi-help">Statement lines that need you to link or ignore them.</span>
+        </button>
       </div>
 
-      {/* Tabs Navigation */}
+      {waitingForInvoices > 0 && (
+        <div className="alert info" style={{ marginBottom: 14, alignItems: 'center' }}>
+          <Icon name="alert" size={16} />
+          <span style={{ flex: 1 }}>
+            <strong>{waitingForInvoices} line(s) name an invoice that isn’t in the system yet</strong> — usually that month’s Tally sale report hasn’t been uploaded.
+            Upload it on the Fill Rate page, then click <strong>Re-match lines</strong>.
+          </span>
+          <a href="/po/reconciliation-report" className="btn secondary sm">Fill Rate page</a>
+        </div>
+      )}
+
       <div className="tabs" role="tablist">
-        {[
-          { id: 'upload', label: 'Upload statements & advices' },
-          { id: 'match', label: 'Match rows & set-off', count: rows.length },
-          { id: 'dashboard', label: 'Chain analytics' }
-        ].map(t => (
-          <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id as any)}
-            className={`tab${tab === t.id ? ' active' : ''}`}>
-            {t.label}
-            {t.count !== undefined && <span className="tab-count">{t.count}</span>}
+        {([['overview', 'Overview', undefined], ['invoices', 'Invoices', inv?.total], ['lines', 'Statement lines', lineSummary.totalRows], ['upload', 'Upload', batches.length]] as const).map(([id, label, count]) => (
+          <button key={id} role="tab" aria-selected={tab === id} className={`tab${tab === id ? ' active' : ''}`} onClick={() => setTab(id)}>
+            {label}{count !== undefined && <span className="tab-count">{count}</span>}
           </button>
         ))}
       </div>
 
-      {/* UPLOAD TAB */}
-      {tab === 'upload' && (
-        <div>
-          {/* Chain Selection Box */}
-          <div className="card" style={{ padding: 16, marginBottom: 24, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>Target Retail Chain / Format:</span>
-              <select
-                value={selectedChain}
-                onChange={e => setSelectedChain(e.target.value)}
-                style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #3b82f6', background: 'var(--bg)', minWidth: 240 }}
-              >
-                <option value="AUTO">Auto-Detect Chain (Recommended)</option>
-                <option value="RELIANCE">Reliance Retail Payment Advice</option>
-                <option value="AMAZON">Amazon EFT Remittance Advice</option>
-                <option value="BLINKIT">Blinkit Payment Advice</option>
-                <option value="ZEPTO">Zepto Payment Advice</option>
-                <option value="HSBC">HSBC Bank Payment Advice</option>
-                <option value="SWIGGY">Swiggy / Instamart Advice</option>
-                <option value="FLIPKART">Flipkart Settlement Advice</option>
-                <option value="BIGBASKET">BigBasket Settlement Advice</option>
-                <option value="DMART">DMart Payment Advice</option>
-              </select>
-              <span className="muted" style={{ fontSize: 12 }}>
-                {selectedChain === 'AUTO' ? 'AI will inspect document text and headers to auto-identify the chain.' : `AI parser locked to specialized ${selectedChain} extraction rules.`}
-              </span>
-            </div>
+      {/* OVERVIEW */}
+      {tab === 'overview' && (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="card-header" style={{ padding: '14px 20px 0' }}>
+            <div><h2 className="card-title">Outstanding by chain</h2><p className="card-subtitle">Click a chain to see its invoices</p></div>
           </div>
-
-          {uploading && (
-            <div className="card" style={{ padding: 24, marginBottom: 24, background: '#f0f9ff', border: '1px solid #7dd3fc', textAlign: 'center' }}>
-              <div style={{ fontSize: 32, marginBottom: 8, animation: 'spin 2s linear infinite' }}></div>
-              <h3 style={{ margin: 0, color: '#0369a1', fontSize: 18 }}>AI Extracting Payment Advice using {selectedChain} Rules...</h3>
-              <p style={{ margin: '6px 0 0 0', color: '#0284c7', fontSize: 13 }}>
-                Reading PDF tables, document reference numbers, invoice numbers, TDS deductions, and matching with database POs...
-              </p>
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16, marginBottom: 24 }}>
-            
-            {/* Card 1: Vendor / Debtor Payment Advice Upload */}
-            <div className="card" style={{ borderLeft: '4px solid #3b82f6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}></span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>1. Upload Payment Advice / Remittance</h3>
-                  <span style={{ fontSize: 11, background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                    AI-POWERED CHAIN PARSER (PDF, XLSX, CSV)
-                  </span>
-                </div>
-              </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                Upload payment advice or settlement advice PDF from Reliance, Blinkit, Zepto, Amazon, Swiggy, HSBC, etc.
-              </p>
-              <input
-                ref={fileVendorRef}
-                type="file"
-                accept=".pdf,.xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'vendor'); e.target.value = ''; }}
-              />
-              <button
-                className="btn"
-                onClick={() => fileVendorRef.current?.click()}
-                disabled={uploading}
-                style={{ width: '100%' }}
-              >
-                {uploading ? 'Processing Advice...' : 'Select Payment Advice PDF / Excel'}
-              </button>
-            </div>
-
-            {/* Card 2: Tally Internal Ledger Upload */}
-            <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}></span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>2. Upload Tally Statement</h3>
-                  <span style={{ fontSize: 11, background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                    TALLY INTERNAL LEDGER
-                  </span>
-                </div>
-              </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                Upload internal Tally ledger or sales/receipt register (XLSX, XLS, CSV, PDF).
-              </p>
-              <input
-                ref={fileTallyRef}
-                type="file"
-                accept=".xlsx,.xls,.csv,.pdf"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'tally'); e.target.value = ''; }}
-              />
-              <button
-                className="btn"
-                onClick={() => fileTallyRef.current?.click()}
-                disabled={uploading}
-                style={{ width: '100%' }}
-              >
-                {uploading ? 'Processing Statement...' : 'Select Tally Statement'}
-              </button>
-            </div>
-
-            {/* Card 3: Party Ledger Statement Upload */}
-            <div className="card" style={{ borderLeft: '4px solid #8b5cf6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}></span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>3. Upload Party Ledger Statement</h3>
-                  <span style={{ fontSize: 11, background: '#f3e8ff', color: '#6b21a8', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                    PARTY LEDGER STATEMENT (PDF, XLS, CSV)
-                  </span>
-                </div>
-              </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-                Upload the party / customer ledger statement received from the retail chain (PDF, XLS, XLSX, CSV).
-              </p>
-              <input
-                ref={fileBankRef}
-                type="file"
-                accept=".pdf,.xlsx,.xls,.csv"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'ledger'); e.target.value = ''; }}
-              />
-              <button
-                className="btn"
-                onClick={() => fileBankRef.current?.click()}
-                disabled={uploading}
-                style={{ width: '100%' }}
-              >
-                {uploading ? 'Processing Statement...' : 'Select Party Ledger Statement'}
-              </button>
-            </div>
-
-            {/* Card 4: Party Payment Advice (file or pasted email text) */}
-            <div className="card" style={{ borderLeft: '4px solid #f97316' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <span style={{ fontSize: 24 }}></span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>4. Upload Party Payment Advice</h3>
-                  <span style={{ fontSize: 11, background: '#ffedd5', color: '#9a3412', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
-                    ZEPTO PDF · SWIGGY ADVICE · EMAIL COPY-PASTE
-                  </span>
-                </div>
-              </div>
-              <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-                Upload party payment invoice details (e.g. Zepto PDF, Swiggy payment advice), or copy &amp; paste the payment info from the email below.
-              </p>
-              <input
-                ref={filePartyAdviceRef}
-                type="file"
-                accept=".pdf,.xlsx,.xls,.csv,.txt"
-                style={{ display: 'none' }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f, 'party_advice'); e.target.value = ''; }}
-              />
-              <button
-                className="btn"
-                onClick={() => filePartyAdviceRef.current?.click()}
-                disabled={uploading}
-                style={{ width: '100%', marginBottom: 10 }}
-              >
-                {uploading ? 'Processing Advice...' : 'Select Party Payment Advice File'}
-              </button>
-              <textarea
-                value={pastedAdvice}
-                onChange={e => setPastedAdvice(e.target.value)}
-                placeholder="Or paste payment email / advice text here (UTR, invoice nos., amounts, TDS...)"
-                rows={4}
-                style={{ width: '100%', padding: 8, fontSize: 12, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', resize: 'vertical', boxSizing: 'border-box' }}
-              />
-              <button
-                className="btn secondary"
-                onClick={uploadPastedAdvice}
-                disabled={uploading || !pastedAdvice.trim()}
-                style={{ width: '100%', marginTop: 8, fontSize: 13 }}
-              >
-                Process Pasted Text
-              </button>
-            </div>
-
-          </div>
-
-          {uploadResult && (
-            <div style={{ padding: 20, borderRadius: 12, background: uploadResult.error ? '#fee2e2' : '#d1fae5', color: uploadResult.error ? '#dc2626' : '#065f46', fontSize: 14, marginBottom: 24 }}>
-              {uploadResult.error ? `${uploadResult.error}` : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>
-                    Upload & Chain AI Extraction Complete! (Chain: <span style={{ textTransform: 'uppercase' }}>{uploadResult.detectedChain || 'OTHER'}</span>)
-                  </div>
-                  <div>
-                    Extracted <strong>{uploadResult.total || 0}</strong> transaction records · Matched: <strong>{uploadResult.matched || 0}</strong> · Partial: <strong>{uploadResult.partial || 0}</strong> · Unmatched: <strong>{uploadResult.unmatched || 0}</strong>
-                    {uploadResult.duplicatesSkipped > 0 && <> · Already uploaded (skipped): <strong>{uploadResult.duplicatesSkipped}</strong></>}
-                  </div>
-                  {uploadResult.summary?.paymentRefNo && (
-                    <div style={{ fontSize: 12, opacity: 0.9 }}>
-                      Payment Ref / UTR: <strong>{uploadResult.summary.paymentRefNo}</strong> | Payee: <strong>{uploadResult.summary.payeeName || 'N/A'}</strong>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Batches Table */}
-          {batches.length > 0 && (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Uploaded Statement Batches ({batches.length})</span>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                    {['File Name', 'Chain / Type', 'Upload Date', 'Rows', 'Matched', 'Unmatched', 'Total Amount', 'Action'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Action' ? 'center' : 'left', fontWeight: 600, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+          <p className="help-text card-help" style={{ padding: '0 20px' }}>
+            Ageing splits what is still owed by how old the invoice is. <strong>Unlinked receipts</strong> is money received from the chain that isn’t tied to an invoice yet
+            (lump-sum payments, or invoices not uploaded) — it will reduce the outstanding once linked.
+          </p>
+          {invLoading && !inv ? <div className="empty-state"><div className="spinner" /></div> : !inv?.chains.length ? (
+            <div className="empty-state">No Tally sale invoices uploaded yet. Upload the daily sale report on the Fill Rate page first.</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead><tr><th>Chain</th><th className="num">Invoices</th><th className="num">Billed</th><th className="num">Received</th><th className="num">Deductions</th><th className="num">Outstanding</th><th className="num">0–30 d</th><th className="num">31–60 d</th><th className="num">61–90 d</th><th className="num">90+ d</th><th className="num">Unlinked receipts</th></tr></thead>
                 <tbody>
-                  {batches.slice(0, 15).map(b => (
-                    <tr key={b.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 500 }}>
-                        {b.imagekitUrl ? (
-                          <a href={b.imagekitUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0ea5e9', textDecoration: 'none' }}>
-                            {b.fileName}
-                          </a>
-                        ) : b.fileName}
-                      </td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 8, background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                          {b.notes || 'BANK STATEMENT'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>{new Date(b.uploadedAt).toLocaleDateString('en-IN')}</td>
-                      <td style={{ padding: '10px 14px' }}>{b.rowCount}</td>
-                      <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: 600 }}>{b.matchedCount}</td>
-                      <td style={{ padding: '10px 14px', color: '#dc2626', fontWeight: 600 }}>{b.unmatchedCount}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 600 }}>₹{b.totalCredit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <button
-                          onClick={() => handleDeleteBatch(b.id)}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14 }}
-                          title="Delete Batch"
-                        >
-                          
-                        </button>
-                      </td>
+                  {inv.chains.map(c => (
+                    <tr key={c.chain} style={{ cursor: 'pointer' }} onClick={() => { setInvChain(c.chain === 'UNKNOWN' ? '' : c.chain); setInvStatus(''); setTab('invoices'); }}>
+                      <td><span className="badge">{c.chain}</span></td>
+                      <td className="num">{c.invoices}<div className="muted" style={{ fontSize: 11 }}>{c.paid} paid · {c.unpaid} unpaid</div></td>
+                      <td className="num">{inr(c.billed)}</td>
+                      <td className="num" style={{ color: 'var(--success)' }}>{inr(c.received)}</td>
+                      <td className="num">{inr(c.deductions)}</td>
+                      <td className="num" style={{ fontWeight: 700, color: c.outstanding ? 'var(--error)' : undefined }}>{inr(c.outstanding)}</td>
+                      <td className="num">{inr(c.aging.d0_30)}</td>
+                      <td className="num">{inr(c.aging.d31_60)}</td>
+                      <td className="num">{inr(c.aging.d61_90)}</td>
+                      <td className="num" style={{ color: c.aging.d90 ? 'var(--error)' : undefined }}>{inr(c.aging.d90)}</td>
+                      <td className="num">{c.unallocated ? inr(c.unallocated) : <span className="muted">—</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -505,162 +367,221 @@ export default function ReconciliationPage() {
         </div>
       )}
 
-      {/* MATCH TAB */}
-      {tab === 'match' && (
-        <div>
-          <div className="card" style={{ padding: 14, marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}>Search & Filter:</span>
-            
-            <input
-              type="text"
-              placeholder="Search Invoice #, PO #, Narration..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ padding: '7px 12px', fontSize: 13, minWidth: 220, borderRadius: 8, border: '1px solid var(--border)' }}
-            />
-
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ padding: '7px 12px', fontSize: 13, minWidth: 140, borderRadius: 8, border: '1px solid var(--border)' }}>
-              <option value="">All Statuses</option>
-              {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+      {/* INVOICES */}
+      {tab === 'invoices' && (
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '14px 20px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+            <input type="search" placeholder="Invoice or PO number… (Enter)" value={invSearch} onChange={e => setInvSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') loadInvoices(); }} style={{ flex: '1 1 200px' }} aria-label="Search invoices" />
+            <select value={invChain} onChange={e => setInvChain(e.target.value)} style={{ flex: '0 0 150px' }} aria-label="Chain">
+              <option value="">All chains</option>{CHAINS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-
-            <select value={filterChain} onChange={e => setFilterChain(e.target.value)} style={{ padding: '7px 12px', fontSize: 13, minWidth: 130, borderRadius: 8, border: '1px solid var(--border)' }}>
-              <option value="">All Chains</option>
-              {chains.map(c => <option key={c} value={c}>{c}</option>)}
+            <select value={invStatus} onChange={e => setInvStatus(e.target.value)} style={{ flex: '0 0 140px' }} aria-label="Status">
+              <option value="">All statuses</option><option value="UNPAID">Unpaid</option><option value="PART">Part paid</option><option value="PAID">Paid</option><option value="NIL">No value</option>
             </select>
-
-            <div style={{ flex: 1 }} />
-            <span className="muted" style={{ fontSize: 13 }}>Showing <strong>{filteredRows.length}</strong> of {rows.length} rows</span>
+            <label style={{ margin: 0, display: 'flex', gap: 6, alignItems: 'center' }}>From <input type="date" value={invFrom} onChange={e => setInvFrom(e.target.value)} /></label>
+            <label style={{ margin: 0, display: 'flex', gap: 6, alignItems: 'center' }}>To <input type="date" value={invTo} onChange={e => setInvTo(e.target.value)} /></label>
+            <button className="btn secondary sm" onClick={exportInvoices} disabled={!inv?.invoices.length}><Icon name="import" size={14} />Excel</button>
           </div>
-
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Date</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Chain</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>PO / Invoice #</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Description / Narration</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Gross Amount</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>TDS / Deductions</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Set-Off / Matched</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Pending / Diff</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ padding: 30, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        No reconciliation rows found matching current filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRows.map(row => {
-                      const st = STATUS[row.matchStatus as keyof typeof STATUS] || STATUS.UNMATCHED;
-                      const grossAmt = row.creditAmount > 0 ? row.creditAmount : row.debitAmount;
-                      const chainColor = CHAIN_COLORS[row.chainName || 'OTHER'] || '#64748b';
-
-                      return (
-                        <tr key={row.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                            {row.txnDate ? new Date(row.txnDate).toLocaleDateString('en-IN') : '—'}
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            {row.chainName ? (
-                              <span style={{ background: chainColor + '20', color: chainColor, border: `1px solid ${chainColor}40`, padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                                {row.chainName}
-                              </span>
-                            ) : '—'}
-                          </td>
-                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontWeight: 600 }}>
-                            {row.matchedPoNumber ? (
-                              <div style={{ color: '#0284c7' }}>PO: {row.matchedPoNumber}</div>
-                            ) : null}
-                            {row.matchedInvoiceNo ? (
-                              <div style={{ color: '#4f46e5' }}>INV: {row.matchedInvoiceNo}</div>
-                            ) : null}
-                            {!row.matchedPoNumber && !row.matchedInvoiceNo && '—'}
-                          </td>
-                          <td style={{ padding: '10px 14px', maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.narration}>
-                            {row.narration}
-                            {row.bankRef && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Ref: {row.bankRef}</div>}
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>
-                            ₹{grossAmt.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#d97706', fontWeight: 500 }}>
-                            {row.deductionAmount > 0 ? `₹${row.deductionAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '—'}
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>
-                            ₹{row.matchedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', color: row.pendingAmount > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>
-                            ₹{row.pendingAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                            <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
-                              {st.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <p className="help-text" style={{ margin: 0, padding: '10px 20px 0' }}>
+            <strong>Balance</strong> = invoice value − received − deductions. Tally’s sale report gives values before GST; when only that is known, payments (which include GST)
+            covering it count as paid. Click an invoice to see the lines linked to it.
+          </p>
+          {invLoading ? <div className="empty-state"><div className="spinner" /></div> : !inv?.invoices.length ? (
+            <div className="empty-state">No invoices match these filters.</div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table">
+                  <thead><tr><th>Invoice</th><th>Date</th><th>Chain</th><th>PO</th><th className="num">Value</th><th className="num">Received</th><th className="num">Deductions</th><th className="num">Balance</th><th>Status</th><th className="num">Age</th></tr></thead>
+                  <tbody>
+                    {inv.invoices.map(i => (
+                      <tr key={i.invoiceNumber} style={{ cursor: i.lineCount ? 'pointer' : undefined }} onClick={() => i.lineCount && showInvoiceLines(i.invoiceNumber)}>
+                        <td style={{ fontFamily: 'ui-monospace, monospace', fontWeight: 600 }}>{i.invoiceNumber}{i.lineCount > 0 && <span className="muted" style={{ fontWeight: 400, marginLeft: 6 }}>({i.lineCount})</span>}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(i.invoiceDate)}</td>
+                        <td>{i.chain ? <span className="badge">{i.chain}</span> : <span className="muted">—</span>}</td>
+                        <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>{i.poNumber || '—'}</td>
+                        <td className="num" title={i.invoiceValue ? 'Incl. GST, from the Tally ledger' : 'Taxable value (before GST)'}>{inr(i.invoiceValue || i.taxable)}{!i.invoiceValue && <span className="muted" style={{ fontSize: 10 }}> +GST</span>}</td>
+                        <td className="num" style={{ color: i.received ? 'var(--success)' : undefined }}>{i.received ? inr(i.received) : <span className="muted">—</span>}</td>
+                        <td className="num">{i.deductions ? inr(i.deductions) : <span className="muted">—</span>}</td>
+                        <td className="num" style={{ fontWeight: 700 }}>{i.balance ? inr(i.balance) : <span className="muted">0</span>}</td>
+                        <td><span className={`badge ${INV_STATUS[i.status].tone}`}>{INV_STATUS[i.status].label}</span></td>
+                        <td className="num" style={{ color: i.status !== 'PAID' && (i.ageDays || 0) > 60 ? 'var(--error)' : undefined }}>{i.ageDays ?? '—'}d</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {inv.total > inv.shown && <p className="muted" style={{ padding: '10px 20px', margin: 0, fontSize: 12.5 }}>Showing the newest {inv.shown} of {inv.total}. Narrow the filters, or use Excel for the full list of shown rows.</p>}
+            </>
+          )}
         </div>
       )}
 
-      {/* DASHBOARD TAB */}
-      {tab === 'dashboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* STATEMENT LINES */}
+      {tab === 'lines' && (
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '14px 20px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+            <input type="search" placeholder="Invoice, PO, UTR or description…" value={lineSearch} onChange={e => setLineSearch(e.target.value)} style={{ flex: '1 1 220px' }} aria-label="Search lines" />
+            <select value={lineStatus} onChange={e => setLineStatus(e.target.value)} style={{ flex: '0 0 150px' }} aria-label="Status">
+              <option value="">All lines</option><option value="UNMATCHED">To check</option><option value="MATCHED">Linked</option><option value="IGNORED">Ignored</option>
+            </select>
+            <select value={lineKind} onChange={e => setLineKind(e.target.value)} style={{ flex: '0 0 150px' }} aria-label="Line type">
+              <option value="">All types</option>{(Object.keys(KIND_INFO) as Kind[]).map(k => <option key={k} value={k}>{KIND_INFO[k].label}</option>)}
+            </select>
+            <select value={lineChain} onChange={e => setLineChain(e.target.value)} style={{ flex: '0 0 140px' }} aria-label="Chain">
+              <option value="">All chains</option>{lineChains.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {lineBatch && (
+              <button className="badge info" style={{ cursor: 'pointer' }} onClick={() => setLineBatch('')} title="Show lines from all uploads">
+                {batches.find(b => b.id === lineBatch)?.fileName || 'One upload'} ✕
+              </button>
+            )}
+            <span className="muted" style={{ fontSize: 13 }}>{shownLines.length} of {lines.length}</span>
+          </div>
+          <p className="help-text" style={{ margin: 0, padding: '10px 20px 0' }}>
+            <strong>Link</strong> ties a line to a Tally invoice (you can also correct its type). <strong>Ignore</strong> keeps a line out of the totals — e.g. a duplicate
+            or a lump-sum bank entry already covered by the advice. Lines you link or ignore by hand are not changed by Re-match.
+          </p>
+          {linesLoading && !lines.length ? <div className="empty-state"><div className="spinner" /></div> : !shownLines.length ? (
+            <div className="empty-state">{lines.length ? 'No lines match these filters.' : 'Nothing uploaded yet — use the Upload tab.'}</div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table">
+                <thead><tr><th>Date</th><th>Chain</th><th>Type</th><th>Description</th><th>Invoice</th><th className="num">Amount</th><th>Status</th><th className="num">Actions</th></tr></thead>
+                <tbody>
+                  {shownLines.map(l => {
+                    const unmatched = l.matchStatus === 'UNMATCHED' || l.matchStatus === 'PARTIAL';
+                    return (
+                      <tr key={l.id} style={{ opacity: l.matchStatus === 'IGNORED' ? 0.55 : 1 }}>
+                        <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(l.txnDate)}</td>
+                        <td>{l.chainName ? <span className="badge">{l.chainName}</span> : <span className="muted">—</span>}</td>
+                        <td><span className={`badge ${KIND_INFO[l.kind].tone}`}>{KIND_INFO[l.kind].label}</span></td>
+                        <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={[l.narration, l.bankRef && `Ref: ${l.bankRef}`, l.deductionReason && `Reason: ${l.deductionReason}`].filter(Boolean).join('\n')}>
+                          {l.narration}
+                          {l.bankRef && <div className="muted" style={{ fontSize: 11 }}>Ref {l.bankRef}</div>}
+                        </td>
+                        <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}>
+                          {l.matchedInvoiceNo || <span className="muted">—</span>}
+                          {unmatched && l.matchedInvoiceNo && <div style={{ fontFamily: 'inherit', fontSize: 11, color: 'var(--warning)' }}>not uploaded yet</div>}
+                        </td>
+                        <td className="num" style={{ fontWeight: 600 }}>
+                          {inr(l.amount)}
+                          {l.kind === 'PAYMENT' && l.deductionAmount > 0 && <div className="muted" style={{ fontSize: 11 }}>TDS {inr(l.deductionAmount)}</div>}
+                        </td>
+                        <td>
+                          {l.matchStatus === 'MATCHED' ? <span className="badge success">Linked{l.manual ? ' (manual)' : ''}</span>
+                            : l.matchStatus === 'IGNORED' ? <span className="badge">Ignored</span>
+                            : <span className="badge warn">To check</span>}
+                        </td>
+                        <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                          {l.matchStatus === 'IGNORED' ? (
+                            <button className="btn secondary sm" disabled={busyId === l.id} onClick={() => lineAction(l, { action: 'restore' })}>Restore</button>
+                          ) : (
+                            <>
+                              <button className="btn secondary sm" disabled={busyId === l.id} onClick={() => openLink(l)}>{l.matchStatus === 'MATCHED' ? 'Change' : 'Link'}</button>{' '}
+                              {l.matchStatus === 'MATCHED' && <><button className="btn ghost sm" disabled={busyId === l.id} onClick={() => lineAction(l, { action: 'unmatch' })}>Unlink</button>{' '}</>}
+                              <button className="btn ghost sm" disabled={busyId === l.id} onClick={() => lineAction(l, { action: 'ignore' })}>Ignore</button>
+                            </>
+                          )}{' '}
+                          <button className="btn ghost sm" disabled={busyId === l.id} onClick={() => deleteLine(l)} aria-label="Delete line" title="Delete line"><Icon name="close" size={14} /></button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* UPLOAD */}
+      {tab === 'upload' && (
+        <div style={{ display: 'grid', gap: 16 }}>
           <div className="card">
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Chain-wise Payment & Outstanding Overview</h3>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Chain Name</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Transactions</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Total Claimed / Received</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Matched & Set-Off</th>
-                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Outstanding / Pending</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {chainStats.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        No chain data available. Upload statement files to view analytics.
-                      </td>
-                    </tr>
-                  ) : (
-                    chainStats.map(s => {
-                      const color = CHAIN_COLORS[s.chain] || '#64748b';
-                      return (
-                        <tr key={s.chain} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '10px 14px', fontWeight: 700 }}>
-                            <span style={{ color }}>{s.chain}</span>
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>{s.txns}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right' }}>₹{s.total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a', fontWeight: 600 }}>₹{s.received.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', color: '#dc2626', fontWeight: 700 }}>₹{s.pending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            <div className="card-header"><div><h2 className="card-title">Upload a statement</h2><p className="card-subtitle">PDF, Excel, CSV — or paste the payment email below</p></div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(260px, 100%), 1fr))', gap: 12, alignItems: 'end' }}>
+              <div>
+                <label htmlFor="st-type">What is it?</label>
+                <select id="st-type" value={statementType} onChange={e => setStatementType(e.target.value)}>
+                  {STATEMENT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="st-chain">From which chain?</label>
+                <select id="st-chain" value={uploadChain} onChange={e => setUploadChain(e.target.value)}>
+                  <option value="AUTO">Detect automatically</option>
+                  {CHAINS.filter(c => c !== 'OTHER').map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <input ref={fileRef} type="file" accept=".pdf,.xlsx,.xls,.csv,.txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ''; }} />
+                <button className="btn" style={{ width: '100%' }} disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  <Icon name="import" size={16} />{uploading ? 'Reading and matching…' : 'Choose file'}
+                </button>
+              </div>
             </div>
+            <label htmlFor="pasted" style={{ marginTop: 16 }}>Or paste the payment advice / email text</label>
+            <textarea id="pasted" rows={5} value={pasted} onChange={e => setPasted(e.target.value)} placeholder="Copy the table from the payment email (UTR, invoice numbers, amounts, TDS…) and paste it here" style={{ resize: 'vertical' }} />
+            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn secondary" disabled={uploading || !pasted.trim()} onClick={uploadPasted}>Read pasted text</button>
+            </div>
+            <p className="help-text" style={{ margin: '8px 0 0' }}>
+              Excel and CSV statements are read directly; PDFs and pasted emails are read by AI, so check the lines afterwards. Lines already uploaded before are skipped automatically.
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: 0 }}>
+            <div className="card-header" style={{ padding: '14px 20px 0' }}><div><h2 className="card-title">Uploaded files</h2><p className="card-subtitle">Deleting an upload removes its lines</p></div></div>
+            {!batches.length ? <div className="empty-state">Nothing uploaded yet.</div> : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table">
+                  <thead><tr><th>File</th><th>Details</th><th>Uploaded</th><th className="num">Lines</th><th className="num">Linked</th><th className="num">To check</th><th className="num"></th></tr></thead>
+                  <tbody>
+                    {batches.map(b => (
+                      <tr key={b.id}>
+                        <td style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.fileName}>
+                          {b.imagekitUrl ? <a href={b.imagekitUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>{b.fileName}</a> : b.fileName}
+                        </td>
+                        <td className="muted" style={{ fontSize: 12 }}>{b.notes}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(b.uploadedAt)}</td>
+                        <td className="num">{b.rowCount}</td>
+                        <td className="num" style={{ color: 'var(--success)' }}>{b.matchedCount}</td>
+                        <td className="num" style={{ color: b.unmatchedCount ? 'var(--warning)' : undefined }}>{b.unmatchedCount}</td>
+                        <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                          <button className="btn ghost sm" onClick={() => { setLineSearch(''); setLineStatus(''); setLineKind(''); setLineChain(''); setLineBatch(b.id); setTab('lines'); }}>View lines</button>{' '}
+                          <button className="btn danger sm" onClick={() => deleteBatch(b)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
 
+      {/* Link dialog */}
+      {linking && (
+        <div role="dialog" aria-modal="true" aria-labelledby="link-title" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1100, padding: '48px 16px' }}>
+          <form className="card" style={{ width: '100%', maxWidth: 480 }} onSubmit={async e => { e.preventDefault(); if (await lineAction(linking, { action: 'match', invoiceNo: linkInvoice, kind: linkKind })) setLinking(null); }}>
+            <h2 id="link-title" style={{ fontSize: 17, marginBottom: 6 }}>Link line to an invoice</h2>
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>{fmtDate(linking.txnDate)} · {inr(linking.amount)} · {linking.narration}</p>
+            <label htmlFor="link-inv">Tally invoice number *</label>
+            <input id="link-inv" required autoFocus value={linkInvoice} onChange={e => setLinkInvoice(e.target.value)} placeholder="e.g. GO/2627/3499" style={{ fontFamily: 'ui-monospace, monospace' }} />
+            <label htmlFor="link-kind" style={{ marginTop: 12 }}>This line is a…</label>
+            <select id="link-kind" value={linkKind} onChange={e => setLinkKind(e.target.value as Kind)}>
+              {(Object.keys(KIND_INFO) as Kind[]).filter(k => k !== 'OTHER').map(k => <option key={k} value={k}>{KIND_INFO[k].label}</option>)}
+            </select>
+            {linkError && <div className="alert error" style={{ marginTop: 12 }}><Icon name="alert" size={16} />{linkError}</div>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={() => setLinking(null)}>Cancel</button>
+              <button type="submit" className="btn" style={{ flex: 2 }} disabled={busyId === linking.id}>{busyId === linking.id ? 'Linking…' : 'Link'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

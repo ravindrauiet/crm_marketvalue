@@ -1,83 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { badRequest, isObjectId } from '@/lib/validation';
+import { classifyLine, isDeductionKind, lineAmount, noteKind, isManual } from '@/lib/recoMatch';
 
 const ROW_LIMIT = 2000;
 
+// GET /api/reconciliation?batchId=&status=
+// Statement lines with their kind (payment, TDS, claim…), plus totals over all matching lines
 export async function GET(req: NextRequest) {
   try {
     const batchId = req.nextUrl.searchParams.get('batchId');
     const status = req.nextUrl.searchParams.get('status');
-
     if (batchId && !isObjectId(batchId)) return badRequest('Invalid batchId');
-    const where = {
-      ...(batchId ? { batchId } : {}),
-      ...(status ? { matchStatus: status } : {}),
-    };
+    const where = { ...(batchId ? { batchId } : {}), ...(status ? { matchStatus: status } : {}) };
 
-    const [rows, batches, groups, totalCount] = await Promise.all([
-      prisma.paymentReco.findMany({
-        where,
-        orderBy: { txnDate: 'desc' },
-        take: ROW_LIMIT,
-      }),
+    const [lines, batches] = await Promise.all([
+      prisma.paymentReco.findMany({ where, orderBy: [{ txnDate: 'desc' }, { createdAt: 'desc' }] }),
       prisma.recoBatch.findMany({ orderBy: { uploadedAt: 'desc' } }),
-      // Totals are computed over ALL matching rows, not just the rows returned
-      prisma.paymentReco.groupBy({
-        by: ['matchStatus'],
-        where,
-        _count: { _all: true },
-        _sum: { creditAmount: true, pendingAmount: true },
-      }),
-      prisma.paymentReco.count({ where }),
     ]);
 
-    const byStatus = (s: string) => groups.find(g => g.matchStatus === s);
+    const rows = lines.map(l => ({ ...l, kind: noteKind(l.notes) || classifyLine(l), amount: lineAmount(l), manual: isManual(l.notes) }));
+    const active = rows.filter(r => r.matchStatus !== 'IGNORED');
     const summary = {
-      totalCredit: groups.reduce((s, g) => s + (g._sum.creditAmount || 0), 0),
-      totalMatched: byStatus('MATCHED')?._count._all || 0,
-      totalPartial: byStatus('PARTIAL')?._count._all || 0,
-      totalUnmatched: byStatus('UNMATCHED')?._count._all || 0,
-      totalPending: groups.filter(g => g.matchStatus !== 'MATCHED').reduce((s, g) => s + (g._sum.pendingAmount || 0), 0),
-      totalRows: totalCount,
-      rowsShown: rows.length,
+      received: active.filter(r => r.kind === 'PAYMENT').reduce((s, r) => s + r.amount, 0),
+      deductions: active.reduce((s, r) => s + (isDeductionKind(r.kind) ? r.amount : r.kind === 'PAYMENT' ? Math.abs(r.deductionAmount || 0) : 0), 0),
+      matched: rows.filter(r => r.matchStatus === 'MATCHED').length,
+      unmatched: rows.filter(r => r.matchStatus === 'UNMATCHED' || r.matchStatus === 'PARTIAL').length,
+      unmatchedAmount: rows.filter(r => r.matchStatus === 'UNMATCHED' || r.matchStatus === 'PARTIAL').reduce((s, r) => s + r.amount, 0),
+      ignored: rows.filter(r => r.matchStatus === 'IGNORED').length,
+      totalRows: rows.length,
+      rowsShown: Math.min(rows.length, ROW_LIMIT),
     };
 
-    return NextResponse.json({ rows, batches, summary });
+    return NextResponse.json({ rows: rows.slice(0, ROW_LIMIT), batches, summary });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch reconciliation data' }, { status: 500 });
   }
 }
 
-// DELETE /api/reconciliation - Clear all reconciliation data or specific batch
+// DELETE /api/reconciliation?batchId=… (one upload) or ?resetAll=true (everything)
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const batchId = searchParams.get('batchId');
-    const resetAll = searchParams.get('resetAll');
 
-    if (resetAll === 'true') {
-      const [recoRes, batchRes] = await Promise.all([
-        prisma.paymentReco.deleteMany({}),
-        prisma.recoBatch.deleteMany({})
-      ]);
-      return NextResponse.json({
-        success: true,
-        message: `Cleared ${recoRes.count} reconciliation entries and ${batchRes.count} batches`
-      });
+    if (searchParams.get('resetAll') === 'true') {
+      const recoRes = await prisma.paymentReco.deleteMany({});
+      const batchRes = await prisma.recoBatch.deleteMany({});
+      return NextResponse.json({ success: true, message: `Cleared ${recoRes.count} lines and ${batchRes.count} uploads` });
     }
 
     if (batchId) {
       if (!isObjectId(batchId)) return badRequest('Invalid batchId');
-      const [recoRes] = await Promise.all([
-        prisma.paymentReco.deleteMany({ where: { batchId } }),
-        prisma.recoBatch.delete({ where: { id: batchId } })
-      ]);
-      return NextResponse.json({
-        success: true,
-        message: `Deleted batch ${batchId} and ${recoRes.count} rows`
-      });
+      const recoRes = await prisma.paymentReco.deleteMany({ where: { batchId } });
+      await prisma.recoBatch.delete({ where: { id: batchId } });
+      return NextResponse.json({ success: true, message: `Deleted the upload and its ${recoRes.count} lines` });
     }
 
     return NextResponse.json({ error: 'batchId or resetAll parameter required' }, { status: 400 });

@@ -1,77 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { normalizeChain } from '@/lib/chains';
+import { brandOf } from '@/lib/brands';
+import { SALE_UPLOAD_WHERE } from '@/lib/billSources';
 
+const nameKey = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** Tally item names the system knows: the stock list and items billed on Tally sale invoices */
+async function knownTallyNames() {
+  const [products, saleItems] = await Promise.all([
+    prisma.product.findMany({ select: { name: true, sku: true } }),
+    prisma.purchaseBillItem.findMany({ where: { bill: SALE_UPLOAD_WHERE }, select: { itemName: true }, distinct: ['itemName'] }),
+  ]);
+  return {
+    // Display names for the form's pick-list (stock names first, then names billed in Tally)
+    names: [...new Set([...products.map(p => p.name.replace(/s+/g, ' ').trim()), ...saleItems.map(i => i.itemName.replace(/s+/g, ' ').trim())])].sort(),
+    inStock: new Set(products.flatMap(p => [nameKey(p.name), nameKey(p.sku)])),
+    inSales: new Set(saleItems.map(i => nameKey(i.itemName))),
+  };
+}
+
+// GET /api/item-mapping?chain=&brand=&search=
 export async function GET(req: NextRequest) {
   try {
-    const chain = req.nextUrl.searchParams.get('chain');
-    const brand = req.nextUrl.searchParams.get('brand');
-    const search = req.nextUrl.searchParams.get('search');
+    const chain = normalizeChain(req.nextUrl.searchParams.get('chain'));
+    const brand = (req.nextUrl.searchParams.get('brand') || '').trim().toUpperCase();
+    const search = (req.nextUrl.searchParams.get('search') || '').trim().toLowerCase();
 
-    let brandFilter: any = null;
-    if (brand && brand.trim()) {
-      const cleanBrand = brand.trim();
-      const searchTerms = Array.from(new Set([
-        cleanBrand,
-        cleanBrand.replace(/['’]/g, ''),
-        cleanBrand.replace(/recipe/i, 'receipe')
-      ]));
+    const [all, known] = await Promise.all([
+      prisma.itemMapping.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } }),
+      knownTallyNames(),
+    ]);
 
-      brandFilter = {
-        OR: searchTerms.flatMap(term => [
-          { brandName: { contains: term, mode: 'insensitive' } },
-          { chainItemName: { contains: term, mode: 'insensitive' } },
-          { tallyItemName: { contains: term, mode: 'insensitive' } },
-          { companyItemName: { contains: term, mode: 'insensitive' } },
-        ])
+    const enriched = all.map(m => {
+      const k = nameKey(m.tallyItemName);
+      return {
+        ...m,
+        brand: brandOf(m.brandName, m.chainItemName, m.tallyItemName),
+        brandInferred: !m.brandName?.trim(),
+        // Where the Tally name was found; a typo here means no stock or sales ever match this item
+        tallyFound: known.inStock.has(k) ? 'stock' : known.inSales.has(k) ? 'sales' : '',
       };
-    }
-
-    const whereClause: any = {
-      isActive: true,
-      ...(chain ? { chainName: chain } : {}),
-      ...(search ? {
-        OR: [
-          { chainItemName: { contains: search, mode: 'insensitive' } },
-          { chainItemCode: { contains: search, mode: 'insensitive' } },
-          { tallyItemName: { contains: search, mode: 'insensitive' } },
-          { brandName: { contains: search, mode: 'insensitive' } },
-          { eanCode: { contains: search, mode: 'insensitive' } },
-        ]
-      } : {}),
-    };
-
-    if (brandFilter) {
-      whereClause.AND = [brandFilter];
-    }
-
-    const mappings = await prisma.itemMapping.findMany({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
     });
 
-    // Extract all unique brands for the brand filter dropdown
-    const allActive = await prisma.itemMapping.findMany({
-      where: { isActive: true },
-      select: { brandName: true, chainItemName: true, tallyItemName: true }
-    });
+    const mappings = enriched.filter(m =>
+      (!chain || m.chainName === chain) &&
+      (!brand || m.brand === brand) &&
+      (!search || [m.chainItemCode, m.chainItemName, m.tallyItemName, m.tallyItemSku, m.eanCode, m.brand, m.companyItemCode, m.companyItemName]
+        .some(v => (v || '').toLowerCase().includes(search)))
+    );
 
-    const brandSet = new Set<string>();
-    allActive.forEach(item => {
-      if (item.brandName && item.brandName.trim()) {
-        let b = item.brandName.trim();
-        if (b.toLowerCase().includes('mother')) b = "Mother's Recipe";
-        brandSet.add(b);
-      } else {
-        const text = `${item.chainItemName} ${item.tallyItemName}`.toLowerCase();
-        if (text.includes('mother')) brandSet.add("Mother's Recipe");
-        if (text.includes('eastern')) brandSet.add("Eastern");
-        if (text.includes('dilbahar')) brandSet.add("Dilbahar");
-      }
-    });
+    const chainCounts: Record<string, number> = {};
+    enriched.forEach(m => { chainCounts[m.chainName] = (chainCounts[m.chainName] || 0) + 1; });
+    const brands = [...new Set(enriched.map(m => m.brand).filter(Boolean))].sort();
 
-    const brands = Array.from(brandSet).sort();
-
-    return NextResponse.json({ mappings, brands });
+    return NextResponse.json({ mappings, brands, chainCounts, total: enriched.length, tallyNotFound: enriched.filter(m => !m.tallyFound).length, tallyNames: known.names });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to fetch mappings' }, { status: 500 });
@@ -80,15 +63,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { chainName, chainItemCode, chainItemName, tallyItemName, tallyItemSku, eanCode, brandName, companyItemCode, companyItemName, pcsPerCase, notes } = body;
-    if (!chainName || !chainItemCode || !chainItemName || !tallyItemName) {
-      return NextResponse.json({ error: 'chainName, chainItemCode, chainItemName, tallyItemName are required' }, { status: 400 });
-    }
-    const normalizedChainName = String(chainName).trim().toUpperCase();
-    const normalizedCode = String(chainItemCode).trim();
-    if (!normalizedChainName || !normalizedCode || !String(chainItemName).trim() || !String(tallyItemName).trim()) {
-      return NextResponse.json({ error: 'chainName, chainItemCode, chainItemName, tallyItemName cannot be blank' }, { status: 400 });
+    const normalizedChainName = normalizeChain(chainName);
+    const normalizedCode = String(chainItemCode ?? '').trim();
+    if (!normalizedChainName || !normalizedCode || !String(chainItemName ?? '').trim() || !String(tallyItemName ?? '').trim()) {
+      return NextResponse.json({ error: 'Chain, chain item code, chain item name and Tally item name are required' }, { status: 400 });
     }
 
     let pcs = 1;
@@ -107,18 +87,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `A mapping for ${normalizedChainName} code "${normalizedCode}" already exists — edit that mapping instead of creating a duplicate.` }, { status: 409 });
     }
 
+    const text = (v: unknown) => (v === null || v === undefined || String(v).trim() === '' ? null : String(v).trim());
     const data = {
       chainName: normalizedChainName,
       chainItemCode: normalizedCode,
       chainItemName: String(chainItemName).trim(),
       tallyItemName: String(tallyItemName).trim(),
-      tallyItemSku: tallyItemSku || null,
-      eanCode: eanCode ? String(eanCode).trim() : null,
-      brandName: brandName || null,
-      companyItemCode: companyItemCode || null,
-      companyItemName: companyItemName || null,
+      tallyItemSku: text(tallyItemSku),
+      eanCode: text(eanCode),
+      brandName: text(brandName),
+      companyItemCode: text(companyItemCode),
+      companyItemName: text(companyItemName),
       pcsPerCase: pcs,
-      notes: notes || null,
+      notes: text(notes),
       isActive: true,
     };
 
